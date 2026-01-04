@@ -18,29 +18,38 @@ export type Database = {
         Row: {
           created_at: string
           default_concern_reason: string | null
+          default_status: Database["public"]["Enums"]["halal_status"] | null
           id: string
           name: string
           risk: Database["public"]["Enums"]["risk_level"]
+          risk_tags: string[] | null
           synonyms: string[] | null
           updated_at: string
+          what_would_verify: string | null
         }
         Insert: {
           created_at?: string
           default_concern_reason?: string | null
+          default_status?: Database["public"]["Enums"]["halal_status"] | null
           id?: string
           name: string
           risk?: Database["public"]["Enums"]["risk_level"]
+          risk_tags?: string[] | null
           synonyms?: string[] | null
           updated_at?: string
+          what_would_verify?: string | null
         }
         Update: {
           created_at?: string
           default_concern_reason?: string | null
+          default_status?: Database["public"]["Enums"]["halal_status"] | null
           id?: string
           name?: string
           risk?: Database["public"]["Enums"]["risk_level"]
+          risk_tags?: string[] | null
           synonyms?: string[] | null
           updated_at?: string
+          what_would_verify?: string | null
         }
         Relationships: []
       }
@@ -184,8 +193,12 @@ export type Database = {
       }
       otc_verdicts: {
         Row: {
+          clinical_breakdown: string | null
           confidence: number
+          darura_context: string | null
+          halal_alternatives: string[] | null
           id: string
+          pharmacist_note: string | null
           product_id: string
           status: Database["public"]["Enums"]["halal_status"]
           summary_reason: string | null
@@ -193,8 +206,12 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          clinical_breakdown?: string | null
           confidence?: number
+          darura_context?: string | null
+          halal_alternatives?: string[] | null
           id?: string
+          pharmacist_note?: string | null
           product_id: string
           status?: Database["public"]["Enums"]["halal_status"]
           summary_reason?: string | null
@@ -202,8 +219,12 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          clinical_breakdown?: string | null
           confidence?: number
+          darura_context?: string | null
+          halal_alternatives?: string[] | null
           id?: string
+          pharmacist_note?: string | null
           product_id?: string
           status?: Database["public"]["Enums"]["halal_status"]
           summary_reason?: string | null
@@ -262,29 +283,38 @@ export type Database = {
       rx_meds: {
         Row: {
           brand_names: string[] | null
+          category: string | null
           created_at: string
+          dosage_forms: string[] | null
           generic_name: string
           id: string
           notes: string | null
           route: string | null
+          rx_otc: string | null
           updated_at: string
         }
         Insert: {
           brand_names?: string[] | null
+          category?: string | null
           created_at?: string
+          dosage_forms?: string[] | null
           generic_name: string
           id?: string
           notes?: string | null
           route?: string | null
+          rx_otc?: string | null
           updated_at?: string
         }
         Update: {
           brand_names?: string[] | null
+          category?: string | null
           created_at?: string
+          dosage_forms?: string[] | null
           generic_name?: string
           id?: string
           notes?: string | null
           route?: string | null
+          rx_otc?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -387,8 +417,12 @@ export type Database = {
       }
       rx_verdicts: {
         Row: {
+          clinical_breakdown: string | null
           confidence: number
+          darura_context: string | null
+          halal_alternatives: string[] | null
           id: string
+          pharmacist_note: string | null
           status: Database["public"]["Enums"]["halal_status"]
           summary_reason: string | null
           updated_at: string
@@ -396,8 +430,12 @@ export type Database = {
           variant_id: string
         }
         Insert: {
+          clinical_breakdown?: string | null
           confidence?: number
+          darura_context?: string | null
+          halal_alternatives?: string[] | null
           id?: string
+          pharmacist_note?: string | null
           status?: Database["public"]["Enums"]["halal_status"]
           summary_reason?: string | null
           updated_at?: string
@@ -405,8 +443,12 @@ export type Database = {
           variant_id: string
         }
         Update: {
+          clinical_breakdown?: string | null
           confidence?: number
+          darura_context?: string | null
+          halal_alternatives?: string[] | null
           id?: string
+          pharmacist_note?: string | null
           status?: Database["public"]["Enums"]["halal_status"]
           summary_reason?: string | null
           updated_at?: string
@@ -419,6 +461,51 @@ export type Database = {
             columns: ["variant_id"]
             isOneToOne: true
             referencedRelation: "rx_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_reports: {
+        Row: {
+          id: string
+          notes: string | null
+          otc_verdict_id: string | null
+          report_type: string
+          rx_verdict_id: string | null
+          saved_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          notes?: string | null
+          otc_verdict_id?: string | null
+          report_type: string
+          rx_verdict_id?: string | null
+          saved_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          notes?: string | null
+          otc_verdict_id?: string | null
+          report_type?: string
+          rx_verdict_id?: string | null
+          saved_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_reports_otc_verdict_id_fkey"
+            columns: ["otc_verdict_id"]
+            isOneToOne: false
+            referencedRelation: "otc_verdicts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_reports_rx_verdict_id_fkey"
+            columns: ["rx_verdict_id"]
+            isOneToOne: false
+            referencedRelation: "rx_verdicts"
             referencedColumns: ["id"]
           },
         ]
@@ -593,7 +680,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
-      halal_status: "halal" | "questionable" | "not_halal" | "unknown"
+      halal_status: "halal" | "mushbooh" | "haram" | "needs_verification"
       ingredient_role: "active" | "inactive"
       org_role: "owner" | "admin" | "member"
       plan_type: "free" | "pro" | "clinic"
@@ -740,7 +827,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
-      halal_status: ["halal", "questionable", "not_halal", "unknown"],
+      halal_status: ["halal", "mushbooh", "haram", "needs_verification"],
       ingredient_role: ["active", "inactive"],
       org_role: ["owner", "admin", "member"],
       plan_type: ["free", "pro", "clinic"],
