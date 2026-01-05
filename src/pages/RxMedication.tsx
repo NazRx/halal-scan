@@ -60,7 +60,7 @@ const mockMedication = {
   ],
   sources: [
     { name: "FDA Orange Book", url: `https://www.accessdata.fda.gov/scripts/cder/ob/search_product.cfm` },
-    { name: "DailyMed", url: `https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=Lisinopril` },
+    { name: "DailyMed", url: `https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query=Lisinopril` },
     { name: "IFANCA", url: `https://www.ifanca.org/` },
   ],
   lastUpdated: "December 2024",
