@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfidenceMeter } from "@/components/ui/confidence-meter";
+import { Disclaimer } from "@/components/ui/disclaimer";
 import { motion } from "framer-motion";
 import { ArrowLeft, ExternalLink, Share2, Bookmark, AlertCircle, Check, X, HelpCircle, FileText } from "lucide-react";
 
@@ -68,6 +69,9 @@ const OTCProduct = () => {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-2xl mx-auto"
         >
+          {/* Scope Disclaimer - Collapsed by default */}
+          <Disclaimer variant="card" showOtcNote className="mb-6" defaultExpanded={false} />
+
           {/* Status Card */}
           <Card className="p-6 mb-6 text-center relative overflow-hidden">
             {/* Decorative background */}
@@ -147,7 +151,7 @@ const OTCProduct = () => {
           <Card className="p-6 mb-6">
             <h2 className="font-semibold text-lg mb-4">Sources & References</h2>
             
-            <ul className="space-y-2">
+            <ul className="space-y-2 mb-4">
               {product.sources.map((source) => (
                 <li key={source.name}>
                   <a
@@ -161,9 +165,12 @@ const OTCProduct = () => {
               ))}
             </ul>
 
-            <p className="text-xs text-muted-foreground mt-4">
+            <p className="text-xs text-muted-foreground mb-4">
               Last updated: {product.lastUpdated}
             </p>
+
+            {/* Collapsed Disclaimer in Sources */}
+            <Disclaimer variant="inline" showOtcNote />
           </Card>
 
           {/* Report Issue */}
@@ -181,11 +188,6 @@ const OTCProduct = () => {
               </div>
             </div>
           </Card>
-
-          {/* Disclaimer */}
-          <p className="text-xs text-muted-foreground text-center mt-6">
-            This information is for guidance only. Always verify with the manufacturer or a certified halal organization.
-          </p>
         </motion.div>
       </main>
     </div>
