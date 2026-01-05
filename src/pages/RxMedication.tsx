@@ -58,9 +58,9 @@ const mockMedication = {
     },
   ],
   sources: [
-    { name: "FDA Orange Book", url: "#" },
-    { name: "DailyMed", url: "#" },
-    { name: "IFANCA Database", url: "#" },
+    { name: "FDA Orange Book", url: `https://www.accessdata.fda.gov/scripts/cder/ob/search_product.cfm` },
+    { name: "DailyMed", url: `https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=Lisinopril` },
+    { name: "IFANCA", url: `https://www.ifanca.org/` },
   ],
   lastUpdated: "December 2024",
 };
@@ -245,6 +245,8 @@ const RxMedication = () => {
                 <li key={source.name}>
                   <a
                     href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex items-center gap-2 text-sm text-primary hover:underline"
                   >
                     <ExternalLink className="h-4 w-4" />
