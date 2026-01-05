@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfidenceMeter } from "@/components/ui/confidence-meter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Disclaimer } from "@/components/ui/disclaimer";
 import { motion } from "framer-motion";
 import { ArrowLeft, ExternalLink, Share2, Bookmark, AlertTriangle, Building2, Check, X, HelpCircle, FileText, AlertCircle } from "lucide-react";
 
@@ -240,7 +241,7 @@ const RxMedication = () => {
           <Card className="p-6 mt-6">
             <h2 className="font-semibold text-lg mb-4">Sources & References</h2>
             
-            <ul className="space-y-2">
+            <ul className="space-y-2 mb-4">
               {medication.sources.map((source) => (
                 <li key={source.name}>
                   <a
@@ -256,9 +257,12 @@ const RxMedication = () => {
               ))}
             </ul>
 
-            <p className="text-xs text-muted-foreground mt-4">
+            <p className="text-xs text-muted-foreground mb-4">
               Last updated: {medication.lastUpdated}
             </p>
+
+            {/* Collapsed Disclaimer in Sources */}
+            <Disclaimer variant="inline" />
           </Card>
 
           {/* Request Review */}
@@ -277,11 +281,8 @@ const RxMedication = () => {
             </div>
           </Card>
 
-          {/* Disclaimer */}
-          <p className="text-xs text-muted-foreground text-center mt-6">
-            This information is for guidance only. Always verify with the manufacturer, 
-            your pharmacist, or a certified halal organization.
-          </p>
+          {/* Full Disclaimer Card */}
+          <Disclaimer variant="card" className="mt-6" />
         </motion.div>
       </main>
     </div>

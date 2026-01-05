@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { Scan, Search, Clock, TrendingUp, ChevronRight, Library } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
-
+import { Disclaimer } from "@/components/ui/disclaimer";
 // Mock data for recent activity
 const recentActivity = [
   { id: "1", name: "Advil Liquid Gels", status: "halal" as const, time: "2 hours ago" },
@@ -188,12 +188,9 @@ const AppHome = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="mt-12 p-4 rounded-xl bg-muted/50 border"
+          className="mt-12"
         >
-          <p className="text-xs text-muted-foreground text-center">
-            <strong>Disclaimer:</strong> HalalRx provides informational guidance only. Always verify halal status with manufacturers, 
-            certified halal organizations, or qualified Islamic scholars. Medical necessity (darura) may permit otherwise impermissible ingredients.
-          </p>
+          <Disclaimer variant="banner" showOtcNote />
         </motion.div>
       </main>
     </div>
