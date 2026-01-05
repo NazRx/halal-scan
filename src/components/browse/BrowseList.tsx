@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { Building2, Pill, Package } from 'lucide-react';
 import type { RxBrowseItem, OtcBrowseItem } from '@/hooks/useBrowseData';
 import { cn } from '@/lib/utils';
+import { NoRxResultsEmpty, NoOtcResultsEmpty } from './EmptyStates';
 
 interface RxListProps {
   items: RxBrowseItem[];
@@ -63,15 +64,7 @@ export function RxBrowseList({ items, isLoading, mode, brandIndex }: RxListProps
   }
 
   if (items.length === 0) {
-    return (
-      <Card className="p-8 text-center">
-        <Pill className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-        <h3 className="font-medium mb-2">No medications found</h3>
-        <p className="text-sm text-muted-foreground">
-          Try adjusting your filters or selecting a different letter.
-        </p>
-      </Card>
-    );
+    return <NoRxResultsEmpty />;
   }
 
   return (
@@ -154,15 +147,7 @@ export function OtcBrowseList({ items, isLoading, mode }: OtcListProps) {
   }
 
   if (items.length === 0) {
-    return (
-      <Card className="p-8 text-center">
-        <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-        <h3 className="font-medium mb-2">No products found</h3>
-        <p className="text-sm text-muted-foreground">
-          Try adjusting your filters or selecting a different letter.
-        </p>
-      </Card>
-    );
+    return <NoOtcResultsEmpty />;
   }
 
   // Group by category or brand if in those modes

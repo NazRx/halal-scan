@@ -8,10 +8,12 @@ import { ConfidenceMeter } from "@/components/ui/confidence-meter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Disclaimer } from "@/components/ui/disclaimer";
 import { ManufacturerSelector } from "@/components/rx/ManufacturerSelector";
+import { ManufacturerCompare } from "@/components/rx/ManufacturerCompare";
 import { VariantAwarenessBanner } from "@/components/rx/VariantAwarenessBanner";
+import { NoManufacturerDataEmpty } from "@/components/browse/EmptyStates";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
-import { ArrowLeft, ExternalLink, Share2, Bookmark, Building2, Check, X, HelpCircle, FileText, AlertCircle } from "lucide-react";
+import { ArrowLeft, ExternalLink, Share2, Bookmark, Building2, Check, X, HelpCircle, FileText, AlertCircle, ArrowLeftRight } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -64,6 +66,7 @@ const RxMedication = () => {
   const [medication, setMedication] = useState<MedicationData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedManufacturerId, setSelectedManufacturerId] = useState<string | null>(null);
+  const [showCompare, setShowCompare] = useState(false);
 
   useEffect(() => {
     const fetchMedication = async () => {
@@ -325,6 +328,17 @@ const RxMedication = () => {
               <Bookmark className="h-4 w-4 mr-2" />
               Save
             </Button>
+            {medication.manufacturers.length >= 2 && (
+              <Button 
+                variant={showCompare ? "secondary" : "outline"} 
+                size="sm" 
+                className="flex-1"
+                onClick={() => setShowCompare(!showCompare)}
+              >
+                <ArrowLeftRight className="h-4 w-4 mr-2" />
+                Compare
+              </Button>
+            )}
             <Link to={`/report/${id}`} className="flex-1">
               <Button variant="outline" size="sm" className="w-full">
                 <FileText className="h-4 w-4 mr-2" />
@@ -332,6 +346,21 @@ const RxMedication = () => {
               </Button>
             </Link>
           </div>
+
+          {/* Manufacturer Compare View */}
+          {showCompare && medication.manufacturers.length >= 2 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-6"
+            >
+              <ManufacturerCompare 
+                manufacturers={medication.manufacturers}
+                onClose={() => setShowCompare(false)}
+              />
+            </motion.div>
+          )}
 
           {/* Tabs */}
           <Tabs defaultValue="ingredients" className="space-y-6">
@@ -343,7 +372,13 @@ const RxMedication = () => {
             </TabsList>
 
             <TabsContent value="ingredients" className="space-y-4">
-              {selectedManufacturer ? (
+              {medication.manufacturers.length === 0 ? (
+                <NoManufacturerDataEmpty
+                  medicationName={medication.name}
+                  onUploadPhoto={handleUploadPhoto}
+                  onRequestReview={handleRequestReview}
+                />
+              ) : selectedManufacturer ? (
                 <Card className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div>
@@ -355,76 +390,97 @@ const RxMedication = () => {
 
                   <ConfidenceMeter value={selectedManufacturer.confidence} className="mb-3" />
 
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Inactive Ingredients:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedManufacturer.inactiveIngredients.map((ing) => {
-                        const Icon = statusIcons[ing.status];
-                        return (
-                          <div
-                            key={ing.name}
-                            className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
-                              ing.status === "halal" ? "bg-status-halal-bg text-status-halal" :
-                              ing.status === "questionable" ? "bg-status-questionable-bg text-status-questionable" :
-                              ing.status === "not-halal" ? "bg-status-not-halal-bg text-status-not-halal" :
-                              "bg-status-unknown-bg text-status-unknown"
-                            }`}
-                            title={ing.notes}
-                          >
-                            <Icon className="h-3 w-3" />
-                            {ing.name}
-                          </div>
-                        );
-                      })}
+                  {selectedManufacturer.inactiveIngredients.length === 0 ? (
+                    <div className="p-4 text-center bg-muted/50 rounded-lg">
+                      <HelpCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        No inactive ingredient data available for this manufacturer yet.
+                      </p>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Inactive Ingredients:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedManufacturer.inactiveIngredients.map((ing) => {
+                          const Icon = statusIcons[ing.status];
+                          return (
+                            <div
+                              key={ing.name}
+                              className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+                                ing.status === "halal" ? "bg-status-halal-bg text-status-halal" :
+                                ing.status === "questionable" ? "bg-status-questionable-bg text-status-questionable" :
+                                ing.status === "not-halal" ? "bg-status-not-halal-bg text-status-not-halal" :
+                                "bg-status-unknown-bg text-status-unknown"
+                              }`}
+                              title={ing.notes}
+                            >
+                              <Icon className="h-3 w-3" />
+                              {ing.name}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </Card>
               ) : (
                 /* Show all manufacturers when none selected */
-                medication.manufacturers.map((mfr, index) => (
-                  <motion.div
-                    key={mfr.ndc}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <Card className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h3 className="font-semibold">{mfr.name}</h3>
-                          <p className="text-sm text-muted-foreground">NDC: {mfr.ndc}</p>
+                <>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Showing {medication.manufacturers.length} available manufacturer{medication.manufacturers.length !== 1 ? 's' : ''}. 
+                    Select one above for specific results.
+                  </p>
+                  {medication.manufacturers.map((mfr, index) => (
+                    <motion.div
+                      key={mfr.ndc}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <Card className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h3 className="font-semibold">{mfr.name}</h3>
+                            <p className="text-sm text-muted-foreground">NDC: {mfr.ndc}</p>
+                          </div>
+                          <StatusBadge status={mfr.status} size="sm" />
                         </div>
-                        <StatusBadge status={mfr.status} size="sm" />
-                      </div>
 
-                      <ConfidenceMeter value={mfr.confidence} className="mb-3" />
+                        <ConfidenceMeter value={mfr.confidence} className="mb-3" />
 
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium">Inactive Ingredients:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {mfr.inactiveIngredients.map((ing) => {
-                            const Icon = statusIcons[ing.status];
-                            return (
-                              <div
-                                key={ing.name}
-                                className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
-                                  ing.status === "halal" ? "bg-status-halal-bg text-status-halal" :
-                                  ing.status === "questionable" ? "bg-status-questionable-bg text-status-questionable" :
-                                  ing.status === "not-halal" ? "bg-status-not-halal-bg text-status-not-halal" :
-                                  "bg-status-unknown-bg text-status-unknown"
-                                }`}
-                                title={ing.notes}
-                              >
-                                <Icon className="h-3 w-3" />
-                                {ing.name}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </Card>
-                  </motion.div>
-                ))
+                        {mfr.inactiveIngredients.length === 0 ? (
+                          <p className="text-sm text-muted-foreground italic">
+                            Ingredient data pending review
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium">Inactive Ingredients:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {mfr.inactiveIngredients.map((ing) => {
+                                const Icon = statusIcons[ing.status];
+                                return (
+                                  <div
+                                    key={ing.name}
+                                    className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+                                      ing.status === "halal" ? "bg-status-halal-bg text-status-halal" :
+                                      ing.status === "questionable" ? "bg-status-questionable-bg text-status-questionable" :
+                                      ing.status === "not-halal" ? "bg-status-not-halal-bg text-status-not-halal" :
+                                      "bg-status-unknown-bg text-status-unknown"
+                                    }`}
+                                    title={ing.notes}
+                                  >
+                                    <Icon className="h-3 w-3" />
+                                    {ing.name}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </Card>
+                    </motion.div>
+                  ))}
+                </>
               )}
             </TabsContent>
 
