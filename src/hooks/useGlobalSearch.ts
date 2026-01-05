@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -11,6 +11,7 @@ export interface SearchResult {
   secondaryLabel: string | null;
   status: 'halal' | 'questionable' | 'not-halal' | 'unknown';
   hasMultipleVariants?: boolean;
+  matchType?: 'generic' | 'brand' | 'form' | 'exact';
 }
 
 interface RxMedRow {
@@ -18,6 +19,7 @@ interface RxMedRow {
   generic_name: string;
   brand_names: string[] | null;
   category: string | null;
+  dosage_forms: string[] | null;
 }
 
 interface OtcProductRow {
@@ -27,16 +29,6 @@ interface OtcProductRow {
   category: string | null;
 }
 
-interface RxVerdictRow {
-  rx_med_id: string;
-  status: string;
-}
-
-interface OtcVerdictRow {
-  product_id: string;
-  status: string;
-}
-
 // Map DB halal_status to UI status
 function mapStatus(dbStatus: string | null): SearchResult['status'] {
   if (!dbStatus) return 'unknown';
@@ -44,6 +36,98 @@ function mapStatus(dbStatus: string | null): SearchResult['status'] {
   if (dbStatus === 'mushbooh') return 'questionable';
   if (dbStatus === 'haram') return 'not-halal';
   return 'unknown';
+}
+
+// Common misspellings and aliases
+const COMMON_ALIASES: Record<string, string[]> = {
+  'tylenol': ['acetaminophen', 'paracetamol'],
+  'advil': ['ibuprofen'],
+  'motrin': ['ibuprofen'],
+  'lipitor': ['atorvastatin'],
+  'zestril': ['lisinopril'],
+  'prinivil': ['lisinopril'],
+  'glucophage': ['metformin'],
+  'synthroid': ['levothyroxine'],
+  'norvasc': ['amlodipine'],
+  'zoloft': ['sertraline'],
+  'prozac': ['fluoxetine'],
+  'lexapro': ['escitalopram'],
+  'prilosec': ['omeprazole'],
+  'nexium': ['esomeprazole'],
+  'plavix': ['clopidogrel'],
+};
+
+// Dosage form keywords to detect
+const DOSAGE_FORM_KEYWORDS = [
+  'tablet', 'tablets', 'tab', 'tabs',
+  'capsule', 'capsules', 'cap', 'caps',
+  'suspension', 'liquid', 'syrup',
+  'injection', 'injectable', 'inj',
+  'cream', 'ointment', 'gel', 'lotion',
+  'patch', 'patches',
+  'drops', 'solution',
+  'inhaler', 'spray', 'nasal',
+  'suppository', 'rectal',
+  'chewable', 'chew',
+  'extended-release', 'er', 'xr', 'xl',
+  'immediate-release', 'ir',
+];
+
+// Extract dosage form from query
+function extractDosageForm(query: string): { cleanQuery: string; form: string | null } {
+  const lowerQuery = query.toLowerCase();
+  for (const form of DOSAGE_FORM_KEYWORDS) {
+    if (lowerQuery.includes(form)) {
+      const cleanQuery = query.replace(new RegExp(`\\s*${form}\\s*`, 'gi'), ' ').trim();
+      return { cleanQuery, form };
+    }
+  }
+  return { cleanQuery: query, form: null };
+}
+
+// Get search terms including aliases
+function getSearchTerms(query: string): string[] {
+  const terms = [query.toLowerCase()];
+  
+  // Check for known aliases
+  for (const [brand, generics] of Object.entries(COMMON_ALIASES)) {
+    if (query.toLowerCase().includes(brand)) {
+      terms.push(...generics);
+    }
+    // Also check reverse (generic -> brand)
+    for (const generic of generics) {
+      if (query.toLowerCase().includes(generic)) {
+        terms.push(brand);
+      }
+    }
+  }
+  
+  return [...new Set(terms)];
+}
+
+// Simple fuzzy match for typos (Levenshtein-like tolerance)
+function fuzzyMatch(str: string, query: string): boolean {
+  const s = str.toLowerCase();
+  const q = query.toLowerCase();
+  
+  // Direct match
+  if (s.includes(q)) return true;
+  
+  // Very short queries require exact match
+  if (q.length < 3) return s.startsWith(q);
+  
+  // Allow for small typos by checking if most characters are present in order
+  let qIndex = 0;
+  let matches = 0;
+  for (let i = 0; i < s.length && qIndex < q.length; i++) {
+    if (s[i] === q[qIndex]) {
+      matches++;
+      qIndex++;
+    }
+  }
+  
+  // If we matched at least 80% of the query characters in order
+  return matches >= q.length * 0.8;
 }
 
 export function useGlobalSearch(query: string) {
@@ -63,58 +147,83 @@ export function useGlobalSearch(query: string) {
       setError(null);
 
       try {
-        const searchTerm = `%${debouncedQuery}%`;
+        // Extract dosage form if present
+        const { cleanQuery, form: dosageForm } = extractDosageForm(debouncedQuery);
+        
+        // Get all search terms including aliases
+        const searchTerms = getSearchTerms(cleanQuery);
+        const primaryTerm = `%${cleanQuery}%`;
 
-        // Search Rx meds - by generic name and brand names
+        // Search Rx meds - by generic name
         const rxPromise = supabase
           .from('rx_meds')
-          .select('id, generic_name, brand_names, category')
-          .or(`generic_name.ilike.${searchTerm}`)
-          .limit(10);
+          .select('id, generic_name, brand_names, category, dosage_forms')
+          .or(`generic_name.ilike.${primaryTerm}`)
+          .limit(20);
 
         // Search OTC products - by name and brand
         const otcPromise = supabase
           .from('otc_products')
           .select('id, name, brand, category')
-          .or(`name.ilike.${searchTerm},brand.ilike.${searchTerm}`)
-          .limit(10);
+          .or(`name.ilike.${primaryTerm},brand.ilike.${primaryTerm}`)
+          .limit(15);
 
         const [rxResponse, otcResponse] = await Promise.all([rxPromise, otcPromise]);
 
         if (rxResponse.error) throw rxResponse.error;
         if (otcResponse.error) throw otcResponse.error;
 
-        const rxMeds = (rxResponse.data || []) as RxMedRow[];
+        let rxMeds = (rxResponse.data || []) as RxMedRow[];
         const otcProducts = (otcResponse.data || []) as OtcProductRow[];
 
-        // Also search by brand names (array contains)
-        let brandMatchRxMeds: RxMedRow[] = [];
-        if (debouncedQuery.length >= 2) {
-          const brandSearchResponse = await supabase
+        // Also search by brand names using array contains for each term
+        const brandSearchPromises = searchTerms.map(term =>
+          supabase
             .from('rx_meds')
-            .select('id, generic_name, brand_names, category')
-            .filter('brand_names', 'cs', `{${debouncedQuery}}`)
-            .limit(10);
-          
-          if (!brandSearchResponse.error) {
-            brandMatchRxMeds = (brandSearchResponse.data || []) as RxMedRow[];
-          }
-        }
-
+            .select('id, generic_name, brand_names, category, dosage_forms')
+            .ilike('brand_names', `%${term}%`)
+            .limit(10)
+        );
+        
+        const brandSearchResults = await Promise.all(brandSearchPromises);
+        
         // Merge and dedupe Rx results
-        const allRxMeds = [...rxMeds];
-        brandMatchRxMeds.forEach(med => {
-          if (!allRxMeds.find(m => m.id === med.id)) {
-            allRxMeds.push(med);
+        brandSearchResults.forEach(result => {
+          if (!result.error && result.data) {
+            result.data.forEach(med => {
+              if (!rxMeds.find(m => m.id === med.id)) {
+                rxMeds.push(med as RxMedRow);
+              }
+            });
           }
         });
 
+        // If we have a dosage form filter, apply it
+        if (dosageForm) {
+          rxMeds = rxMeds.filter(med => {
+            const forms = med.dosage_forms || [];
+            return forms.some(f => f.toLowerCase().includes(dosageForm));
+          });
+        }
+
+        // Apply fuzzy matching to improve results
+        rxMeds = rxMeds.filter(med => {
+          // Check generic name
+          if (fuzzyMatch(med.generic_name, cleanQuery)) return true;
+          // Check brand names
+          if (med.brand_names?.some(b => fuzzyMatch(b, cleanQuery))) return true;
+          // Check aliases
+          return searchTerms.some(term => 
+            fuzzyMatch(med.generic_name, term) ||
+            med.brand_names?.some(b => fuzzyMatch(b, term))
+          );
+        });
+
         // Get verdict statuses for Rx meds via their variants
-        const rxMedIds = allRxMeds.map(m => m.id);
+        const rxMedIds = rxMeds.map(m => m.id);
         let rxVerdicts: Record<string, string> = {};
         
         if (rxMedIds.length > 0) {
-          // Get variants for these meds
           const variantsResponse = await supabase
             .from('rx_variants')
             .select('id, rx_med_id')
@@ -131,14 +240,10 @@ export function useGlobalSearch(query: string) {
                 .in('variant_id', variantIds);
               
               if (!rxVerdictResponse.error && rxVerdictResponse.data) {
-                // Map verdicts back to med IDs
                 rxVerdictResponse.data.forEach(v => {
                   const medId = variantToMed.get(v.variant_id);
-                  if (medId) {
-                    // If multiple variants, we'd show "Varies", but for search just take first
-                    if (!rxVerdicts[medId]) {
-                      rxVerdicts[medId] = v.status;
-                    }
+                  if (medId && !rxVerdicts[medId]) {
+                    rxVerdicts[medId] = v.status;
                   }
                 });
               }
@@ -163,18 +268,28 @@ export function useGlobalSearch(query: string) {
           }
         }
 
-        // Build search results
+        // Build search results with match type
         const searchResults: SearchResult[] = [];
 
         // Add Rx results
-        allRxMeds.forEach(med => {
+        rxMeds.forEach(med => {
           const brandNames = med.brand_names?.filter(Boolean).join(', ') || null;
+          
+          // Determine match type
+          let matchType: SearchResult['matchType'] = 'generic';
+          if (med.generic_name.toLowerCase().includes(cleanQuery.toLowerCase())) {
+            matchType = 'generic';
+          } else if (med.brand_names?.some(b => b.toLowerCase().includes(cleanQuery.toLowerCase()))) {
+            matchType = 'brand';
+          }
+          
           searchResults.push({
             id: med.id,
             type: 'rx',
             primaryName: med.generic_name,
             secondaryLabel: brandNames,
             status: mapStatus(rxVerdicts[med.id] || null),
+            matchType,
           });
         });
 
@@ -189,7 +304,16 @@ export function useGlobalSearch(query: string) {
           });
         });
 
-        setResults(searchResults.slice(0, 15)); // Limit total results
+        // Sort: exact matches first, then by name
+        searchResults.sort((a, b) => {
+          const aExact = a.primaryName.toLowerCase().startsWith(cleanQuery.toLowerCase());
+          const bExact = b.primaryName.toLowerCase().startsWith(cleanQuery.toLowerCase());
+          if (aExact && !bExact) return -1;
+          if (!aExact && bExact) return 1;
+          return a.primaryName.localeCompare(b.primaryName);
+        });
+
+        setResults(searchResults.slice(0, 15));
       } catch (err) {
         console.error('Search error:', err);
         setError('Search failed. Please try again.');

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Pill, Package, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { Badge } from '@/components/ui/badge';
 import { useGlobalSearch, SearchResult } from '@/hooks/useGlobalSearch';
 import { cn } from '@/lib/utils';
 
@@ -140,8 +141,14 @@ export function GlobalSearch({
               <p className="text-sm">Searching...</p>
             </div>
           ) : results.length === 0 ? (
-            <div className="p-4 text-center text-muted-foreground">
-              <p className="text-sm">No results found for "{query}"</p>
+            <div className="p-4 text-center">
+              <p className="text-sm font-medium mb-1">No results for "{query}"</p>
+              <p className="text-xs text-muted-foreground mb-2">
+                Try generic name, brand, or dosage form
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Examples: "lisinopril", "Tylenol", "capsule"
+              </p>
             </div>
           ) : (
             results.map((result, index) => (
