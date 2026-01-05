@@ -9,6 +9,7 @@ import OTCScan from "./pages/OTCScan";
 import OTCProduct from "./pages/OTCProduct";
 import RxSearch from "./pages/RxSearch";
 import RxMedication from "./pages/RxMedication";
+import Browse from "./pages/Browse";
 import Report from "./pages/Report";
 import Pricing from "./pages/Pricing";
 import Account from "./pages/Account";
@@ -25,6 +26,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/app" element={<AppHome />} />
+          <Route path="/browse" element={<Browse />} />
           <Route path="/otc/scan" element={<OTCScan />} />
           <Route path="/otc/product/:id" element={<OTCProduct />} />
           <Route path="/rx/search" element={<RxSearch />} />

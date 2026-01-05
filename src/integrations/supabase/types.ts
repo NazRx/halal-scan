@@ -286,6 +286,7 @@ export type Database = {
           category: string | null
           created_at: string
           dosage_forms: string[] | null
+          drug_class: string | null
           generic_name: string
           id: string
           notes: string | null
@@ -298,6 +299,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           dosage_forms?: string[] | null
+          drug_class?: string | null
           generic_name: string
           id?: string
           notes?: string | null
@@ -310,6 +312,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           dosage_forms?: string[] | null
+          drug_class?: string | null
           generic_name?: string
           id?: string
           notes?: string | null
