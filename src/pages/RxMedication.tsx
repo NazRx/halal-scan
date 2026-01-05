@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
@@ -6,10 +7,13 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfidenceMeter } from "@/components/ui/confidence-meter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Disclaimer } from "@/components/ui/disclaimer";
+import { ManufacturerSelector } from "@/components/rx/ManufacturerSelector";
+import { VariantAwarenessBanner } from "@/components/rx/VariantAwarenessBanner";
 import { motion } from "framer-motion";
-import { ArrowLeft, ExternalLink, Share2, Bookmark, AlertTriangle, Building2, Check, X, HelpCircle, FileText, AlertCircle } from "lucide-react";
+import { ArrowLeft, ExternalLink, Share2, Bookmark, Building2, Check, X, HelpCircle, FileText, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 
-// Mock medication data
+// Mock medication data with Top 10 US manufacturers
 const mockMedication = {
   id: "lisinopril-10",
   name: "Lisinopril",
@@ -24,8 +28,11 @@ const mockMedication = {
   ],
   manufacturers: [
     {
+      id: "lupin",
       name: "Lupin Pharmaceuticals",
       ndc: "68180-513-01",
+      dosageForm: "Tablet",
+      strength: "10mg",
       status: "halal" as const,
       confidence: 95,
       inactiveIngredients: [
@@ -36,8 +43,11 @@ const mockMedication = {
       ],
     },
     {
+      id: "teva",
       name: "Teva Pharmaceuticals",
       ndc: "00093-7341-01",
+      dosageForm: "Tablet",
+      strength: "10mg",
       status: "halal" as const,
       confidence: 92,
       inactiveIngredients: [
@@ -47,14 +57,45 @@ const mockMedication = {
       ],
     },
     {
-      name: "Mylan Pharmaceuticals",
+      id: "mylan",
+      name: "Mylan (Viatris)",
       ndc: "00378-0207-01",
+      dosageForm: "Tablet",
+      strength: "10mg",
       status: "questionable" as const,
       confidence: 65,
       inactiveIngredients: [
         { name: "Lactose", status: "halal" as const },
         { name: "Magnesium Stearate", status: "questionable" as const, notes: "Source unverified" },
         { name: "Red Iron Oxide", status: "halal" as const },
+      ],
+    },
+    {
+      id: "sandoz",
+      name: "Sandoz",
+      ndc: "00781-1234-01",
+      dosageForm: "Tablet",
+      strength: "10mg",
+      status: "halal" as const,
+      confidence: 90,
+      inactiveIngredients: [
+        { name: "Calcium Phosphate", status: "halal" as const },
+        { name: "Croscarmellose Sodium", status: "halal" as const },
+        { name: "Magnesium Stearate", status: "halal" as const, notes: "Vegetable source" },
+      ],
+    },
+    {
+      id: "aurobindo",
+      name: "Aurobindo Pharma",
+      ndc: "65862-0123-01",
+      dosageForm: "Tablet",
+      strength: "10mg",
+      status: "halal" as const,
+      confidence: 88,
+      inactiveIngredients: [
+        { name: "Lactose Monohydrate", status: "halal" as const },
+        { name: "Pregelatinized Starch", status: "halal" as const },
+        { name: "Magnesium Stearate", status: "halal" as const },
       ],
     },
   ],
@@ -77,6 +118,29 @@ const RxMedication = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const medication = mockMedication;
+  
+  const [selectedManufacturerId, setSelectedManufacturerId] = useState<string | null>(null);
+  
+  const selectedManufacturer = medication.manufacturers.find(
+    (m) => m.id === selectedManufacturerId
+  );
+  
+  // Determine displayed status and confidence based on selection
+  const displayStatus = selectedManufacturer?.status || medication.status;
+  const displayConfidence = selectedManufacturer?.confidence || medication.confidence;
+  const displayIngredients = selectedManufacturer?.inactiveIngredients || [];
+
+  const handleUploadPhoto = () => {
+    toast.info("Photo upload coming soon", {
+      description: "This feature will allow you to upload your bottle photo for identification.",
+    });
+  };
+
+  const handleRequestReview = () => {
+    toast.info("Review request submitted", {
+      description: "We'll research your specific manufacturer and notify you when available.",
+    });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -99,6 +163,12 @@ const RxMedication = () => {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-2xl mx-auto"
         >
+          {/* Scope Disclaimer - Collapsed by default */}
+          <Disclaimer variant="card" className="mb-6" defaultExpanded={false} />
+
+          {/* Variant Awareness Banner - Always visible */}
+          <VariantAwarenessBanner className="mb-6" />
+
           {/* Header Card */}
           <Card className="p-6 mb-6">
             <div className="flex items-start justify-between mb-4">
@@ -111,23 +181,34 @@ const RxMedication = () => {
                   Used for: {medication.uses}
                 </p>
               </div>
-              <StatusBadge status={medication.status} />
+              <StatusBadge status={displayStatus} />
             </div>
 
-            <ConfidenceMeter value={medication.confidence} className="mb-4" />
+            <ConfidenceMeter value={displayConfidence} className="mb-4" />
 
-            {/* Manufacturer Warning */}
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-status-questionable-bg border border-status-questionable/20">
-              <AlertTriangle className="h-5 w-5 text-status-questionable flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-status-questionable">Important</p>
-                <p className="text-sm text-muted-foreground">
-                  Inactive ingredients vary by manufacturer. Check the NDC on your prescription bottle 
-                  to find your specific manufacturer below.
-                </p>
+            {/* Selected manufacturer indicator */}
+            {selectedManufacturer && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Building2 className="h-4 w-4" />
+                <span>Showing results for: <strong className="text-foreground">{selectedManufacturer.name}</strong></span>
               </div>
-            </div>
+            )}
           </Card>
+
+          {/* Manufacturer Selector Card */}
+          <ManufacturerSelector
+            manufacturers={medication.manufacturers.map((m) => ({
+              id: m.id,
+              name: m.name,
+              dosageForm: m.dosageForm,
+              strength: m.strength,
+            }))}
+            selectedManufacturer={selectedManufacturerId}
+            onSelect={setSelectedManufacturerId}
+            onUploadPhoto={handleUploadPhoto}
+            onRequestReview={handleRequestReview}
+            className="mb-6"
+          />
 
           {/* Quick Actions */}
           <div className="flex gap-2 mb-6">
@@ -148,60 +229,98 @@ const RxMedication = () => {
           </div>
 
           {/* Tabs */}
-          <Tabs defaultValue="manufacturers" className="space-y-6">
+          <Tabs defaultValue="ingredients" className="space-y-6">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="manufacturers">
-                <Building2 className="h-4 w-4 mr-2" />
-                Manufacturers ({medication.manufacturers.length})
+              <TabsTrigger value="ingredients">
+                Inactive Ingredients
               </TabsTrigger>
               <TabsTrigger value="active">Active Ingredients</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="manufacturers" className="space-y-4">
-              {medication.manufacturers.map((mfr, index) => (
-                <motion.div
-                  key={mfr.ndc}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <Card className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="font-semibold">{mfr.name}</h3>
-                        <p className="text-sm text-muted-foreground">NDC: {mfr.ndc}</p>
-                      </div>
-                      <StatusBadge status={mfr.status} size="sm" />
+            <TabsContent value="ingredients" className="space-y-4">
+              {selectedManufacturer ? (
+                <Card className="p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h3 className="font-semibold">{selectedManufacturer.name}</h3>
+                      <p className="text-sm text-muted-foreground">NDC: {selectedManufacturer.ndc}</p>
                     </div>
+                    <StatusBadge status={selectedManufacturer.status} size="sm" />
+                  </div>
 
-                    <ConfidenceMeter value={mfr.confidence} className="mb-3" />
+                  <ConfidenceMeter value={selectedManufacturer.confidence} className="mb-3" />
 
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">Inactive Ingredients:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {mfr.inactiveIngredients.map((ing) => {
-                          const Icon = statusIcons[ing.status];
-                          return (
-                            <div
-                              key={ing.name}
-                              className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
-                                ing.status === "halal" ? "bg-status-halal-bg text-status-halal" :
-                                ing.status === "questionable" ? "bg-status-questionable-bg text-status-questionable" :
-                                ing.status === "not-halal" ? "bg-status-not-halal-bg text-status-not-halal" :
-                                "bg-status-unknown-bg text-status-unknown"
-                              }`}
-                              title={ing.notes}
-                            >
-                              <Icon className="h-3 w-3" />
-                              {ing.name}
-                            </div>
-                          );
-                        })}
-                      </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Inactive Ingredients:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedManufacturer.inactiveIngredients.map((ing) => {
+                        const Icon = statusIcons[ing.status];
+                        return (
+                          <div
+                            key={ing.name}
+                            className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+                              ing.status === "halal" ? "bg-status-halal-bg text-status-halal" :
+                              ing.status === "questionable" ? "bg-status-questionable-bg text-status-questionable" :
+                              ing.status === "not-halal" ? "bg-status-not-halal-bg text-status-not-halal" :
+                              "bg-status-unknown-bg text-status-unknown"
+                            }`}
+                            title={ing.notes}
+                          >
+                            <Icon className="h-3 w-3" />
+                            {ing.name}
+                          </div>
+                        );
+                      })}
                     </div>
-                  </Card>
-                </motion.div>
-              ))}
+                  </div>
+                </Card>
+              ) : (
+                /* Show all manufacturers when none selected */
+                medication.manufacturers.map((mfr, index) => (
+                  <motion.div
+                    key={mfr.ndc}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Card className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h3 className="font-semibold">{mfr.name}</h3>
+                          <p className="text-sm text-muted-foreground">NDC: {mfr.ndc}</p>
+                        </div>
+                        <StatusBadge status={mfr.status} size="sm" />
+                      </div>
+
+                      <ConfidenceMeter value={mfr.confidence} className="mb-3" />
+
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Inactive Ingredients:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {mfr.inactiveIngredients.map((ing) => {
+                            const Icon = statusIcons[ing.status];
+                            return (
+                              <div
+                                key={ing.name}
+                                className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+                                  ing.status === "halal" ? "bg-status-halal-bg text-status-halal" :
+                                  ing.status === "questionable" ? "bg-status-questionable-bg text-status-questionable" :
+                                  ing.status === "not-halal" ? "bg-status-not-halal-bg text-status-not-halal" :
+                                  "bg-status-unknown-bg text-status-unknown"
+                                }`}
+                                title={ing.notes}
+                              >
+                                <Icon className="h-3 w-3" />
+                                {ing.name}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </Card>
+                  </motion.div>
+                ))
+              )}
             </TabsContent>
 
             <TabsContent value="active">
@@ -274,15 +393,12 @@ const RxMedication = () => {
                 <p className="text-sm text-muted-foreground mb-2">
                   Submit a request and we'll research your specific medication.
                 </p>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={handleRequestReview}>
                   Request Review
                 </Button>
               </div>
             </div>
           </Card>
-
-          {/* Full Disclaimer Card */}
-          <Disclaimer variant="card" className="mt-6" />
         </motion.div>
       </main>
     </div>
