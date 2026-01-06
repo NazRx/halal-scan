@@ -75,15 +75,26 @@ const RxMedication = () => {
       setIsLoading(true);
       
       try {
-        // Fetch the medication
+        console.log('Fetching medication with id:', id);
+        
+        // Fetch the medication - use maybeSingle to gracefully handle no results
         const { data: rxMed, error: rxError } = await supabase
           .from('rx_meds')
           .select('*')
           .eq('id', id)
-          .single();
+          .maybeSingle();
 
-        if (rxError || !rxMed) {
+        console.log('Query result:', { rxMed, rxError });
+
+        if (rxError) {
           console.error('Error fetching medication:', rxError);
+          setMedication(null);
+          setIsLoading(false);
+          return;
+        }
+
+        if (!rxMed) {
+          console.log('No medication found with id:', id);
           setMedication(null);
           setIsLoading(false);
           return;
