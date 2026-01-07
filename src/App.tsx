@@ -11,6 +11,7 @@ import RxSearch from "./pages/RxSearch";
 import RxMedication from "./pages/RxMedication";
 import Browse from "./pages/Browse";
 import Report from "./pages/Report";
+import SelectManufacturer from "./pages/SelectManufacturer";
 import Pricing from "./pages/Pricing";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
@@ -31,6 +32,7 @@ const App = () => (
           <Route path="/otc/product/:id" element={<OTCProduct />} />
           <Route path="/rx/search" element={<RxSearch />} />
           <Route path="/rx/med/:id" element={<RxMedication />} />
+          <Route path="/rx/select-manufacturer/:id" element={<SelectManufacturer />} />
           <Route path="/report/:id" element={<Report />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/account" element={<Account />} />
