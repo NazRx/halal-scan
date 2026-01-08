@@ -99,10 +99,10 @@ export function useRxBrowseData(
       setError(null);
 
       try {
-        // Fetch all Rx meds with their variants
+        // Fetch all Rx meds with their variants and default_status
         let query = supabase
           .from('rx_meds')
-          .select('id, generic_name, brand_names, drug_class, category, dosage_forms');
+          .select('id, generic_name, brand_names, drug_class, category, dosage_forms, default_status');
 
         // Apply letter filter for alpha modes
         if (letter && (mode === 'alpha-generic')) {
@@ -176,6 +176,11 @@ export function useRxBrowseData(
             } else if (uniqueStatuses.length > 1) {
               status = 'varies';
             }
+          }
+          
+          // Fallback to default_status from rx_meds if no variant verdicts or all are unknown
+          if (status === 'unknown' && med.default_status) {
+            status = mapStatus(med.default_status);
           }
 
           return {
