@@ -285,6 +285,7 @@ export type Database = {
           brand_names: string[] | null
           category: string | null
           created_at: string
+          default_status: Database["public"]["Enums"]["halal_status"] | null
           dosage_forms: string[] | null
           drug_class: string | null
           generic_name: string
@@ -298,6 +299,7 @@ export type Database = {
           brand_names?: string[] | null
           category?: string | null
           created_at?: string
+          default_status?: Database["public"]["Enums"]["halal_status"] | null
           dosage_forms?: string[] | null
           drug_class?: string | null
           generic_name: string
@@ -311,6 +313,7 @@ export type Database = {
           brand_names?: string[] | null
           category?: string | null
           created_at?: string
+          default_status?: Database["public"]["Enums"]["halal_status"] | null
           dosage_forms?: string[] | null
           drug_class?: string | null
           generic_name?: string
