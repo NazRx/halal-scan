@@ -1,1 +1,7 @@
 project_id = "lffoswusesrukltvitfq"
+
+[functions.lookup-ndc]
+verify_jwt = false
+
+[functions.parse-dailymed-spl]
+verify_jwt = false
