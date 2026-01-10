@@ -9,20 +9,22 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const { isAuthenticated, isAdmin, loading } = useAuth();
+  const { isAuthenticated, isAdmin, loading, rolesLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading) {
+    // Wait for BOTH auth and roles to finish loading
+    if (!loading && !rolesLoading) {
       if (!isAuthenticated) {
         navigate('/auth');
       } else if (requireAdmin && !isAdmin) {
         navigate('/');
       }
     }
-  }, [isAuthenticated, isAdmin, loading, requireAdmin, navigate]);
+  }, [isAuthenticated, isAdmin, loading, rolesLoading, requireAdmin, navigate]);
 
-  if (loading) {
+  // Show loading while auth OR roles are loading
+  if (loading || (requireAdmin && rolesLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
