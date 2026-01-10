@@ -15,6 +15,7 @@ interface AuthState {
   roles: string[];
   isAdmin: boolean;
   loading: boolean;
+  rolesLoading: boolean;
 }
 
 export function useAuth() {
@@ -25,6 +26,7 @@ export function useAuth() {
     roles: [],
     isAdmin: false,
     loading: true,
+    rolesLoading: true,
   });
 
   useEffect(() => {
@@ -40,12 +42,13 @@ export function useAuth() {
 
         // Defer profile and roles fetch with setTimeout to avoid deadlock
         if (session?.user) {
+          setState(prev => ({ ...prev, rolesLoading: true }));
           setTimeout(() => {
             fetchProfile(session.user.id);
             fetchRoles(session.user.id);
           }, 0);
         } else {
-          setState(prev => ({ ...prev, profile: null, roles: [], isAdmin: false }));
+          setState(prev => ({ ...prev, profile: null, roles: [], isAdmin: false, rolesLoading: false }));
         }
       }
     );
@@ -88,7 +91,7 @@ export function useAuth() {
 
     const roles = data?.map(r => r.role) || [];
     const isAdmin = roles.includes('admin');
-    setState(prev => ({ ...prev, roles, isAdmin }));
+    setState(prev => ({ ...prev, roles, isAdmin, rolesLoading: false }));
   };
 
   const signIn = async (email: string, password: string) => {
@@ -145,6 +148,7 @@ export function useAuth() {
     roles: state.roles,
     isAdmin: state.isAdmin,
     loading: state.loading,
+    rolesLoading: state.rolesLoading,
     isAuthenticated: !!state.session,
     signIn,
     signUp,
