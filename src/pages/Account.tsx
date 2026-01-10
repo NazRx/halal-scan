@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -6,82 +7,72 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
-import { User, CreditCard, Bell, Shield, LogOut, Crown, Check } from "lucide-react";
+import { User, CreditCard, Bell, Shield, LogOut, Crown, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/hooks/use-toast";
 
 const Account = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const navigate = useNavigate();
+  const { user, profile, loading, isAuthenticated, signOut, updateProfile } = useAuth();
+  const [fullName, setFullName] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  // Mock user data
-  const user = {
-    name: "Ahmad Hassan",
-    email: "ahmad@example.com",
-    plan: "Pro",
-    nextBilling: "January 15, 2025",
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      navigate("/auth");
+    }
+  }, [loading, isAuthenticated, navigate]);
+
+  // Sync profile data to form
+  useEffect(() => {
+    if (profile?.full_name) {
+      setFullName(profile.full_name);
+    }
+  }, [profile]);
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
   };
 
-  if (!isLoggedIn) {
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    
+    const { error } = await updateProfile({ full_name: fullName });
+    
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update profile. Please try again.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: "Profile updated successfully.",
+      });
+    }
+    
+    setSaving(false);
+  };
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        
-        <main className="container px-4 py-16">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="max-w-md mx-auto"
-          >
-            <Card className="p-8">
-              <div className="text-center mb-8">
-                <div className="w-16 h-16 rounded-full gradient-hero flex items-center justify-center mx-auto mb-4">
-                  <User className="h-8 w-8 text-primary-foreground" />
-                </div>
-                <h1 className="text-2xl font-bold mb-2">Sign In</h1>
-                <p className="text-muted-foreground">
-                  Access your account to manage subscriptions and view history.
-                </p>
-              </div>
-
-              <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); setIsLoggedIn(true); }}>
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium mb-2">
-                    Email
-                  </label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium mb-2">
-                    Password
-                  </label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                  />
-                </div>
-                <Button type="submit" className="w-full gradient-hero text-primary-foreground">
-                  Sign In
-                </Button>
-              </form>
-
-              <div className="mt-6 text-center">
-                <p className="text-sm text-muted-foreground">
-                  Don't have an account?{" "}
-                  <a href="#" className="text-primary hover:underline">
-                    Sign up
-                  </a>
-                </p>
-              </div>
-            </Card>
-          </motion.div>
-        </main>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
+
+  if (!isAuthenticated) {
+    return null; // Will redirect via useEffect
+  }
+
+  const displayName = profile?.full_name || user?.email?.split("@")[0] || "User";
+  const displayEmail = user?.email || "";
 
   return (
     <div className="min-h-screen bg-background">
@@ -97,12 +88,12 @@ const Account = () => {
           <div className="flex items-center gap-4 mb-8">
             <div className="w-16 h-16 rounded-full gradient-hero flex items-center justify-center">
               <span className="text-2xl font-bold text-primary-foreground">
-                {user.name.charAt(0)}
+                {displayName.charAt(0).toUpperCase()}
               </span>
             </div>
             <div>
-              <h1 className="text-2xl font-bold">{user.name}</h1>
-              <p className="text-muted-foreground">{user.email}</p>
+              <h1 className="text-2xl font-bold">{displayName}</h1>
+              <p className="text-muted-foreground">{displayEmail}</p>
             </div>
           </div>
 
@@ -114,15 +105,15 @@ const Account = () => {
                   <Crown className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h2 className="font-semibold">{user.plan} Plan</h2>
+                  <h2 className="font-semibold">Free Plan</h2>
                   <p className="text-sm text-muted-foreground">
-                    Next billing: {user.nextBilling}
+                    Upgrade for unlimited access
                   </p>
                 </div>
               </div>
               <Link to="/pricing">
                 <Button variant="outline" size="sm">
-                  Manage Plan
+                  Upgrade
                 </Button>
               </Link>
             </div>
@@ -152,16 +143,31 @@ const Account = () => {
             <TabsContent value="profile">
               <Card className="p-6">
                 <h2 className="font-semibold text-lg mb-4">Profile Settings</h2>
-                <form className="space-y-4">
+                <form className="space-y-4" onSubmit={handleSaveProfile}>
                   <div>
                     <label className="block text-sm font-medium mb-2">Full Name</label>
-                    <Input defaultValue={user.name} />
+                    <Input 
+                      value={fullName} 
+                      onChange={(e) => setFullName(e.target.value)}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-2">Email</label>
-                    <Input defaultValue={user.email} type="email" />
+                    <Input value={displayEmail} type="email" disabled />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Email cannot be changed
+                    </p>
                   </div>
-                  <Button type="submit">Save Changes</Button>
+                  <Button type="submit" disabled={saving}>
+                    {saving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Changes"
+                    )}
+                  </Button>
                 </form>
               </Card>
             </TabsContent>
@@ -174,7 +180,7 @@ const Account = () => {
                   <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
                     <div>
                       <p className="font-medium">Current Plan</p>
-                      <p className="text-sm text-muted-foreground">{user.plan} - $4.99/month</p>
+                      <p className="text-sm text-muted-foreground">Free - $0/month</p>
                     </div>
                     <Link to="/pricing">
                       <Button variant="outline" size="sm">Change Plan</Button>
@@ -184,9 +190,9 @@ const Account = () => {
                   <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
                     <div>
                       <p className="font-medium">Payment Method</p>
-                      <p className="text-sm text-muted-foreground">•••• •••• •••• 4242</p>
+                      <p className="text-sm text-muted-foreground">No payment method on file</p>
                     </div>
-                    <Button variant="outline" size="sm">Update</Button>
+                    <Button variant="outline" size="sm">Add</Button>
                   </div>
 
                   <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
@@ -283,7 +289,7 @@ const Account = () => {
           <Button
             variant="ghost"
             className="w-full mt-6 text-muted-foreground"
-            onClick={() => setIsLoggedIn(false)}
+            onClick={handleSignOut}
           >
             <LogOut className="h-4 w-4 mr-2" />
             Sign Out
