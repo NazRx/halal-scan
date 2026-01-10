@@ -380,34 +380,43 @@ export type Database = {
       rx_variants: {
         Row: {
           created_at: string
+          data_source: string | null
           dosage_form: string | null
           id: string
+          labeler_code: string | null
           manufacturer: string | null
           ndc_list: string[] | null
           notes: string | null
           rx_med_id: string
+          spl_set_id: string | null
           strength_text: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          data_source?: string | null
           dosage_form?: string | null
           id?: string
+          labeler_code?: string | null
           manufacturer?: string | null
           ndc_list?: string[] | null
           notes?: string | null
           rx_med_id: string
+          spl_set_id?: string | null
           strength_text?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          data_source?: string | null
           dosage_form?: string | null
           id?: string
+          labeler_code?: string | null
           manufacturer?: string | null
           ndc_list?: string[] | null
           notes?: string | null
           rx_med_id?: string
+          spl_set_id?: string | null
           strength_text?: string | null
           updated_at?: string
         }

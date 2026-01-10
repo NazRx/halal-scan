@@ -15,7 +15,7 @@ import SelectManufacturer from "./pages/SelectManufacturer";
 import Pricing from "./pages/Pricing";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
-
+import SeedData from "./pages/admin/SeedData";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -36,6 +36,7 @@ const App = () => (
           <Route path="/report/:id" element={<Report />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/account" element={<Account />} />
+          <Route path="/admin/seed-data" element={<SeedData />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
