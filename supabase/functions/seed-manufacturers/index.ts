@@ -15,14 +15,140 @@ interface ManufacturerData {
   productCount: number;
 }
 
-interface SeedResult {
-  drugName: string;
-  manufacturersAdded: number;
+interface InactiveIngredient {
+  name: string;
+  unii?: string;
+}
+
+interface SPLParseResult {
+  success: boolean;
+  setId?: string;
+  inactiveIngredients: InactiveIngredient[];
   error?: string;
 }
 
+interface SeedResult {
+  drugName: string;
+  manufacturersAdded: number;
+  ingredientsLinked: number;
+  error?: string;
+}
+
+// DailyMed API functions (inline to avoid import issues)
+const DAILYMED_BASE = "https://dailymed.nlm.nih.gov/dailymed/services/v2";
+
+async function fetchSPLByNDC(ndc: string): Promise<{ setId: string; splUrl: string } | null> {
+  const cleanedNdc = ndc.replace(/[^0-9]/g, "");
+  
+  const ndcVariants = [ndc, cleanedNdc];
+  
+  if (cleanedNdc.length === 10) {
+    ndcVariants.push(`${cleanedNdc.slice(0, 4)}-${cleanedNdc.slice(4, 8)}-${cleanedNdc.slice(8)}`);
+    ndcVariants.push(`${cleanedNdc.slice(0, 5)}-${cleanedNdc.slice(5, 8)}-${cleanedNdc.slice(8)}`);
+    ndcVariants.push(`${cleanedNdc.slice(0, 5)}-${cleanedNdc.slice(5, 9)}-${cleanedNdc.slice(9)}`);
+  }
+  if (cleanedNdc.length === 11) {
+    ndcVariants.push(`${cleanedNdc.slice(0, 5)}-${cleanedNdc.slice(5, 9)}-${cleanedNdc.slice(9)}`);
+  }
+
+  for (const variant of ndcVariants) {
+    try {
+      const url = `${DAILYMED_BASE}/ndcs.json?ndc=${encodeURIComponent(variant)}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) continue;
+      
+      const data = await response.json();
+      
+      if (data.data && data.data.length > 0) {
+        const setId = data.data[0].setid;
+        return {
+          setId,
+          splUrl: `${DAILYMED_BASE}/spls/${setId}.xml`,
+        };
+      }
+    } catch (error) {
+      console.error(`Error querying DailyMed for variant ${variant}:`, error);
+    }
+  }
+  
+  return null;
+}
+
+function parseSPLXML(xmlText: string): InactiveIngredient[] {
+  const ingredients: InactiveIngredient[] = [];
+  
+  // Match inactive ingredient components with IACT classCode
+  const ingredientMatches = xmlText.matchAll(
+    /<ingredient[^>]*classCode\s*=\s*["']IACT["'][^>]*>[\s\S]*?<ingredientSubstance>[\s\S]*?<name>([^<]+)<\/name>[\s\S]*?(?:<code[^>]*code\s*=\s*["']([A-Z0-9]+)["'][^>]*\/>)?[\s\S]*?<\/ingredientSubstance>[\s\S]*?<\/ingredient>/gi
+  );
+  
+  for (const match of ingredientMatches) {
+    const name = match[1]?.trim();
+    const unii = match[2];
+    
+    if (name && !ingredients.some(i => i.name.toLowerCase() === name.toLowerCase())) {
+      ingredients.push({ name, unii: unii || undefined });
+    }
+  }
+  
+  // Fallback: simpler regex
+  if (ingredients.length === 0) {
+    const simpleMatches = xmlText.matchAll(
+      /classCode\s*=\s*["']IACT["'][\s\S]*?<name>([^<]+)<\/name>/gi
+    );
+    
+    for (const match of simpleMatches) {
+      const name = match[1]?.trim();
+      if (name && !ingredients.some(i => i.name.toLowerCase() === name.toLowerCase())) {
+        ingredients.push({ name });
+      }
+    }
+  }
+  
+  return ingredients;
+}
+
+async function fetchInactiveIngredients(ndcCodes: string[]): Promise<SPLParseResult> {
+  // Try each NDC until we find one with SPL data
+  for (const ndc of ndcCodes.slice(0, 5)) { // Limit to first 5 NDCs to avoid rate limits
+    try {
+      const splRef = await fetchSPLByNDC(ndc);
+      
+      if (!splRef) continue;
+      
+      console.log(`Found SPL for NDC ${ndc}: ${splRef.setId}`);
+      
+      const splResponse = await fetch(splRef.splUrl);
+      if (!splResponse.ok) continue;
+      
+      const splXml = await splResponse.text();
+      const inactiveIngredients = parseSPLXML(splXml);
+      
+      if (inactiveIngredients.length > 0) {
+        console.log(`Parsed ${inactiveIngredients.length} inactive ingredients`);
+        return {
+          success: true,
+          setId: splRef.setId,
+          inactiveIngredients,
+        };
+      }
+    } catch (error) {
+      console.error(`Error fetching SPL for NDC ${ndc}:`, error);
+    }
+    
+    // Small delay between NDC lookups
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+  
+  return {
+    success: false,
+    inactiveIngredients: [],
+    error: 'No SPL data found for any NDC',
+  };
+}
+
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -32,7 +158,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { action = 'seed', drugId, batchSize = 10, offset = 0 } = await req.json();
+    const { action = 'seed', drugId, batchSize = 10, offset = 0, includeIngredients = true } = await req.json();
 
     // Action: list - Get all drugs with their variant counts
     if (action === 'list') {
@@ -41,7 +167,7 @@ serve(async (req) => {
         .select(`
           id,
           generic_name,
-          rx_variants(id, manufacturer, data_source)
+          rx_variants(id, manufacturer, data_source, spl_set_id)
         `)
         .order('generic_name');
 
@@ -52,6 +178,7 @@ serve(async (req) => {
         genericName: drug.generic_name,
         totalVariants: drug.rx_variants?.length || 0,
         fdaVariants: drug.rx_variants?.filter((v: any) => v.data_source === 'openfda').length || 0,
+        withIngredients: drug.rx_variants?.filter((v: any) => v.spl_set_id).length || 0,
         manualVariants: drug.rx_variants?.filter((v: any) => v.data_source === 'manual').length || 0,
       }));
 
@@ -63,7 +190,7 @@ serve(async (req) => {
 
     // Action: seed-one - Seed a single drug
     if (action === 'seed-one' && drugId) {
-      const result = await seedDrug(supabase, supabaseUrl, drugId);
+      const result = await seedDrug(supabase, supabaseUrl, drugId, includeIngredients);
       return new Response(
         JSON.stringify(result),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -72,7 +199,6 @@ serve(async (req) => {
 
     // Action: seed-batch - Seed a batch of drugs
     if (action === 'seed-batch') {
-      // Get drugs that haven't been seeded yet (only have manual variants)
       const { data: drugs, error } = await supabase
         .from('rx_meds')
         .select('id, generic_name')
@@ -91,7 +217,6 @@ serve(async (req) => {
       const results: SeedResult[] = [];
       
       for (const drug of drugs) {
-        // Check if already has FDA variants
         const { data: existingVariants } = await supabase
           .from('rx_variants')
           .select('id')
@@ -100,19 +225,18 @@ serve(async (req) => {
           .limit(1);
 
         if (existingVariants && existingVariants.length > 0) {
-          console.log(`Skipping ${drug.generic_name} - already has FDA data`);
           results.push({
             drugName: drug.generic_name,
             manufacturersAdded: 0,
+            ingredientsLinked: 0,
             error: 'Already seeded'
           });
           continue;
         }
 
-        // Add delay between drugs to respect rate limits
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        const result = await seedDrug(supabase, supabaseUrl, drug.id);
+        const result = await seedDrug(supabase, supabaseUrl, drug.id, includeIngredients);
         results.push(result);
       }
 
@@ -126,13 +250,62 @@ serve(async (req) => {
       );
     }
 
-    // Default: return usage info
+    // Action: fetch-ingredients - Fetch ingredients for existing variants without SPL data
+    if (action === 'fetch-ingredients') {
+      const { data: variants, error } = await supabase
+        .from('rx_variants')
+        .select('id, manufacturer, ndc_list, rx_med_id')
+        .is('spl_set_id', null)
+        .eq('data_source', 'openfda')
+        .limit(batchSize);
+
+      if (error) throw error;
+
+      const results = [];
+      for (const variant of variants || []) {
+        if (!variant.ndc_list || variant.ndc_list.length === 0) continue;
+
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        const splResult = await fetchInactiveIngredients(variant.ndc_list);
+        
+        if (splResult.success && splResult.inactiveIngredients.length > 0) {
+          const linkedCount = await linkIngredientsToVariant(
+            supabase, 
+            variant.id, 
+            splResult.inactiveIngredients,
+            splResult.setId
+          );
+          
+          results.push({
+            variantId: variant.id,
+            manufacturer: variant.manufacturer,
+            ingredientsLinked: linkedCount,
+            splSetId: splResult.setId,
+          });
+        } else {
+          results.push({
+            variantId: variant.id,
+            manufacturer: variant.manufacturer,
+            ingredientsLinked: 0,
+            error: splResult.error,
+          });
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ results, processed: results.length }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ 
         usage: {
           'list': 'Get all drugs with variant counts',
-          'seed-one': 'Seed a single drug (requires drugId)',
-          'seed-batch': 'Seed a batch of drugs (optional: batchSize, offset)'
+          'seed-one': 'Seed a single drug (requires drugId, optional includeIngredients)',
+          'seed-batch': 'Seed a batch of drugs (optional: batchSize, offset, includeIngredients)',
+          'fetch-ingredients': 'Fetch ingredients for variants missing SPL data (optional: batchSize)'
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -148,13 +321,106 @@ serve(async (req) => {
   }
 });
 
+async function linkIngredientsToVariant(
+  supabase: any,
+  variantId: string,
+  ingredients: InactiveIngredient[],
+  splSetId?: string
+): Promise<number> {
+  let linkedCount = 0;
+
+  // Update variant with SPL set ID
+  if (splSetId) {
+    await supabase
+      .from('rx_variants')
+      .update({ spl_set_id: splSetId })
+      .eq('id', variantId);
+  }
+
+  for (const ing of ingredients) {
+    try {
+      // Check if ingredient exists (case-insensitive)
+      const { data: existing } = await supabase
+        .from('ingredients')
+        .select('id, name')
+        .ilike('name', ing.name)
+        .limit(1);
+
+      let ingredientId: string;
+
+      if (existing && existing.length > 0) {
+        ingredientId = existing[0].id;
+      } else {
+        // Check synonyms
+        const { data: bySynonym } = await supabase
+          .from('ingredients')
+          .select('id, name')
+          .contains('synonyms', [ing.name.toLowerCase()])
+          .limit(1);
+
+        if (bySynonym && bySynonym.length > 0) {
+          ingredientId = bySynonym[0].id;
+        } else {
+          // Create new ingredient with needs_verification status
+          const { data: newIng, error: createError } = await supabase
+            .from('ingredients')
+            .insert({
+              name: ing.name,
+              risk: 'low', // Default, needs review
+              default_status: 'needs_verification',
+            })
+            .select('id')
+            .single();
+
+          if (createError) {
+            console.error(`Error creating ingredient ${ing.name}:`, createError);
+            continue;
+          }
+          ingredientId = newIng.id;
+          console.log(`Created new ingredient: ${ing.name}`);
+        }
+      }
+
+      // Check if link already exists
+      const { data: existingLink } = await supabase
+        .from('rx_variant_ingredients')
+        .select('id')
+        .eq('variant_id', variantId)
+        .eq('ingredient_id', ingredientId)
+        .limit(1);
+
+      if (!existingLink || existingLink.length === 0) {
+        // Create link
+        const { error: linkError } = await supabase
+          .from('rx_variant_ingredients')
+          .insert({
+            variant_id: variantId,
+            ingredient_id: ingredientId,
+            role: 'inactive',
+            notes: 'Auto-imported from DailyMed SPL',
+          });
+
+        if (!linkError) {
+          linkedCount++;
+        } else {
+          console.error(`Error linking ingredient ${ing.name}:`, linkError);
+        }
+      }
+    } catch (err) {
+      console.error(`Error processing ingredient ${ing.name}:`, err);
+    }
+  }
+
+  return linkedCount;
+}
+
 async function seedDrug(
   supabase: any, 
   supabaseUrl: string,
-  drugId: string
+  drugId: string,
+  includeIngredients: boolean = true
 ): Promise<SeedResult> {
   try {
-    // Get the drug info
     const { data: drug, error: drugError } = await supabase
       .from('rx_meds')
       .select('id, generic_name, dosage_forms')
@@ -162,7 +428,7 @@ async function seedDrug(
       .single();
 
     if (drugError || !drug) {
-      return { drugName: drugId, manufacturersAdded: 0, error: 'Drug not found' };
+      return { drugName: drugId, manufacturersAdded: 0, ingredientsLinked: 0, error: 'Drug not found' };
     }
 
     console.log(`Seeding manufacturers for: ${drug.generic_name}`);
@@ -182,12 +448,13 @@ async function seedDrug(
 
     if (!manufacturerData.manufacturers || manufacturerData.manufacturers.length === 0) {
       console.log(`No manufacturers found for ${drug.generic_name}`);
-      return { drugName: drug.generic_name, manufacturersAdded: 0, error: 'No FDA data found' };
+      return { drugName: drug.generic_name, manufacturersAdded: 0, ingredientsLinked: 0, error: 'No FDA data found' };
     }
 
     console.log(`Found ${manufacturerData.manufacturers.length} manufacturers for ${drug.generic_name}`);
 
     let added = 0;
+    let totalIngredientsLinked = 0;
 
     for (const mfr of manufacturerData.manufacturers as ManufacturerData[]) {
       try {
@@ -204,6 +471,17 @@ async function seedDrug(
           continue;
         }
 
+        // Fetch inactive ingredients from DailyMed if requested
+        let splResult: SPLParseResult | null = null;
+        if (includeIngredients && mfr.ndcCodes.length > 0) {
+          console.log(`Fetching DailyMed SPL for ${mfr.labelerName}...`);
+          splResult = await fetchInactiveIngredients(mfr.ndcCodes);
+          
+          if (splResult.success) {
+            console.log(`Found ${splResult.inactiveIngredients.length} inactive ingredients for ${mfr.labelerName}`);
+          }
+        }
+
         // Insert the variant
         const { data: variant, error: variantError } = await supabase
           .from('rx_variants')
@@ -215,7 +493,8 @@ async function seedDrug(
             strength_text: mfr.strength,
             ndc_list: mfr.ndcCodes,
             data_source: 'openfda',
-            notes: `FDA data: ${mfr.productCount} products listed`
+            spl_set_id: splResult?.setId || null,
+            notes: `FDA data: ${mfr.productCount} products. ${splResult?.inactiveIngredients.length || 0} inactive ingredients.`
           })
           .select('id')
           .single();
@@ -225,6 +504,17 @@ async function seedDrug(
           continue;
         }
 
+        // Link inactive ingredients
+        if (splResult?.success && splResult.inactiveIngredients.length > 0) {
+          const linkedCount = await linkIngredientsToVariant(
+            supabase,
+            variant.id,
+            splResult.inactiveIngredients,
+            splResult.setId
+          );
+          totalIngredientsLinked += linkedCount;
+        }
+
         // Create initial verdict for this variant
         const { error: verdictError } = await supabase
           .from('rx_verdicts')
@@ -232,7 +522,9 @@ async function seedDrug(
             variant_id: variant.id,
             status: 'needs_verification',
             confidence: 0,
-            summary_reason: 'Awaiting ingredient analysis from DailyMed'
+            summary_reason: splResult?.inactiveIngredients.length 
+              ? `Awaiting review of ${splResult.inactiveIngredients.length} inactive ingredients`
+              : 'Awaiting ingredient analysis'
           });
 
         if (verdictError) {
@@ -240,18 +532,25 @@ async function seedDrug(
         }
 
         added++;
-        console.log(`Added variant: ${mfr.labelerName} (${mfr.ndcCodes.length} NDCs)`);
+        console.log(`Added variant: ${mfr.labelerName} (${mfr.ndcCodes.length} NDCs, ${splResult?.inactiveIngredients.length || 0} ingredients)`);
+
+        // Delay to respect DailyMed rate limits
+        await new Promise(resolve => setTimeout(resolve, 300));
 
       } catch (err) {
         console.error(`Error processing manufacturer ${mfr.labelerName}:`, err);
       }
     }
 
-    return { drugName: drug.generic_name, manufacturersAdded: added };
+    return { 
+      drugName: drug.generic_name, 
+      manufacturersAdded: added,
+      ingredientsLinked: totalIngredientsLinked
+    };
 
   } catch (error: unknown) {
     console.error(`Error seeding drug ${drugId}:`, error);
     const message = error instanceof Error ? error.message : 'Unknown error';
-    return { drugName: drugId, manufacturersAdded: 0, error: message };
+    return { drugName: drugId, manufacturersAdded: 0, ingredientsLinked: 0, error: message };
   }
 }
