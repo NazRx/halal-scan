@@ -14,7 +14,7 @@ import { toast } from "@/hooks/use-toast";
 
 const Account = () => {
   const navigate = useNavigate();
-  const { user, profile, loading, isAuthenticated, signOut, updateProfile } = useAuth();
+  const { user, profile, loading, isAuthenticated, isAdmin, signOut, updateProfile } = useAuth();
   const [fullName, setFullName] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -96,6 +96,30 @@ const Account = () => {
               <p className="text-muted-foreground">{displayEmail}</p>
             </div>
           </div>
+
+          {/* Admin Dashboard Link */}
+          {isAdmin && (
+            <Card className="p-6 mb-4 bg-gradient-to-r from-red-500/10 to-orange-500/10 border-red-500/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <Shield className="h-5 w-5 text-red-500" />
+                  </div>
+                  <div>
+                    <h2 className="font-semibold">Admin Access</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Manage users, verdicts, and analytics
+                    </p>
+                  </div>
+                </div>
+                <Link to="/admin">
+                  <Button variant="outline" size="sm">
+                    Admin Dashboard
+                  </Button>
+                </Link>
+              </div>
+            </Card>
+          )}
 
           {/* Subscription Card */}
           <Card className="p-6 mb-8 bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">

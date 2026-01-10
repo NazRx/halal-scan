@@ -12,6 +12,8 @@ interface AuthState {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
+  roles: string[];
+  isAdmin: boolean;
   loading: boolean;
 }
 
@@ -20,6 +22,8 @@ export function useAuth() {
     user: null,
     session: null,
     profile: null,
+    roles: [],
+    isAdmin: false,
     loading: true,
   });
 
@@ -34,13 +38,14 @@ export function useAuth() {
           loading: false,
         }));
 
-        // Defer profile fetch with setTimeout to avoid deadlock
+        // Defer profile and roles fetch with setTimeout to avoid deadlock
         if (session?.user) {
           setTimeout(() => {
             fetchProfile(session.user.id);
+            fetchRoles(session.user.id);
           }, 0);
         } else {
-          setState(prev => ({ ...prev, profile: null }));
+          setState(prev => ({ ...prev, profile: null, roles: [], isAdmin: false }));
         }
       }
     );
@@ -56,6 +61,7 @@ export function useAuth() {
 
       if (session?.user) {
         fetchProfile(session.user.id);
+        fetchRoles(session.user.id);
       }
     });
 
@@ -72,6 +78,17 @@ export function useAuth() {
     if (data) {
       setState(prev => ({ ...prev, profile: data }));
     }
+  };
+
+  const fetchRoles = async (userId: string) => {
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId);
+
+    const roles = data?.map(r => r.role) || [];
+    const isAdmin = roles.includes('admin');
+    setState(prev => ({ ...prev, roles, isAdmin }));
   };
 
   const signIn = async (email: string, password: string) => {
@@ -125,6 +142,8 @@ export function useAuth() {
     user: state.user,
     session: state.session,
     profile: state.profile,
+    roles: state.roles,
+    isAdmin: state.isAdmin,
     loading: state.loading,
     isAuthenticated: !!state.session,
     signIn,
