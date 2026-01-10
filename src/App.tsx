@@ -16,7 +16,14 @@ import Pricing from "./pages/Pricing";
 import Account from "./pages/Account";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import AdminLayout from "./pages/admin/AdminLayout";
+import Dashboard from "./pages/admin/Dashboard";
+import VerdictManagement from "./pages/admin/VerdictManagement";
+import UserManagement from "./pages/admin/UserManagement";
+import Analytics from "./pages/admin/Analytics";
 import SeedData from "./pages/admin/SeedData";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -38,7 +45,20 @@ const App = () => (
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/account" element={<Account />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/admin/seed-data" element={<SeedData />} />
+          
+          {/* Admin Routes */}
+          <Route path="/admin" element={
+            <ProtectedRoute requireAdmin>
+              <AdminLayout />
+            </ProtectedRoute>
+          }>
+            <Route index element={<Dashboard />} />
+            <Route path="verdicts" element={<VerdictManagement />} />
+            <Route path="users" element={<UserManagement />} />
+            <Route path="analytics" element={<Analytics />} />
+            <Route path="seed-data" element={<SeedData />} />
+          </Route>
+          
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
