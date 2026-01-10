@@ -4,8 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Play, Pause, RefreshCw, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Play, Pause, RefreshCw, CheckCircle, XCircle, Loader2, Pill } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface DrugSummary {
@@ -13,12 +15,14 @@ interface DrugSummary {
   genericName: string;
   totalVariants: number;
   fdaVariants: number;
+  withIngredients: number;
   manualVariants: number;
 }
 
 interface SeedResult {
   drugName: string;
   manufacturersAdded: number;
+  ingredientsLinked: number;
   error?: string;
 }
 
@@ -36,7 +40,8 @@ export default function SeedData() {
   const [progress, setProgress] = useState(0);
   const [currentDrug, setCurrentDrug] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [stats, setStats] = useState({ processed: 0, added: 0, errors: 0 });
+  const [stats, setStats] = useState({ processed: 0, added: 0, ingredients: 0, errors: 0 });
+  const [includeIngredients, setIncludeIngredients] = useState(true);
 
   const addLog = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
     setLogs(prev => [...prev, { timestamp: new Date(), message, type }]);
@@ -65,7 +70,7 @@ export default function SeedData() {
 
     try {
       const { data, error } = await supabase.functions.invoke('seed-manufacturers', {
-        body: { action: 'seed-one', drugId }
+        body: { action: 'seed-one', drugId, includeIngredients }
       });
 
       if (error) throw error;
@@ -74,11 +79,13 @@ export default function SeedData() {
         addLog(`${drugName}: ${data.error}`, 'error');
         setStats(prev => ({ ...prev, errors: prev.errors + 1 }));
       } else {
-        addLog(`${drugName}: Added ${data.manufacturersAdded} manufacturers`, 'success');
+        const ingMsg = data.ingredientsLinked > 0 ? `, ${data.ingredientsLinked} ingredients` : '';
+        addLog(`${drugName}: Added ${data.manufacturersAdded} manufacturers${ingMsg}`, 'success');
         setStats(prev => ({ 
           ...prev, 
           processed: prev.processed + 1,
-          added: prev.added + data.manufacturersAdded 
+          added: prev.added + data.manufacturersAdded,
+          ingredients: prev.ingredients + (data.ingredientsLinked || 0)
         }));
       }
     } catch (err: any) {
@@ -90,7 +97,7 @@ export default function SeedData() {
   const startSeeding = async () => {
     setIsSeeding(true);
     setIsPaused(false);
-    setStats({ processed: 0, added: 0, errors: 0 });
+    setStats({ processed: 0, added: 0, ingredients: 0, errors: 0 });
     setLogs([]);
     addLog('Starting seeding process...', 'info');
 
@@ -129,7 +136,7 @@ export default function SeedData() {
 
     try {
       const { data, error } = await supabase.functions.invoke('seed-manufacturers', {
-        body: { action: 'seed-batch', batchSize: 10, offset: stats.processed }
+        body: { action: 'seed-batch', batchSize: 10, offset: stats.processed, includeIngredients }
       });
 
       if (error) throw error;
@@ -142,13 +149,15 @@ export default function SeedData() {
           if (r.error) {
             addLog(`${r.drugName}: ${r.error}`, 'error');
           } else {
-            addLog(`${r.drugName}: Added ${r.manufacturersAdded} manufacturers`, 'success');
+            const ingMsg = r.ingredientsLinked > 0 ? `, ${r.ingredientsLinked} ingredients` : '';
+            addLog(`${r.drugName}: Added ${r.manufacturersAdded} manufacturers${ingMsg}`, 'success');
           }
         });
         
         setStats(prev => ({
           processed: prev.processed + data.processed,
           added: prev.added + results.reduce((sum, r) => sum + r.manufacturersAdded, 0),
+          ingredients: prev.ingredients + results.reduce((sum, r) => sum + (r.ingredientsLinked || 0), 0),
           errors: prev.errors + results.filter(r => r.error).length
         }));
       }
@@ -161,8 +170,40 @@ export default function SeedData() {
     }
   };
 
+  const fetchMissingIngredients = async () => {
+    setIsSeeding(true);
+    addLog('Fetching ingredients for variants missing SPL data...', 'info');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('seed-manufacturers', {
+        body: { action: 'fetch-ingredients', batchSize: 20 }
+      });
+
+      if (error) throw error;
+
+      data.results?.forEach((r: any) => {
+        if (r.error) {
+          addLog(`${r.manufacturer}: ${r.error}`, 'error');
+        } else if (r.ingredientsLinked > 0) {
+          addLog(`${r.manufacturer}: Linked ${r.ingredientsLinked} ingredients`, 'success');
+        }
+      });
+
+      const totalLinked = data.results?.reduce((sum: number, r: any) => sum + (r.ingredientsLinked || 0), 0) || 0;
+      setStats(prev => ({ ...prev, ingredients: prev.ingredients + totalLinked }));
+      
+      addLog(`Processed ${data.processed} variants, linked ${totalLinked} ingredients`, 'success');
+      fetchDrugList();
+    } catch (err: any) {
+      addLog(`Error: ${err.message}`, 'error');
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
   const needsSeeding = drugs.filter(d => d.fdaVariants === 0).length;
   const alreadySeeded = drugs.filter(d => d.fdaVariants > 0).length;
+  const withIngredients = drugs.filter(d => d.withIngredients > 0).length;
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -183,7 +224,7 @@ export default function SeedData() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Total Drugs</CardDescription>
@@ -204,8 +245,14 @@ export default function SeedData() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Manufacturers Added</CardDescription>
-              <CardTitle className="text-3xl text-primary">{stats.added}</CardTitle>
+              <CardDescription>With Ingredients</CardDescription>
+              <CardTitle className="text-3xl text-blue-500">{withIngredients}</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Ingredients Linked</CardDescription>
+              <CardTitle className="text-3xl text-primary">{stats.ingredients}</CardTitle>
             </CardHeader>
           </Card>
         </div>
@@ -219,6 +266,20 @@ export default function SeedData() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="include-ingredients"
+                  checked={includeIngredients}
+                  onCheckedChange={setIncludeIngredients}
+                />
+                <Label htmlFor="include-ingredients" className="flex items-center gap-2">
+                  <Pill className="h-4 w-4" />
+                  Fetch inactive ingredients from DailyMed
+                </Label>
+              </div>
+            </div>
+
             <div className="flex flex-wrap gap-3">
               <Button onClick={fetchDrugList} disabled={isLoading || isSeeding}>
                 {isLoading ? (
@@ -245,6 +306,11 @@ export default function SeedData() {
 
                   <Button onClick={seedByBatch} disabled={isSeeding} variant="outline">
                     Seed Next Batch (10)
+                  </Button>
+
+                  <Button onClick={fetchMissingIngredients} disabled={isSeeding} variant="secondary">
+                    <Pill className="h-4 w-4 mr-2" />
+                    Fetch Missing Ingredients
                   </Button>
                 </>
               )}
