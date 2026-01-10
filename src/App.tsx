@@ -14,6 +14,7 @@ import Report from "./pages/Report";
 import SelectManufacturer from "./pages/SelectManufacturer";
 import Pricing from "./pages/Pricing";
 import Account from "./pages/Account";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import SeedData from "./pages/admin/SeedData";
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
           <Route path="/report/:id" element={<Report />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/account" element={<Account />} />
+          <Route path="/auth" element={<Auth />} />
           <Route path="/admin/seed-data" element={<SeedData />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
