@@ -159,7 +159,57 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+
+    // ============ AUTHENTICATION CHECK ============
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Unauthorized: No auth header');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Create client with user's token for auth verification
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims) {
+      console.log('Unauthorized: Invalid token', claimsError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = claimsData.claims.sub;
+    console.log(`Authenticated user: ${userId}`);
+
+    // ============ ADMIN AUTHORIZATION CHECK ============
+    // Use service role client to check admin status
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    const { data: roles, error: roleError } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('role', 'admin');
+
+    if (roleError || !roles || roles.length === 0) {
+      console.log(`Forbidden: User ${userId} is not an admin`);
+      return new Response(
+        JSON.stringify({ error: 'Admin access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`Admin verified: ${userId}`);
+    // ============ END AUTH CHECKS ============
 
     const { action = 'seed', drugId, batchSize = 10, offset = 0, includeIngredients = true } = await req.json();
 
@@ -193,7 +243,7 @@ serve(async (req) => {
 
     // Action: seed-one - Seed a single drug
     if (action === 'seed-one' && drugId) {
-      const result = await seedDrug(supabase, supabaseUrl, drugId, includeIngredients);
+      const result = await seedDrug(supabase, supabaseUrl, drugId, includeIngredients, authHeader);
       return new Response(
         JSON.stringify(result),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -239,7 +289,7 @@ serve(async (req) => {
 
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        const result = await seedDrug(supabase, supabaseUrl, drug.id, includeIngredients);
+        const result = await seedDrug(supabase, supabaseUrl, drug.id, includeIngredients, authHeader);
         results.push(result);
       }
 
@@ -421,7 +471,8 @@ async function seedDrug(
   supabase: any, 
   supabaseUrl: string,
   drugId: string,
-  includeIngredients: boolean = true
+  includeIngredients: boolean = true,
+  authHeader: string
 ): Promise<SeedResult> {
   try {
     const { data: drug, error: drugError } = await supabase
@@ -436,13 +487,13 @@ async function seedDrug(
 
     console.log(`Seeding manufacturers for: ${drug.generic_name}`);
 
-    // Call the fetch-drug-manufacturers function
+    // Call the fetch-drug-manufacturers function with auth header
     const fetchUrl = `${supabaseUrl}/functions/v1/fetch-drug-manufacturers`;
     const response = await fetch(fetchUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`
+        'Authorization': authHeader
       },
       body: JSON.stringify({ genericName: drug.generic_name, limit: 10 })
     });
@@ -499,7 +550,6 @@ async function seedDrug(
             marketing_category: mfr.marketingCategory || null,
             data_source: mfr.isBrand ? 'openFDA-NDA' : 'openFDA-ANDA',
             spl_set_id: splResult?.setId || null,
-            notes: `${mfr.isBrand ? 'BRAND' : 'GENERIC'} - FDA data: ${mfr.productCount} products. ${splResult?.inactiveIngredients.length || 0} inactive ingredients.${mfr.brandName ? ` Brand name: ${mfr.brandName}` : ''}`
           })
           .select('id')
           .single();
@@ -509,8 +559,11 @@ async function seedDrug(
           continue;
         }
 
-        // Link inactive ingredients
-        if (splResult?.success && splResult.inactiveIngredients.length > 0) {
+        added++;
+        console.log(`Added variant for ${mfr.labelerName}`);
+
+        // Link inactive ingredients if found
+        if (splResult?.success && splResult.inactiveIngredients.length > 0 && variant) {
           const linkedCount = await linkIngredientsToVariant(
             supabase,
             variant.id,
@@ -518,44 +571,42 @@ async function seedDrug(
             splResult.setId
           );
           totalIngredientsLinked += linkedCount;
+          console.log(`Linked ${linkedCount} ingredients to ${mfr.labelerName}`);
         }
 
         // Create initial verdict for this variant
-        const { error: verdictError } = await supabase
-          .from('rx_verdicts')
-          .insert({
-            variant_id: variant.id,
-            status: 'needs_verification',
-            confidence: 0,
-            summary_reason: splResult?.inactiveIngredients.length 
-              ? `Awaiting review of ${splResult.inactiveIngredients.length} inactive ingredients`
-              : 'Awaiting ingredient analysis'
-          });
-
-        if (verdictError) {
-          console.error(`Error inserting verdict for ${mfr.labelerName}:`, verdictError);
+        if (variant) {
+          await supabase
+            .from('rx_verdicts')
+            .insert({
+              variant_id: variant.id,
+              status: 'needs_verification',
+              confidence: 0,
+              summary_reason: 'Awaiting ingredient analysis'
+            });
         }
 
-        added++;
-        console.log(`Added variant: ${mfr.labelerName} (${mfr.ndcCodes.length} NDCs, ${splResult?.inactiveIngredients.length || 0} ingredients)`);
-
-        // Delay to respect DailyMed rate limits
+        // Small delay to avoid rate limits
         await new Promise(resolve => setTimeout(resolve, 300));
 
-      } catch (err) {
-        console.error(`Error processing manufacturer ${mfr.labelerName}:`, err);
+      } catch (mfrErr) {
+        console.error(`Error processing manufacturer ${mfr.labelerName}:`, mfrErr);
       }
     }
 
-    return { 
-      drugName: drug.generic_name, 
+    return {
+      drugName: drug.generic_name,
       manufacturersAdded: added,
       ingredientsLinked: totalIngredientsLinked
     };
 
-  } catch (error: unknown) {
+  } catch (error) {
     console.error(`Error seeding drug ${drugId}:`, error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return { drugName: drugId, manufacturersAdded: 0, ingredientsLinked: 0, error: message };
+    return { 
+      drugName: drugId, 
+      manufacturersAdded: 0, 
+      ingredientsLinked: 0, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
   }
 }
