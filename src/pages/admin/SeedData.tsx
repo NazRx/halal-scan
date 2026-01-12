@@ -310,7 +310,7 @@ export default function SeedData() {
             addLog(`${r.drugName}: ${r.error}`, 'error');
           } else {
             const ingMsg = r.ingredientsLinked > 0 ? `, ${r.ingredientsLinked} ingredients` : '';
-            addLog(`${r.drugName}: Added ${r.manufacturersAdded} manufacturers${ingMsg}`, 'success');
+            addLog(`${r.drugName}: Added ${r.manufacturersAdded} manufacturers (brand + generics)${ingMsg}`, 'success');
           }
         });
         
@@ -378,7 +378,7 @@ export default function SeedData() {
           <div>
             <h1 className="text-2xl font-bold">Seed Manufacturer Data</h1>
             <p className="text-muted-foreground">
-              Fetch top 10 manufacturers for each drug from FDA/openFDA
+              Fetch brand manufacturer + top 10 generic manufacturers for each drug from FDA/openFDA
             </p>
           </div>
         </div>

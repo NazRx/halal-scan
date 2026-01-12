@@ -9,6 +9,9 @@ const corsHeaders = {
 interface ManufacturerData {
   labelerName: string;
   labelerCode: string;
+  brandName?: string;
+  isBrand: boolean;
+  marketingCategory: string;
   ndcCodes: string[];
   dosageForm: string | null;
   strength: string | null;
@@ -492,9 +495,11 @@ async function seedDrug(
             dosage_form: mfr.dosageForm || drug.dosage_forms?.[0] || null,
             strength_text: mfr.strength,
             ndc_list: mfr.ndcCodes,
-            data_source: 'openfda',
+            is_brand: mfr.isBrand || false,
+            marketing_category: mfr.marketingCategory || null,
+            data_source: mfr.isBrand ? 'openFDA-NDA' : 'openFDA-ANDA',
             spl_set_id: splResult?.setId || null,
-            notes: `FDA data: ${mfr.productCount} products. ${splResult?.inactiveIngredients.length || 0} inactive ingredients.`
+            notes: `${mfr.isBrand ? 'BRAND' : 'GENERIC'} - FDA data: ${mfr.productCount} products. ${splResult?.inactiveIngredients.length || 0} inactive ingredients.${mfr.brandName ? ` Brand name: ${mfr.brandName}` : ''}`
           })
           .select('id')
           .single();
