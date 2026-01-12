@@ -11,3 +11,12 @@ verify_jwt = false
 
 [functions.seed-manufacturers]
 verify_jwt = false
+
+[functions.fetch-fda-labels]
+verify_jwt = false
+
+[functions.check-fda-recalls]
+verify_jwt = false
+
+[functions.fetch-rxnorm]
+verify_jwt = false
