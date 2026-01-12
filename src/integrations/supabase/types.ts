@@ -420,8 +420,10 @@ export type Database = {
           dosage_form: string | null
           has_active_recall: boolean | null
           id: string
+          is_brand: boolean | null
           labeler_code: string | null
           manufacturer: string | null
+          marketing_category: string | null
           ndc_list: string[] | null
           notes: string | null
           recall_info: Json | null
@@ -437,8 +439,10 @@ export type Database = {
           dosage_form?: string | null
           has_active_recall?: boolean | null
           id?: string
+          is_brand?: boolean | null
           labeler_code?: string | null
           manufacturer?: string | null
+          marketing_category?: string | null
           ndc_list?: string[] | null
           notes?: string | null
           recall_info?: Json | null
@@ -454,8 +458,10 @@ export type Database = {
           dosage_form?: string | null
           has_active_recall?: boolean | null
           id?: string
+          is_brand?: boolean | null
           labeler_code?: string | null
           manufacturer?: string | null
+          marketing_category?: string | null
           ndc_list?: string[] | null
           notes?: string | null
           recall_info?: Json | null
