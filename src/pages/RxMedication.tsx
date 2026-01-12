@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,10 @@ import { ManufacturerCompare } from "@/components/rx/ManufacturerCompare";
 import { VariantAwarenessBanner } from "@/components/rx/VariantAwarenessBanner";
 import { NoManufacturerDataEmpty } from "@/components/browse/EmptyStates";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PremiumGate, PremiumBadge } from "@/components/premium/PremiumGate";
+import { useSubscription } from "@/hooks/useSubscription";
 import { motion } from "framer-motion";
-import { ArrowLeft, ExternalLink, Share2, Bookmark, Building2, Check, X, HelpCircle, FileText, AlertCircle, ArrowLeftRight } from "lucide-react";
+import { ArrowLeft, ExternalLink, Share2, Bookmark, Building2, Check, X, HelpCircle, FileText, AlertCircle, ArrowLeftRight, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -26,6 +28,9 @@ interface Manufacturer {
   status: 'halal' | 'questionable' | 'not-halal' | 'unknown';
   confidence: number;
   inactiveIngredients: { name: string; status: 'halal' | 'questionable' | 'not-halal' | 'unknown'; notes?: string }[];
+  classificationRationale?: string;
+  isBrand?: boolean;
+  isPromoted?: boolean;
 }
 
 interface MedicationData {
@@ -62,6 +67,7 @@ const statusIcons = {
 const RxMedication = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isPro } = useSubscription();
   
   const [medication, setMedication] = useState<MedicationData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,11 +112,11 @@ const RxMedication = () => {
           .select('*')
           .eq('rx_med_id', id);
 
-        // Fetch verdicts for variants
+        // Fetch verdicts for variants (including classification_rationale)
         const variantIds = (variants || []).map(v => v.id);
         const { data: verdicts } = await supabase
           .from('rx_verdicts')
-          .select('*')
+          .select('*, classification_rationale')
           .in('variant_id', variantIds.length > 0 ? variantIds : ['none']);
 
         // Fetch ingredients for variants
@@ -139,6 +145,9 @@ const RxMedication = () => {
             status: mapStatus(verdict?.status || null),
             confidence: verdict?.confidence || 0,
             inactiveIngredients: ingredients,
+            classificationRationale: verdict?.classification_rationale || undefined,
+            isBrand: variant.is_brand || false,
+            isPromoted: variant.is_promoted || false,
           };
         });
 
@@ -207,6 +216,34 @@ const RxMedication = () => {
   // Determine displayed status and confidence based on selection
   const displayStatus = selectedManufacturer?.status || medication?.status || 'unknown';
   const displayConfidence = selectedManufacturer?.confidence || medication?.confidence || 0;
+
+  // Sort manufacturers: halal first for premium users, then promoted, then alphabetical
+  const sortedManufacturers = useMemo(() => {
+    if (!medication?.manufacturers) return [];
+    
+    const mfrs = [...medication.manufacturers];
+    
+    if (isPro) {
+      // Premium: halal first, then promoted, then by status priority
+      const statusPriority = { halal: 0, questionable: 1, unknown: 2, 'not-halal': 3 };
+      mfrs.sort((a, b) => {
+        // Promoted first
+        if (a.isPromoted && !b.isPromoted) return -1;
+        if (!a.isPromoted && b.isPromoted) return 1;
+        // Then by status
+        const aPriority = statusPriority[a.status] ?? 2;
+        const bPriority = statusPriority[b.status] ?? 2;
+        if (aPriority !== bPriority) return aPriority - bPriority;
+        // Finally alphabetical
+        return a.name.localeCompare(b.name);
+      });
+    } else {
+      // Free: alphabetical only
+      mfrs.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    
+    return mfrs;
+  }, [medication?.manufacturers, isPro]);
 
   const handleUploadPhoto = () => {
     toast.info("Photo upload coming soon", {
@@ -314,9 +351,9 @@ const RxMedication = () => {
             )}
           </Card>
 
-          {/* Manufacturer Selector Card */}
+          {/* Manufacturer Selector Card - with halal-first sorting for Pro */}
           <ManufacturerSelector
-            manufacturers={medication.manufacturers.map((m) => ({
+            manufacturers={sortedManufacturers.map((m) => ({
               id: m.id,
               name: m.name,
               dosageForm: m.dosageForm,
@@ -328,6 +365,14 @@ const RxMedication = () => {
             onRequestReview={handleRequestReview}
             className="mb-6"
           />
+
+          {/* Halal-First Sorting Indicator for Pro users */}
+          {isPro && medication.manufacturers.length > 1 && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4 px-1">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span>Halal options shown first</span>
+            </div>
+          )}
 
           {/* Quick Actions */}
           <div className="flex gap-2 mb-6">
@@ -400,6 +445,35 @@ const RxMedication = () => {
                   </div>
 
                   <ConfidenceMeter value={selectedManufacturer.confidence} className="mb-3" />
+
+                  {/* Classification Rationale - Premium Only */}
+                  <PremiumGate
+                    upgradeMessage="Upgrade to Pro to see detailed classification rationale for each manufacturer"
+                    className="mb-4"
+                    showBlurredPreview={!!selectedManufacturer.classificationRationale}
+                  >
+                    {selectedManufacturer.classificationRationale && (
+                      <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Sparkles className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-medium">Classification Rationale</span>
+                          <PremiumBadge />
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedManufacturer.classificationRationale}
+                        </p>
+                      </div>
+                    )}
+                    {!selectedManufacturer.classificationRationale && (
+                      <div className="p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Sparkles className="h-4 w-4" />
+                          <span className="font-medium">Classification Rationale</span>
+                        </div>
+                        <p>No detailed rationale available yet for this NDC.</p>
+                      </div>
+                    )}
+                  </PremiumGate>
 
                   {selectedManufacturer.inactiveIngredients.length === 0 ? (
                     <div className="p-4 text-center bg-muted/50 rounded-lg">

@@ -1,10 +1,15 @@
+import { useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { Check, Zap } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Check, Zap, Loader2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
+import { toast } from "sonner";
 
 const plans = [
   {
@@ -88,6 +93,62 @@ const faqs = [
 ];
 
 const Pricing = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated, session } = useAuth();
+  const { tier, isPro, isClinic } = useSubscription();
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
+  const handleSubscribe = async (planName: string) => {
+    if (!isAuthenticated) {
+      toast.info("Please sign in first", {
+        description: "You need to be signed in to subscribe.",
+      });
+      navigate("/auth");
+      return;
+    }
+
+    if (planName === "Clinic") {
+      toast.info("Contact us for Clinic plans", {
+        description: "Email us at support@halalrx.com for custom enterprise pricing.",
+      });
+      return;
+    }
+
+    if (planName === "Free") {
+      navigate("/app");
+      return;
+    }
+
+    setLoadingPlan(planName);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: { plan: planName.toLowerCase() },
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (err) {
+      console.error('Checkout error:', err);
+      toast.error("Failed to start checkout", {
+        description: "Please try again or contact support.",
+      });
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
+
+  // Determine which plan the user is currently on
+  const getCurrentPlanBadge = (planName: string) => {
+    if (planName === "Free" && tier === "free") return true;
+    if (planName === "Pro" && isPro && !isClinic) return true;
+    if (planName === "Clinic" && isClinic) return true;
+    return false;
+  };
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -114,24 +175,33 @@ const Pricing = () => {
 
           {/* Plans Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-20">
-            {plans.map((plan, index) => (
-              <motion.div
-                key={plan.name}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className={`relative ${plan.popular ? "md:-mt-4 md:mb-4" : ""}`}
-              >
-                <Card className={`p-8 h-full flex flex-col ${
-                  plan.popular
-                    ? "border-primary shadow-xl shadow-primary/10 bg-gradient-to-b from-primary/5 to-transparent"
-                    : ""
-                }`}>
-                  {plan.popular && (
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full gradient-hero text-primary-foreground text-sm font-medium">
-                      Most Popular
-                    </div>
-                  )}
+            {plans.map((plan, index) => {
+              const isCurrentPlan = getCurrentPlanBadge(plan.name);
+              const isLoading = loadingPlan === plan.name;
+              
+              return (
+                <motion.div
+                  key={plan.name}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className={`relative ${plan.popular ? "md:-mt-4 md:mb-4" : ""}`}
+                >
+                  <Card className={`p-8 h-full flex flex-col ${
+                    plan.popular
+                      ? "border-primary shadow-xl shadow-primary/10 bg-gradient-to-b from-primary/5 to-transparent"
+                      : ""
+                  } ${isCurrentPlan ? "ring-2 ring-primary" : ""}`}>
+                    {plan.popular && !isCurrentPlan && (
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full gradient-hero text-primary-foreground text-sm font-medium">
+                        Most Popular
+                      </div>
+                    )}
+                    {isCurrentPlan && (
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-primary-foreground text-sm font-medium">
+                        Your Plan
+                      </div>
+                    )}
 
                   <div className="text-center mb-6">
                     <h2 className="text-xl font-bold mb-2">{plan.name}</h2>
@@ -163,7 +233,6 @@ const Pricing = () => {
                     </ul>
                   </div>
 
-                  <Link to={plan.name === "Clinic" ? "#contact" : "/app"}>
                     <Button
                       className={`w-full ${
                         plan.popular
@@ -172,13 +241,18 @@ const Pricing = () => {
                       }`}
                       variant={plan.popular ? "default" : "outline"}
                       size="lg"
+                      onClick={() => handleSubscribe(plan.name)}
+                      disabled={isLoading || isCurrentPlan}
                     >
-                      {plan.cta}
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : null}
+                      {isCurrentPlan ? "Current Plan" : plan.cta}
                     </Button>
-                  </Link>
-                </Card>
-              </motion.div>
-            ))}
+                  </Card>
+                </motion.div>
+              );
+            })}
           </div>
 
           {/* Enterprise CTA */}
