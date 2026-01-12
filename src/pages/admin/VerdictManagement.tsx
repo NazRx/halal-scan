@@ -24,6 +24,7 @@ interface Verdict {
   clinical_breakdown: string | null;
   pharmacist_note: string | null;
   halal_alternatives: string[] | null;
+  classification_rationale: string | null;
   updated_at: string;
   // Joined data
   medication_name?: string;
@@ -121,6 +122,7 @@ export default function VerdictManagement() {
           clinical_breakdown: editingVerdict.clinical_breakdown,
           pharmacist_note: editingVerdict.pharmacist_note,
           halal_alternatives: editingVerdict.halal_alternatives,
+          classification_rationale: editingVerdict.classification_rationale,
           updated_by: user.id,
         })
         .eq('id', editingVerdict.id);
@@ -367,6 +369,21 @@ export default function VerdictManagement() {
                   placeholder="Alternative halal medications..."
                   rows={3}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Classification Rationale (Premium)</Label>
+                <Textarea
+                  value={editingVerdict.classification_rationale || ''}
+                  onChange={(e) =>
+                    setEditingVerdict({ ...editingVerdict, classification_rationale: e.target.value })
+                  }
+                  placeholder="Specific reasoning for this NDC's classification. E.g., 'Contains porcine-derived gelatin confirmed by manufacturer' or 'All inactive ingredients verified halal through IFANCA certification'..."
+                  rows={4}
+                />
+                <p className="text-xs text-muted-foreground">
+                  This detailed rationale is shown only to Pro users for each specific NDC/manufacturer.
+                </p>
               </div>
             </div>
           )}

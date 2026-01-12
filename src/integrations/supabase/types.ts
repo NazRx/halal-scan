@@ -421,11 +421,13 @@ export type Database = {
           has_active_recall: boolean | null
           id: string
           is_brand: boolean | null
+          is_promoted: boolean | null
           labeler_code: string | null
           manufacturer: string | null
           marketing_category: string | null
           ndc_list: string[] | null
           notes: string | null
+          promoted_until: string | null
           recall_info: Json | null
           rx_med_id: string
           rxcui: string | null
@@ -440,11 +442,13 @@ export type Database = {
           has_active_recall?: boolean | null
           id?: string
           is_brand?: boolean | null
+          is_promoted?: boolean | null
           labeler_code?: string | null
           manufacturer?: string | null
           marketing_category?: string | null
           ndc_list?: string[] | null
           notes?: string | null
+          promoted_until?: string | null
           recall_info?: Json | null
           rx_med_id: string
           rxcui?: string | null
@@ -459,11 +463,13 @@ export type Database = {
           has_active_recall?: boolean | null
           id?: string
           is_brand?: boolean | null
+          is_promoted?: boolean | null
           labeler_code?: string | null
           manufacturer?: string | null
           marketing_category?: string | null
           ndc_list?: string[] | null
           notes?: string | null
+          promoted_until?: string | null
           recall_info?: Json | null
           rx_med_id?: string
           rxcui?: string | null
@@ -483,6 +489,7 @@ export type Database = {
       }
       rx_verdicts: {
         Row: {
+          classification_rationale: string | null
           clinical_breakdown: string | null
           confidence: number
           darura_context: string | null
@@ -496,6 +503,7 @@ export type Database = {
           variant_id: string
         }
         Insert: {
+          classification_rationale?: string | null
           clinical_breakdown?: string | null
           confidence?: number
           darura_context?: string | null
@@ -509,6 +517,7 @@ export type Database = {
           variant_id: string
         }
         Update: {
+          classification_rationale?: string | null
           clinical_breakdown?: string | null
           confidence?: number
           darura_context?: string | null
