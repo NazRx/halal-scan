@@ -6,8 +6,9 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
-import { User, Mail, Lock, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, AlertCircle, Loader2, ArrowLeft, CheckCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 
 const signInSchema = z.object({
@@ -25,11 +26,17 @@ const signUpSchema = z.object({
   path: ["confirmPassword"],
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().trim().email("Please enter a valid email address"),
+});
+
 const Auth = () => {
   const navigate = useNavigate();
   const { isAuthenticated, loading: authLoading, signIn, signUp } = useAuth();
   
   const [activeTab, setActiveTab] = useState("signin");
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -44,6 +51,7 @@ const Auth = () => {
     password: "",
     confirmPassword: "",
   });
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -110,6 +118,42 @@ const Auth = () => {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setFieldErrors({});
+
+    const result = forgotPasswordSchema.safeParse({ email: forgotPasswordEmail });
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) errors[err.path[0] as string] = err.message;
+      });
+      setFieldErrors(errors);
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
+      redirectTo: `${window.location.origin}/auth?reset=true`,
+    });
+    setLoading(false);
+
+    if (error) {
+      setError(error.message);
+    } else {
+      setForgotPasswordSent(true);
+    }
+  };
+
+  const resetForgotPassword = () => {
+    setShowForgotPassword(false);
+    setForgotPasswordSent(false);
+    setForgotPasswordEmail("");
+    setError(null);
+    setFieldErrors({});
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -129,228 +173,327 @@ const Auth = () => {
           className="max-w-md mx-auto"
         >
           <Card className="p-8">
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 rounded-full gradient-hero flex items-center justify-center mx-auto mb-4">
-                <User className="h-8 w-8 text-primary-foreground" />
-              </div>
-              <h1 className="text-2xl font-bold mb-2">Welcome</h1>
-              <p className="text-muted-foreground">
-                Sign in to manage your account or create a new one.
-              </p>
-            </div>
+            {showForgotPassword ? (
+              // Forgot Password View
+              <>
+                <button
+                  type="button"
+                  onClick={resetForgotPassword}
+                  className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Sign In
+                </button>
 
-            {error && (
-              <div className="mb-6 p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                <p className="text-sm text-destructive">{error}</p>
-              </div>
+                <div className="text-center mb-8">
+                  <div className="w-16 h-16 rounded-full gradient-hero flex items-center justify-center mx-auto mb-4">
+                    <Mail className="h-8 w-8 text-primary-foreground" />
+                  </div>
+                  <h1 className="text-2xl font-bold mb-2">Reset Password</h1>
+                  <p className="text-muted-foreground">
+                    Enter your email address and we'll send you a link to reset your password.
+                  </p>
+                </div>
+
+                {error && (
+                  <div className="mb-6 p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                    <p className="text-sm text-destructive">{error}</p>
+                  </div>
+                )}
+
+                {forgotPasswordSent ? (
+                  <div className="text-center">
+                    <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle className="h-8 w-8 text-green-500" />
+                    </div>
+                    <h2 className="text-lg font-semibold mb-2">Check Your Email</h2>
+                    <p className="text-muted-foreground mb-6">
+                      We've sent a password reset link to <strong>{forgotPasswordEmail}</strong>. 
+                      Please check your inbox and follow the instructions.
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={resetForgotPassword}
+                      className="w-full"
+                    >
+                      Back to Sign In
+                    </Button>
+                  </div>
+                ) : (
+                  <form className="space-y-4" onSubmit={handleForgotPassword}>
+                    <div>
+                      <label htmlFor="forgot-email" className="block text-sm font-medium mb-2">
+                        Email Address
+                      </label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="forgot-email"
+                          type="email"
+                          placeholder="your@email.com"
+                          className="pl-10"
+                          value={forgotPasswordEmail}
+                          onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                        />
+                      </div>
+                      {fieldErrors.email && (
+                        <p className="text-sm text-destructive mt-1">{fieldErrors.email}</p>
+                      )}
+                    </div>
+                    <Button
+                      type="submit"
+                      className="w-full gradient-hero text-primary-foreground"
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        "Send Reset Link"
+                      )}
+                    </Button>
+                  </form>
+                )}
+              </>
+            ) : (
+              // Sign In / Sign Up View
+              <>
+                <div className="text-center mb-8">
+                  <div className="w-16 h-16 rounded-full gradient-hero flex items-center justify-center mx-auto mb-4">
+                    <User className="h-8 w-8 text-primary-foreground" />
+                  </div>
+                  <h1 className="text-2xl font-bold mb-2">Welcome</h1>
+                  <p className="text-muted-foreground">
+                    Sign in to manage your account or create a new one.
+                  </p>
+                </div>
+
+                {error && (
+                  <div className="mb-6 p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                    <p className="text-sm text-destructive">{error}</p>
+                  </div>
+                )}
+
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <TabsList className="grid w-full grid-cols-2 mb-6">
+                    <TabsTrigger value="signin">Sign In</TabsTrigger>
+                    <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="signin">
+                    <form className="space-y-4" onSubmit={handleSignIn}>
+                      <div>
+                        <label htmlFor="signin-email" className="block text-sm font-medium mb-2">
+                          Email
+                        </label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="signin-email"
+                            type="email"
+                            placeholder="your@email.com"
+                            className="pl-10"
+                            value={signInForm.email}
+                            onChange={(e) => setSignInForm({ ...signInForm, email: e.target.value })}
+                          />
+                        </div>
+                        {fieldErrors.email && (
+                          <p className="text-sm text-destructive mt-1">{fieldErrors.email}</p>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label htmlFor="signin-password" className="block text-sm font-medium">
+                            Password
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowForgotPassword(true)}
+                            className="text-sm text-primary hover:underline"
+                          >
+                            Forgot password?
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="signin-password"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="••••••••"
+                            className="pl-10 pr-10"
+                            value={signInForm.password}
+                            onChange={(e) => setSignInForm({ ...signInForm, password: e.target.value })}
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            onClick={() => setShowPassword(!showPassword)}
+                          >
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                        {fieldErrors.password && (
+                          <p className="text-sm text-destructive mt-1">{fieldErrors.password}</p>
+                        )}
+                      </div>
+                      <Button
+                        type="submit"
+                        className="w-full gradient-hero text-primary-foreground"
+                        disabled={loading}
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Signing in...
+                          </>
+                        ) : (
+                          "Sign In"
+                        )}
+                      </Button>
+                    </form>
+
+                    <div className="mt-6 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        Don't have an account?{" "}
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("signup")}
+                          className="text-primary hover:underline"
+                        >
+                          Sign up
+                        </button>
+                      </p>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="signup">
+                    <form className="space-y-4" onSubmit={handleSignUp}>
+                      <div>
+                        <label htmlFor="signup-name" className="block text-sm font-medium mb-2">
+                          Full Name
+                        </label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="signup-name"
+                            type="text"
+                            placeholder="Your Name"
+                            className="pl-10"
+                            value={signUpForm.fullName}
+                            onChange={(e) => setSignUpForm({ ...signUpForm, fullName: e.target.value })}
+                          />
+                        </div>
+                        {fieldErrors.fullName && (
+                          <p className="text-sm text-destructive mt-1">{fieldErrors.fullName}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label htmlFor="signup-email" className="block text-sm font-medium mb-2">
+                          Email
+                        </label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="signup-email"
+                            type="email"
+                            placeholder="your@email.com"
+                            className="pl-10"
+                            value={signUpForm.email}
+                            onChange={(e) => setSignUpForm({ ...signUpForm, email: e.target.value })}
+                          />
+                        </div>
+                        {fieldErrors.email && (
+                          <p className="text-sm text-destructive mt-1">{fieldErrors.email}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label htmlFor="signup-password" className="block text-sm font-medium mb-2">
+                          Password
+                        </label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="signup-password"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="••••••••"
+                            className="pl-10 pr-10"
+                            value={signUpForm.password}
+                            onChange={(e) => setSignUpForm({ ...signUpForm, password: e.target.value })}
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            onClick={() => setShowPassword(!showPassword)}
+                          >
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                        {fieldErrors.password && (
+                          <p className="text-sm text-destructive mt-1">{fieldErrors.password}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label htmlFor="signup-confirm" className="block text-sm font-medium mb-2">
+                          Confirm Password
+                        </label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="signup-confirm"
+                            type={showConfirmPassword ? "text" : "password"}
+                            placeholder="••••••••"
+                            className="pl-10 pr-10"
+                            value={signUpForm.confirmPassword}
+                            onChange={(e) => setSignUpForm({ ...signUpForm, confirmPassword: e.target.value })}
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          >
+                            {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                        {fieldErrors.confirmPassword && (
+                          <p className="text-sm text-destructive mt-1">{fieldErrors.confirmPassword}</p>
+                        )}
+                      </div>
+                      <Button
+                        type="submit"
+                        className="w-full gradient-hero text-primary-foreground"
+                        disabled={loading}
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Creating account...
+                          </>
+                        ) : (
+                          "Create Account"
+                        )}
+                      </Button>
+                    </form>
+
+                    <div className="mt-6 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        Already have an account?{" "}
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("signin")}
+                          className="text-primary hover:underline"
+                        >
+                          Sign in
+                        </button>
+                      </p>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </>
             )}
-
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="signin">
-                <form className="space-y-4" onSubmit={handleSignIn}>
-                  <div>
-                    <label htmlFor="signin-email" className="block text-sm font-medium mb-2">
-                      Email
-                    </label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signin-email"
-                        type="email"
-                        placeholder="your@email.com"
-                        className="pl-10"
-                        value={signInForm.email}
-                        onChange={(e) => setSignInForm({ ...signInForm, email: e.target.value })}
-                      />
-                    </div>
-                    {fieldErrors.email && (
-                      <p className="text-sm text-destructive mt-1">{fieldErrors.email}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label htmlFor="signin-password" className="block text-sm font-medium mb-2">
-                      Password
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signin-password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="••••••••"
-                        className="pl-10 pr-10"
-                        value={signInForm.password}
-                        onChange={(e) => setSignInForm({ ...signInForm, password: e.target.value })}
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    {fieldErrors.password && (
-                      <p className="text-sm text-destructive mt-1">{fieldErrors.password}</p>
-                    )}
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full gradient-hero text-primary-foreground"
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Signing in...
-                      </>
-                    ) : (
-                      "Sign In"
-                    )}
-                  </Button>
-                </form>
-
-                <div className="mt-6 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    Don't have an account?{" "}
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("signup")}
-                      className="text-primary hover:underline"
-                    >
-                      Sign up
-                    </button>
-                  </p>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="signup">
-                <form className="space-y-4" onSubmit={handleSignUp}>
-                  <div>
-                    <label htmlFor="signup-name" className="block text-sm font-medium mb-2">
-                      Full Name
-                    </label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-name"
-                        type="text"
-                        placeholder="Your Name"
-                        className="pl-10"
-                        value={signUpForm.fullName}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, fullName: e.target.value })}
-                      />
-                    </div>
-                    {fieldErrors.fullName && (
-                      <p className="text-sm text-destructive mt-1">{fieldErrors.fullName}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label htmlFor="signup-email" className="block text-sm font-medium mb-2">
-                      Email
-                    </label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-email"
-                        type="email"
-                        placeholder="your@email.com"
-                        className="pl-10"
-                        value={signUpForm.email}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, email: e.target.value })}
-                      />
-                    </div>
-                    {fieldErrors.email && (
-                      <p className="text-sm text-destructive mt-1">{fieldErrors.email}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label htmlFor="signup-password" className="block text-sm font-medium mb-2">
-                      Password
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="••••••••"
-                        className="pl-10 pr-10"
-                        value={signUpForm.password}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, password: e.target.value })}
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    {fieldErrors.password && (
-                      <p className="text-sm text-destructive mt-1">{fieldErrors.password}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label htmlFor="signup-confirm" className="block text-sm font-medium mb-2">
-                      Confirm Password
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-confirm"
-                        type={showConfirmPassword ? "text" : "password"}
-                        placeholder="••••••••"
-                        className="pl-10 pr-10"
-                        value={signUpForm.confirmPassword}
-                        onChange={(e) => setSignUpForm({ ...signUpForm, confirmPassword: e.target.value })}
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      >
-                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    {fieldErrors.confirmPassword && (
-                      <p className="text-sm text-destructive mt-1">{fieldErrors.confirmPassword}</p>
-                    )}
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full gradient-hero text-primary-foreground"
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Creating account...
-                      </>
-                    ) : (
-                      "Create Account"
-                    )}
-                  </Button>
-                </form>
-
-                <div className="mt-6 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    Already have an account?{" "}
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("signin")}
-                      className="text-primary hover:underline"
-                    >
-                      Sign in
-                    </button>
-                  </p>
-                </div>
-              </TabsContent>
-            </Tabs>
           </Card>
         </motion.div>
       </main>

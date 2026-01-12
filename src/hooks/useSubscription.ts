@@ -19,7 +19,7 @@ const PRODUCT_TIERS: Record<string, SubscriptionTier> = {
 };
 
 export function useSubscription() {
-  const { user, session } = useAuth();
+  const { user, session, isAdmin, rolesLoading } = useAuth();
   const [state, setState] = useState<SubscriptionState>({
     tier: 'free',
     subscriptionEnd: null,
@@ -81,11 +81,17 @@ export function useSubscription() {
     return () => clearInterval(interval);
   }, [user, checkSubscription]);
 
+  // Admins always get premium access
+  const effectiveTier: SubscriptionTier = isAdmin ? 'clinic' : state.tier;
+
   return {
     ...state,
-    isPro: state.tier === 'pro' || state.tier === 'clinic',
-    isClinic: state.tier === 'clinic',
-    isFree: state.tier === 'free',
+    tier: effectiveTier,
+    isPro: isAdmin || state.tier === 'pro' || state.tier === 'clinic',
+    isClinic: isAdmin || state.tier === 'clinic',
+    isFree: !isAdmin && state.tier === 'free',
+    isAdminOverride: isAdmin && state.tier === 'free', // Indicates admin is getting free access
+    loading: state.loading || rolesLoading,
     refresh: checkSubscription,
   };
 }
