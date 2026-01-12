@@ -6,8 +6,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Play, Pause, RefreshCw, CheckCircle, XCircle, Loader2, Pill } from 'lucide-react';
+import { ArrowLeft, Play, Pause, RefreshCw, CheckCircle, XCircle, Loader2, Pill, AlertTriangle, FileText, Link2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface DrugSummary {
@@ -29,7 +30,14 @@ interface SeedResult {
 interface LogEntry {
   timestamp: Date;
   message: string;
-  type: 'info' | 'success' | 'error';
+  type: 'info' | 'success' | 'error' | 'warning';
+}
+
+interface FDAEnrichmentStats {
+  labelsChecked: number;
+  recallsChecked: number;
+  rxnormLinked: number;
+  recallsFound: number;
 }
 
 export default function SeedData() {
@@ -41,10 +49,162 @@ export default function SeedData() {
   const [currentDrug, setCurrentDrug] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [stats, setStats] = useState({ processed: 0, added: 0, ingredients: 0, errors: 0 });
+  const [fdaStats, setFdaStats] = useState<FDAEnrichmentStats>({ labelsChecked: 0, recallsChecked: 0, rxnormLinked: 0, recallsFound: 0 });
   const [includeIngredients, setIncludeIngredients] = useState(true);
+  const [activeTab, setActiveTab] = useState('manufacturers');
 
-  const addLog = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
+  const addLog = (message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
     setLogs(prev => [...prev, { timestamp: new Date(), message, type }]);
+  };
+
+  // FDA Label fetching
+  const fetchFDALabels = async () => {
+    setIsSeeding(true);
+    addLog('Fetching FDA drug labels...', 'info');
+
+    const drugsToProcess = drugs.slice(0, 20); // Process in batches
+    let processed = 0;
+
+    for (const drug of drugsToProcess) {
+      try {
+        const { data, error } = await supabase.functions.invoke('fetch-fda-labels', {
+          body: { genericName: drug.genericName }
+        });
+
+        if (error) throw error;
+
+        if (data.labelData) {
+          // Update the rx_meds table with label data
+          const { error: updateError } = await supabase
+            .from('rx_meds')
+            .update({
+              fda_warnings: data.labelData.warnings?.slice(0, 5) || null,
+              fda_indications: data.labelData.indications?.substring(0, 2000) || null,
+              fda_contraindications: data.labelData.contraindications?.substring(0, 2000) || null,
+              fda_drug_interactions: data.labelData.drugInteractions?.slice(0, 10) || null
+            })
+            .eq('id', drug.id);
+
+          if (updateError) {
+            addLog(`${drug.genericName}: DB update failed - ${updateError.message}`, 'error');
+          } else {
+            addLog(`${drug.genericName}: Label data saved`, 'success');
+            processed++;
+          }
+        } else {
+          addLog(`${drug.genericName}: No label data found`, 'warning');
+        }
+
+        setFdaStats(prev => ({ ...prev, labelsChecked: prev.labelsChecked + 1 }));
+        await new Promise(resolve => setTimeout(resolve, 200)); // Rate limit
+      } catch (err: any) {
+        addLog(`${drug.genericName}: ${err.message}`, 'error');
+      }
+    }
+
+    addLog(`Completed: Updated ${processed} drugs with FDA label data`, 'success');
+    setIsSeeding(false);
+  };
+
+  // FDA Recall checking
+  const checkFDARecalls = async () => {
+    setIsSeeding(true);
+    addLog('Checking FDA recall status...', 'info');
+
+    let recallsFound = 0;
+
+    for (const drug of drugs) {
+      try {
+        // Get manufacturers for this drug
+        const { data: variants } = await supabase
+          .from('rx_variants')
+          .select('id, manufacturer')
+          .eq('rx_med_id', drug.id);
+
+        const manufacturers = variants?.map(v => v.manufacturer).filter(Boolean) || [];
+
+        const { data, error } = await supabase.functions.invoke('check-fda-recalls', {
+          body: { genericName: drug.genericName, manufacturers }
+        });
+
+        if (error) throw error;
+
+        if (data.totalRecalls > 0) {
+          addLog(`${drug.genericName}: ${data.totalRecalls} recalls found!`, 'warning');
+          recallsFound += data.totalRecalls;
+
+          // Update variants with recall info
+          for (const status of data.manufacturerStatuses || []) {
+            if (status.hasActiveRecall && status.recalls.length > 0) {
+              const variant = variants?.find(v => 
+                v.manufacturer?.toLowerCase().includes(status.labelerName.toLowerCase().split(' ')[0])
+              );
+              if (variant) {
+                await supabase
+                  .from('rx_variants')
+                  .update({
+                    has_active_recall: true,
+                    recall_info: status.recalls
+                  })
+                  .eq('id', variant.id);
+              }
+            }
+          }
+        } else {
+          addLog(`${drug.genericName}: No recalls`, 'info');
+        }
+
+        setFdaStats(prev => ({ ...prev, recallsChecked: prev.recallsChecked + 1 }));
+        await new Promise(resolve => setTimeout(resolve, 300));
+      } catch (err: any) {
+        addLog(`${drug.genericName}: ${err.message}`, 'error');
+      }
+    }
+
+    setFdaStats(prev => ({ ...prev, recallsFound }));
+    addLog(`Completed: Found ${recallsFound} total recalls`, recallsFound > 0 ? 'warning' : 'success');
+    setIsSeeding(false);
+  };
+
+  // RxNorm linking
+  const fetchRxNormData = async () => {
+    setIsSeeding(true);
+    addLog('Fetching RxNorm identifiers...', 'info');
+
+    let linked = 0;
+
+    for (const drug of drugs) {
+      try {
+        const { data, error } = await supabase.functions.invoke('fetch-rxnorm', {
+          body: { genericName: drug.genericName }
+        });
+
+        if (error) throw error;
+
+        if (data.rxcui) {
+          // Update all variants for this drug with the RxCUI
+          const { error: updateError } = await supabase
+            .from('rx_variants')
+            .update({ rxcui: data.rxcui })
+            .eq('rx_med_id', drug.id);
+
+          if (!updateError) {
+            addLog(`${drug.genericName}: RxCUI ${data.rxcui}`, 'success');
+            linked++;
+          }
+        } else {
+          addLog(`${drug.genericName}: No RxNorm match`, 'warning');
+        }
+
+        setFdaStats(prev => ({ ...prev, rxnormLinked: linked }));
+        await new Promise(resolve => setTimeout(resolve, 200));
+      } catch (err: any) {
+        addLog(`${drug.genericName}: ${err.message}`, 'error');
+      }
+    }
+
+    addLog(`Completed: Linked ${linked} drugs to RxNorm`, 'success');
+    setIsSeeding(false);
   };
 
   const fetchDrugList = async () => {
@@ -257,67 +417,193 @@ export default function SeedData() {
           </Card>
         </div>
 
-        {/* Controls */}
+        {/* Controls with Tabs */}
         <Card>
           <CardHeader>
-            <CardTitle>Seeding Controls</CardTitle>
+            <CardTitle>FDA Data Sources</CardTitle>
             <CardDescription>
-              Fetch manufacturer data from openFDA for all drugs
+              Fetch and enrich drug data from multiple FDA sources
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="include-ingredients"
-                  checked={includeIngredients}
-                  onCheckedChange={setIncludeIngredients}
-                />
-                <Label htmlFor="include-ingredients" className="flex items-center gap-2">
-                  <Pill className="h-4 w-4" />
-                  Fetch inactive ingredients from DailyMed
-                </Label>
-              </div>
-            </div>
+          <CardContent>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="manufacturers">Manufacturers</TabsTrigger>
+                <TabsTrigger value="labels">Drug Labels</TabsTrigger>
+                <TabsTrigger value="recalls">Recalls</TabsTrigger>
+                <TabsTrigger value="rxnorm">RxNorm</TabsTrigger>
+              </TabsList>
 
-            <div className="flex flex-wrap gap-3">
-              <Button onClick={fetchDrugList} disabled={isLoading || isSeeding}>
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
-                Load Drug List
-              </Button>
+              {/* Manufacturers Tab */}
+              <TabsContent value="manufacturers" className="space-y-4 mt-4">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="include-ingredients"
+                      checked={includeIngredients}
+                      onCheckedChange={setIncludeIngredients}
+                    />
+                    <Label htmlFor="include-ingredients" className="flex items-center gap-2">
+                      <Pill className="h-4 w-4" />
+                      Fetch inactive ingredients from DailyMed
+                    </Label>
+                  </div>
+                </div>
 
-              {drugs.length > 0 && (
-                <>
-                  {!isSeeding ? (
-                    <Button onClick={startSeeding} variant="default">
-                      <Play className="h-4 w-4 mr-2" />
-                      Start Seeding All
-                    </Button>
-                  ) : (
-                    <Button onClick={pauseSeeding} variant="destructive">
-                      <Pause className="h-4 w-4 mr-2" />
-                      Pause
+                <div className="flex flex-wrap gap-3">
+                  <Button onClick={fetchDrugList} disabled={isLoading || isSeeding}>
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
+                    Load Drug List
+                  </Button>
+
+                  {drugs.length > 0 && (
+                    <>
+                      {!isSeeding ? (
+                        <Button onClick={startSeeding} variant="default">
+                          <Play className="h-4 w-4 mr-2" />
+                          Start Seeding All
+                        </Button>
+                      ) : (
+                        <Button onClick={pauseSeeding} variant="destructive">
+                          <Pause className="h-4 w-4 mr-2" />
+                          Pause
+                        </Button>
+                      )}
+
+                      <Button onClick={seedByBatch} disabled={isSeeding} variant="outline">
+                        Seed Next Batch (10)
+                      </Button>
+
+                      <Button onClick={fetchMissingIngredients} disabled={isSeeding} variant="secondary">
+                        <Pill className="h-4 w-4 mr-2" />
+                        Fetch Missing Ingredients
+                      </Button>
+                    </>
+                  )}
+                </div>
+
+                <p className="text-sm text-muted-foreground">
+                  Fetches top 10 manufacturers per drug from openFDA NDC endpoint + inactive ingredients from DailyMed SPL.
+                </p>
+              </TabsContent>
+
+              {/* Drug Labels Tab */}
+              <TabsContent value="labels" className="space-y-4 mt-4">
+                <div className="flex flex-wrap gap-3">
+                  <Button onClick={fetchDrugList} disabled={isLoading || isSeeding}>
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
+                    Load Drug List
+                  </Button>
+
+                  {drugs.length > 0 && (
+                    <Button onClick={fetchFDALabels} disabled={isSeeding}>
+                      {isSeeding ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <FileText className="h-4 w-4 mr-2" />
+                      )}
+                      Fetch FDA Labels
                     </Button>
                   )}
+                </div>
 
-                  <Button onClick={seedByBatch} disabled={isSeeding} variant="outline">
-                    Seed Next Batch (10)
+                <div className="flex gap-4 text-sm">
+                  <Badge variant="outline">
+                    Labels Checked: {fdaStats.labelsChecked}
+                  </Badge>
+                </div>
+
+                <p className="text-sm text-muted-foreground">
+                  Fetches warnings, indications, contraindications, and drug interactions from openFDA Drug Label API.
+                </p>
+              </TabsContent>
+
+              {/* Recalls Tab */}
+              <TabsContent value="recalls" className="space-y-4 mt-4">
+                <div className="flex flex-wrap gap-3">
+                  <Button onClick={fetchDrugList} disabled={isLoading || isSeeding}>
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
+                    Load Drug List
                   </Button>
 
-                  <Button onClick={fetchMissingIngredients} disabled={isSeeding} variant="secondary">
-                    <Pill className="h-4 w-4 mr-2" />
-                    Fetch Missing Ingredients
+                  {drugs.length > 0 && (
+                    <Button onClick={checkFDARecalls} disabled={isSeeding} variant="destructive">
+                      {isSeeding ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <AlertTriangle className="h-4 w-4 mr-2" />
+                      )}
+                      Check FDA Recalls
+                    </Button>
+                  )}
+                </div>
+
+                <div className="flex gap-4 text-sm">
+                  <Badge variant="outline">
+                    Drugs Checked: {fdaStats.recallsChecked}
+                  </Badge>
+                  {fdaStats.recallsFound > 0 && (
+                    <Badge variant="destructive">
+                      Recalls Found: {fdaStats.recallsFound}
+                    </Badge>
+                  )}
+                </div>
+
+                <p className="text-sm text-muted-foreground">
+                  Checks openFDA Enforcement (Recalls) API for any active or historical drug recalls by manufacturer.
+                </p>
+              </TabsContent>
+
+              {/* RxNorm Tab */}
+              <TabsContent value="rxnorm" className="space-y-4 mt-4">
+                <div className="flex flex-wrap gap-3">
+                  <Button onClick={fetchDrugList} disabled={isLoading || isSeeding}>
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
+                    Load Drug List
                   </Button>
-                </>
-              )}
-            </div>
+
+                  {drugs.length > 0 && (
+                    <Button onClick={fetchRxNormData} disabled={isSeeding}>
+                      {isSeeding ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Link2 className="h-4 w-4 mr-2" />
+                      )}
+                      Fetch RxNorm IDs
+                    </Button>
+                  )}
+                </div>
+
+                <div className="flex gap-4 text-sm">
+                  <Badge variant="outline">
+                    RxCUI Linked: {fdaStats.rxnormLinked}
+                  </Badge>
+                </div>
+
+                <p className="text-sm text-muted-foreground">
+                  Links drugs to RxNorm (RxCUI) identifiers from NIH RxNav API for interoperability with other systems.
+                </p>
+              </TabsContent>
+            </Tabs>
 
             {isSeeding && (
-              <div className="space-y-2">
+              <div className="space-y-2 mt-4">
                 <div className="flex justify-between text-sm">
                   <span>Progress: {stats.processed} / {needsSeeding}</span>
                   <span>{Math.round(progress)}%</span>
@@ -357,11 +643,15 @@ export default function SeedData() {
                     <div key={i} className="flex items-start gap-2 text-sm">
                       {log.type === 'success' && <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />}
                       {log.type === 'error' && <XCircle className="h-4 w-4 text-red-500 mt-0.5" />}
+                      {log.type === 'warning' && <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5" />}
                       {log.type === 'info' && <div className="h-4 w-4 mt-0.5" />}
                       <span className="text-muted-foreground">
                         {log.timestamp.toLocaleTimeString()}
                       </span>
-                      <span className={log.type === 'error' ? 'text-red-500' : ''}>
+                      <span className={
+                        log.type === 'error' ? 'text-red-500' : 
+                        log.type === 'warning' ? 'text-amber-500' : ''
+                      }>
                         {log.message}
                       </span>
                     </div>

@@ -312,6 +312,10 @@ export type Database = {
           default_status: Database["public"]["Enums"]["halal_status"] | null
           dosage_forms: string[] | null
           drug_class: string | null
+          fda_contraindications: string | null
+          fda_drug_interactions: string[] | null
+          fda_indications: string | null
+          fda_warnings: string[] | null
           generic_name: string
           id: string
           notes: string | null
@@ -326,6 +330,10 @@ export type Database = {
           default_status?: Database["public"]["Enums"]["halal_status"] | null
           dosage_forms?: string[] | null
           drug_class?: string | null
+          fda_contraindications?: string | null
+          fda_drug_interactions?: string[] | null
+          fda_indications?: string | null
+          fda_warnings?: string[] | null
           generic_name: string
           id?: string
           notes?: string | null
@@ -340,6 +348,10 @@ export type Database = {
           default_status?: Database["public"]["Enums"]["halal_status"] | null
           dosage_forms?: string[] | null
           drug_class?: string | null
+          fda_contraindications?: string | null
+          fda_drug_interactions?: string[] | null
+          fda_indications?: string | null
+          fda_warnings?: string[] | null
           generic_name?: string
           id?: string
           notes?: string | null
@@ -406,12 +418,15 @@ export type Database = {
           created_at: string
           data_source: string | null
           dosage_form: string | null
+          has_active_recall: boolean | null
           id: string
           labeler_code: string | null
           manufacturer: string | null
           ndc_list: string[] | null
           notes: string | null
+          recall_info: Json | null
           rx_med_id: string
+          rxcui: string | null
           spl_set_id: string | null
           strength_text: string | null
           updated_at: string
@@ -420,12 +435,15 @@ export type Database = {
           created_at?: string
           data_source?: string | null
           dosage_form?: string | null
+          has_active_recall?: boolean | null
           id?: string
           labeler_code?: string | null
           manufacturer?: string | null
           ndc_list?: string[] | null
           notes?: string | null
+          recall_info?: Json | null
           rx_med_id: string
+          rxcui?: string | null
           spl_set_id?: string | null
           strength_text?: string | null
           updated_at?: string
@@ -434,12 +452,15 @@ export type Database = {
           created_at?: string
           data_source?: string | null
           dosage_form?: string | null
+          has_active_recall?: boolean | null
           id?: string
           labeler_code?: string | null
           manufacturer?: string | null
           ndc_list?: string[] | null
           notes?: string | null
+          recall_info?: Json | null
           rx_med_id?: string
+          rxcui?: string | null
           spl_set_id?: string | null
           strength_text?: string | null
           updated_at?: string
