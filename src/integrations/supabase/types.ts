@@ -710,6 +710,62 @@ export type Database = {
         }
         Relationships: []
       }
+      user_feedback: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          email: string | null
+          feedback_type: Database["public"]["Enums"]["feedback_type"]
+          id: string
+          message: string
+          page_url: string | null
+          related_medication_id: string | null
+          related_product_upc: string | null
+          status: Database["public"]["Enums"]["feedback_status"]
+          subject: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          email?: string | null
+          feedback_type?: Database["public"]["Enums"]["feedback_type"]
+          id?: string
+          message: string
+          page_url?: string | null
+          related_medication_id?: string | null
+          related_product_upc?: string | null
+          status?: Database["public"]["Enums"]["feedback_status"]
+          subject: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          email?: string | null
+          feedback_type?: Database["public"]["Enums"]["feedback_type"]
+          id?: string
+          message?: string
+          page_url?: string | null
+          related_medication_id?: string | null
+          related_product_upc?: string | null
+          status?: Database["public"]["Enums"]["feedback_status"]
+          subject?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_feedback_related_medication_id_fkey"
+            columns: ["related_medication_id"]
+            isOneToOne: false
+            referencedRelation: "rx_meds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -755,6 +811,13 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      feedback_status: "new" | "reviewed" | "resolved" | "dismissed"
+      feedback_type:
+        | "correction"
+        | "suggestion"
+        | "compliment"
+        | "question"
+        | "other"
       halal_status: "halal" | "mushbooh" | "haram" | "needs_verification"
       ingredient_role: "active" | "inactive"
       org_role: "owner" | "admin" | "member"
@@ -902,6 +965,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      feedback_status: ["new", "reviewed", "resolved", "dismissed"],
+      feedback_type: [
+        "correction",
+        "suggestion",
+        "compliment",
+        "question",
+        "other",
+      ],
       halal_status: ["halal", "mushbooh", "haram", "needs_verification"],
       ingredient_role: ["active", "inactive"],
       org_role: ["owner", "admin", "member"],

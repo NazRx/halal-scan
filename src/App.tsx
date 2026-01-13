@@ -23,6 +23,8 @@ import VerdictManagement from "./pages/admin/VerdictManagement";
 import UserManagement from "./pages/admin/UserManagement";
 import Analytics from "./pages/admin/Analytics";
 import SeedData from "./pages/admin/SeedData";
+import FeedbackManagement from "./pages/admin/FeedbackManagement";
+import Feedback from "./pages/Feedback";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +47,7 @@ const App = () => (
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/account" element={<Account />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/feedback" element={<Feedback />} />
           
           {/* Admin Routes */}
           <Route path="/admin" element={
@@ -57,6 +60,7 @@ const App = () => (
             <Route path="users" element={<UserManagement />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="seed-data" element={<SeedData />} />
+            <Route path="feedback" element={<FeedbackManagement />} />
           </Route>
           
           <Route path="*" element={<NotFound />} />
