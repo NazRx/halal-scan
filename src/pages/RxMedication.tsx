@@ -16,6 +16,7 @@ import { PremiumGate, PremiumBadge } from "@/components/premium/PremiumGate";
 import { useSubscription } from "@/hooks/useSubscription";
 import { motion } from "framer-motion";
 import { ArrowLeft, ExternalLink, Share2, Bookmark, Building2, Check, X, HelpCircle, FileText, AlertCircle, ArrowLeftRight, Sparkles } from "lucide-react";
+import { LastVerifiedBadge } from "@/components/ui/last-verified-badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -46,6 +47,7 @@ interface MedicationData {
   manufacturers: Manufacturer[];
   sources: { name: string; url: string }[];
   lastUpdated: string;
+  lastVerifiedDate: string; // ISO date string for precise verification date
 }
 
 // Map DB status to UI status
@@ -198,6 +200,7 @@ const RxMedication = () => {
             { name: "IFANCA", url: `https://www.ifanca.org/` },
           ],
           lastUpdated: new Date(rxMed.updated_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+          lastVerifiedDate: rxMed.updated_at, // Store the ISO date for the badge
         });
       } catch (err) {
         console.error('Error loading medication:', err);
@@ -344,11 +347,14 @@ const RxMedication = () => {
 
             {/* Selected manufacturer indicator */}
             {selectedManufacturer && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                 <Building2 className="h-4 w-4" />
                 <span>Showing results for: <strong className="text-foreground">{selectedManufacturer.name}</strong></span>
               </div>
             )}
+            
+            {/* Last Verified Badge - Premium Feature */}
+            <LastVerifiedBadge date={medication.lastVerifiedDate} />
           </Card>
 
           {/* Manufacturer Selector Card - with halal-first sorting for Pro */}

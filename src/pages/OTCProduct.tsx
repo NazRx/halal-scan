@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfidenceMeter } from "@/components/ui/confidence-meter";
 import { Disclaimer } from "@/components/ui/disclaimer";
+import { LastVerifiedBadge } from "@/components/ui/last-verified-badge";
 import { motion } from "framer-motion";
 import { ArrowLeft, ExternalLink, Share2, Bookmark, AlertCircle, Check, X, HelpCircle, FileText } from "lucide-react";
 
@@ -87,7 +88,10 @@ const OTCProduct = () => {
 
               <ConfidenceMeter value={product.confidence} className="max-w-xs mx-auto mb-4" />
 
-              <p className="text-sm text-muted-foreground">{product.summary}</p>
+              <p className="text-sm text-muted-foreground mb-4">{product.summary}</p>
+              
+              {/* Last Verified Badge - Premium Feature */}
+              <LastVerifiedBadge date={new Date()} className="justify-center" />
             </div>
           </Card>
 
