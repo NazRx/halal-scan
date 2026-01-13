@@ -6,7 +6,8 @@ import {
   BarChart3, 
   Database,
   ChevronLeft,
-  Shield
+  Shield,
+  MessageSquare
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ const navItems = [
   { title: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { title: 'Verdicts', href: '/admin/verdicts', icon: FileCheck },
   { title: 'Users', href: '/admin/users', icon: Users },
+  { title: 'Feedback', href: '/admin/feedback', icon: MessageSquare },
   { title: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { title: 'Seed Data', href: '/admin/seed-data', icon: Database },
 ];

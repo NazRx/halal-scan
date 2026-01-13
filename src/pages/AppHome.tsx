@@ -7,6 +7,8 @@ import { Scan, Search, Clock, TrendingUp, ChevronRight, Library } from "lucide-r
 import { StatusBadge } from "@/components/ui/status-badge";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { Disclaimer } from "@/components/ui/disclaimer";
+import { UpdateNotice } from "@/components/ui/update-notice";
+import { FeedbackButton } from "@/components/feedback/FeedbackButton";
 // Mock data for recent activity
 const recentActivity = [
   { id: "1", name: "Advil Liquid Gels", status: "halal" as const, time: "2 hours ago" },
@@ -183,13 +185,23 @@ const AppHome = () => {
           </div>
         </motion.section>
 
-        {/* Disclaimer Banner */}
+        {/* Update Notice + Feedback */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="mt-12"
+          className="mt-12 space-y-4"
         >
+          <UpdateNotice />
+          <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-muted/50 border">
+            <div>
+              <h4 className="font-medium text-sm">Help us improve</h4>
+              <p className="text-xs text-muted-foreground">
+                Share your thoughts, corrections, or suggestions
+              </p>
+            </div>
+            <FeedbackButton size="sm" />
+          </div>
           <Disclaimer variant="banner" showOtcNote />
         </motion.div>
       </main>
