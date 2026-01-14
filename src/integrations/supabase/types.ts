@@ -540,6 +540,41 @@ export type Database = {
           },
         ]
       }
+      saved_manufacturers: {
+        Row: {
+          created_at: string
+          id: string
+          nickname: string | null
+          notes: string | null
+          user_id: string
+          variant_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nickname?: string | null
+          notes?: string | null
+          user_id: string
+          variant_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nickname?: string | null
+          notes?: string | null
+          user_id?: string
+          variant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_manufacturers_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "rx_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_reports: {
         Row: {
           id: string
@@ -691,6 +726,7 @@ export type Database = {
           created_at: string
           event_type: Database["public"]["Enums"]["usage_event_type"]
           id: string
+          metadata: Json | null
           ref_id: string | null
           user_id: string
         }
@@ -698,6 +734,7 @@ export type Database = {
           created_at?: string
           event_type: Database["public"]["Enums"]["usage_event_type"]
           id?: string
+          metadata?: Json | null
           ref_id?: string | null
           user_id: string
         }
@@ -705,6 +742,7 @@ export type Database = {
           created_at?: string
           event_type?: Database["public"]["Enums"]["usage_event_type"]
           id?: string
+          metadata?: Json | null
           ref_id?: string | null
           user_id?: string
         }

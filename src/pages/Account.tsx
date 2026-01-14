@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,8 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
-import { User, CreditCard, Bell, Shield, LogOut, Crown, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { User, CreditCard, Bell, Shield, LogOut, Crown, Loader2, Clock, Bookmark, ChevronRight, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +16,7 @@ import { toast } from "@/hooks/use-toast";
 const Account = () => {
   const navigate = useNavigate();
   const { user, profile, session, loading, isAuthenticated, isAdmin, signOut, updateProfile } = useAuth();
-  const { tier, isFree, isAdminOverride, loading: subscriptionLoading } = useSubscription();
+  const { tier, isFree, isPro, isAdminOverride, loading: subscriptionLoading } = useSubscription();
   const [fullName, setFullName] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -146,6 +145,65 @@ const Account = () => {
               </div>
             </Card>
           )}
+
+          {/* Pro Features Quick Access */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <Card 
+              className={`p-4 cursor-pointer transition-colors ${
+                isPro ? 'hover:bg-muted/50' : 'opacity-60'
+              }`}
+              onClick={() => isPro ? navigate('/history') : navigate('/pricing')}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    isPro ? 'bg-primary/10' : 'bg-muted'
+                  }`}>
+                    {isPro ? (
+                      <Clock className="h-5 w-5 text-primary" />
+                    ) : (
+                      <Lock className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-sm">View History</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {isPro ? 'Recent lookups' : 'Pro feature'}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </Card>
+
+            <Card 
+              className={`p-4 cursor-pointer transition-colors ${
+                isPro ? 'hover:bg-muted/50' : 'opacity-60'
+              }`}
+              onClick={() => isPro ? navigate('/saved') : navigate('/pricing')}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    isPro ? 'bg-primary/10' : 'bg-muted'
+                  }`}>
+                    {isPro ? (
+                      <Bookmark className="h-5 w-5 text-primary fill-primary" />
+                    ) : (
+                      <Lock className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-sm">Saved</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {isPro ? 'Your favorites' : 'Pro feature'}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </Card>
+          </div>
 
           {/* Subscription Card */}
           <Card className={`p-6 mb-8 ${isFree 

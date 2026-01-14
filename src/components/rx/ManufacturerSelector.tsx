@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, Camera, FileQuestion, Info } from "lucide-react";
+import { Building2, Camera, FileQuestion, Info, Bookmark } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Manufacturer {
@@ -25,6 +24,7 @@ interface ManufacturerSelectorProps {
   onUploadPhoto?: () => void;
   onRequestReview?: () => void;
   className?: string;
+  savedVariantIds?: Set<string>;
 }
 
 export function ManufacturerSelector({
@@ -34,6 +34,7 @@ export function ManufacturerSelector({
   onUploadPhoto,
   onRequestReview,
   className,
+  savedVariantIds = new Set(),
 }: ManufacturerSelectorProps) {
   const selected = manufacturers.find((m) => m.id === selectedManufacturer);
 
@@ -64,7 +65,12 @@ export function ManufacturerSelector({
           </SelectItem>
           {manufacturers.map((mfr) => (
             <SelectItem key={mfr.id} value={mfr.id}>
-              {mfr.name}
+              <span className="flex items-center gap-2">
+                {mfr.name}
+                {savedVariantIds.has(mfr.id) && (
+                  <Bookmark className="h-3 w-3 text-primary fill-primary" />
+                )}
+              </span>
             </SelectItem>
           ))}
         </SelectContent>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,11 @@ import { NoManufacturerDataEmpty } from "@/components/browse/EmptyStates";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PremiumGate, PremiumBadge } from "@/components/premium/PremiumGate";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useAuth } from "@/hooks/useAuth";
+import { useSavedManufacturers } from "@/hooks/useSavedManufacturers";
+import { useViewHistory } from "@/hooks/useViewHistory";
 import { motion } from "framer-motion";
-import { ArrowLeft, ExternalLink, Share2, Bookmark, Building2, Check, X, HelpCircle, FileText, AlertCircle, ArrowLeftRight, Sparkles } from "lucide-react";
+import { ArrowLeft, ExternalLink, Share2, Bookmark, BookmarkCheck, Building2, Check, X, HelpCircle, FileText, AlertCircle, ArrowLeftRight, Sparkles, Lock } from "lucide-react";
 import { LastVerifiedBadge } from "@/components/ui/last-verified-badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,11 +73,15 @@ const RxMedication = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isPro } = useSubscription();
+  const { user } = useAuth();
+  const { isSaved, toggleSave, savedVariantIds } = useSavedManufacturers();
+  const { trackView } = useViewHistory();
   
   const [medication, setMedication] = useState<MedicationData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedManufacturerId, setSelectedManufacturerId] = useState<string | null>(null);
   const [showCompare, setShowCompare] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchMedication = async () => {
@@ -260,6 +267,52 @@ const RxMedication = () => {
     });
   };
 
+  // Handle save/unsave manufacturer
+  const handleSaveManufacturer = useCallback(async (variantId: string) => {
+    if (!user) {
+      toast.error("Please sign in to save manufacturers");
+      navigate('/auth');
+      return;
+    }
+
+    if (!isPro) {
+      toast.info("Pro feature", {
+        description: "Upgrade to Pro to save your favorite manufacturers.",
+        action: {
+          label: "Upgrade",
+          onClick: () => navigate('/pricing'),
+        },
+      });
+      return;
+    }
+
+    setSavingId(variantId);
+    const result = await toggleSave(variantId);
+    setSavingId(null);
+
+    if (result.success) {
+      const wasSaved = savedVariantIds.has(variantId);
+      toast.success(wasSaved ? "Removed from saved" : "Saved manufacturer");
+    } else {
+      toast.error(result.error || "Failed to save");
+    }
+  }, [user, isPro, toggleSave, savedVariantIds, navigate]);
+
+  // Track view when manufacturer is selected
+  const handleManufacturerSelect = useCallback((manufacturerId: string | null) => {
+    setSelectedManufacturerId(manufacturerId);
+    
+    if (manufacturerId && medication && user) {
+      const mfr = medication.manufacturers.find(m => m.id === manufacturerId);
+      trackView('report_view', manufacturerId, {
+        medication_name: medication.name,
+        manufacturer_name: mfr?.name || 'Unknown',
+        status: mfr?.status,
+        med_id: medication.id,
+      });
+    }
+  }, [medication, user, trackView]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -366,10 +419,11 @@ const RxMedication = () => {
               strength: m.strength,
             }))}
             selectedManufacturer={selectedManufacturerId}
-            onSelect={setSelectedManufacturerId}
+            onSelect={handleManufacturerSelect}
             onUploadPhoto={handleUploadPhoto}
             onRequestReview={handleRequestReview}
             className="mb-6"
+            savedVariantIds={savedVariantIds}
           />
 
           {/* Halal-First Sorting Indicator for Pro users */}
@@ -386,10 +440,37 @@ const RxMedication = () => {
               <Share2 className="h-4 w-4 mr-2" />
               Share
             </Button>
-            <Button variant="outline" size="sm" className="flex-1">
-              <Bookmark className="h-4 w-4 mr-2" />
-              Save
-            </Button>
+            {selectedManufacturer ? (
+              <Button 
+                variant={isSaved(selectedManufacturer.id) ? "secondary" : "outline"} 
+                size="sm" 
+                className="flex-1"
+                onClick={() => handleSaveManufacturer(selectedManufacturer.id)}
+                disabled={savingId === selectedManufacturer.id}
+              >
+                {!isPro ? (
+                  <>
+                    <Lock className="h-4 w-4 mr-2" />
+                    Save
+                  </>
+                ) : isSaved(selectedManufacturer.id) ? (
+                  <>
+                    <BookmarkCheck className="h-4 w-4 mr-2" />
+                    Saved
+                  </>
+                ) : (
+                  <>
+                    <Bookmark className="h-4 w-4 mr-2" />
+                    Save
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" className="flex-1" disabled>
+                <Bookmark className="h-4 w-4 mr-2" />
+                Save
+              </Button>
+            )}
             {medication.manufacturers.length >= 2 && (
               <Button 
                 variant={showCompare ? "secondary" : "outline"} 
