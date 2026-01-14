@@ -16,6 +16,8 @@ import Pricing from "./pages/Pricing";
 import Account from "./pages/Account";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import History from "./pages/History";
+import SavedManufacturers from "./pages/SavedManufacturers";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import AdminLayout from "./pages/admin/AdminLayout";
 import Dashboard from "./pages/admin/Dashboard";
@@ -48,6 +50,8 @@ const App = () => (
           <Route path="/account" element={<Account />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/feedback" element={<Feedback />} />
+          <Route path="/history" element={<History />} />
+          <Route path="/saved" element={<SavedManufacturers />} />
           
           {/* Admin Routes */}
           <Route path="/admin" element={

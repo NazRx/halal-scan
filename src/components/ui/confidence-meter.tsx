@@ -14,6 +14,7 @@ interface ConfidenceMeterProps {
   showLabel?: boolean;
   size?: 'sm' | 'md' | 'lg';
   showDisclaimer?: boolean;
+  compact?: boolean; // Minimal view for lists
 }
 
 type ConfidenceLevel = 'high' | 'moderate' | 'low';
@@ -70,6 +71,7 @@ export function ConfidenceMeter({
   showLabel = true,
   size = 'md',
   showDisclaimer = true,
+  compact = false,
 }: ConfidenceMeterProps) {
   const { isPro, isClinic } = useSubscription();
   const isPremium = isPro || isClinic;
@@ -82,6 +84,21 @@ export function ConfidenceMeter({
   };
 
   const sizes = sizeClasses[size];
+
+  // Compact view for use in lists
+  if (compact) {
+    return (
+      <div className={cn("flex items-center gap-2", className)}>
+        <div className={cn("flex-1 h-1.5 rounded-full bg-muted overflow-hidden")}>
+          <div
+            className={cn("h-full rounded-full transition-all duration-300", config.barColor)}
+            style={{ width: `${value}%` }}
+          />
+        </div>
+        <span className={cn("text-xs font-medium tabular-nums", config.color)}>{value}%</span>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("space-y-2", className)}>
