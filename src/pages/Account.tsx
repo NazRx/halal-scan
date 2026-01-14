@@ -10,11 +10,14 @@ import { motion } from "framer-motion";
 import { User, CreditCard, Bell, Shield, LogOut, Crown, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 const Account = () => {
   const navigate = useNavigate();
-  const { user, profile, loading, isAuthenticated, isAdmin, signOut, updateProfile } = useAuth();
+  const { user, profile, session, loading, isAuthenticated, isAdmin, signOut, updateProfile } = useAuth();
+  const { tier, isFree, isAdminOverride, loading: subscriptionLoading } = useSubscription();
   const [fullName, setFullName] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -59,7 +62,30 @@ const Account = () => {
     setSaving(false);
   };
 
-  if (loading) {
+  const handleManageBilling = async () => {
+    if (!session?.access_token) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('customer-portal', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      
+      if (error) throw error;
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to open billing portal. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (loading || subscriptionLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -122,24 +148,47 @@ const Account = () => {
           )}
 
           {/* Subscription Card */}
-          <Card className="p-6 mb-8 bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
+          <Card className={`p-6 mb-8 ${isFree 
+            ? 'bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20' 
+            : 'bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border-emerald-500/20'}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                  <Crown className="h-5 w-5 text-primary" />
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  isFree ? 'bg-primary/20' : 'bg-emerald-500/20'
+                }`}>
+                  <Crown className={`h-5 w-5 ${isFree ? 'text-primary' : 'text-emerald-500'}`} />
                 </div>
                 <div>
-                  <h2 className="font-semibold">Free Plan</h2>
+                  <h2 className="font-semibold flex items-center gap-2">
+                    {isAdminOverride ? 'Clinic Plan' : 
+                     tier === 'clinic' ? 'Clinic Plan' : 
+                     tier === 'pro' ? 'Pro Plan' : 'Free Plan'}
+                    {isAdminOverride && (
+                      <span className="text-xs bg-emerald-500/20 text-emerald-600 px-2 py-0.5 rounded-full">
+                        Admin Access
+                      </span>
+                    )}
+                  </h2>
                   <p className="text-sm text-muted-foreground">
-                    Upgrade for unlimited access
+                    {isFree 
+                      ? 'Upgrade for unlimited access' 
+                      : isAdminOverride 
+                        ? 'Full premium access as admin'
+                        : 'Enjoying full premium features'}
                   </p>
                 </div>
               </div>
-              <Link to="/pricing">
-                <Button variant="outline" size="sm">
-                  Upgrade
+              {isFree ? (
+                <Link to="/pricing">
+                  <Button variant="outline" size="sm">
+                    Upgrade
+                  </Button>
+                </Link>
+              ) : !isAdminOverride ? (
+                <Button variant="outline" size="sm" onClick={handleManageBilling}>
+                  Manage Billing
                 </Button>
-              </Link>
+              ) : null}
             </div>
           </Card>
 
@@ -204,28 +253,53 @@ const Account = () => {
                   <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
                     <div>
                       <p className="font-medium">Current Plan</p>
-                      <p className="text-sm text-muted-foreground">Free - $0/month</p>
+                      <p className="text-sm text-muted-foreground">
+                        {isAdminOverride ? 'Clinic (Admin Access) - Complimentary' :
+                         tier === 'clinic' ? 'Clinic - $99/month' :
+                         tier === 'pro' ? 'Pro - $9/month' :
+                         'Free - $0/month'}
+                      </p>
                     </div>
-                    <Link to="/pricing">
-                      <Button variant="outline" size="sm">Change Plan</Button>
-                    </Link>
+                    {isFree ? (
+                      <Link to="/pricing">
+                        <Button variant="outline" size="sm">Change Plan</Button>
+                      </Link>
+                    ) : !isAdminOverride ? (
+                      <Button variant="outline" size="sm" onClick={handleManageBilling}>
+                        Manage
+                      </Button>
+                    ) : null}
                   </div>
 
-                  <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                    <div>
-                      <p className="font-medium">Payment Method</p>
-                      <p className="text-sm text-muted-foreground">No payment method on file</p>
-                    </div>
-                    <Button variant="outline" size="sm">Add</Button>
-                  </div>
+                  {!isAdminOverride && (
+                    <>
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                        <div>
+                          <p className="font-medium">Payment Method</p>
+                          <p className="text-sm text-muted-foreground">
+                            {isFree ? 'No payment method on file' : 'Managed via Stripe'}
+                          </p>
+                        </div>
+                        {isFree ? (
+                          <Button variant="outline" size="sm">Add</Button>
+                        ) : (
+                          <Button variant="outline" size="sm" onClick={handleManageBilling}>
+                            Update
+                          </Button>
+                        )}
+                      </div>
 
-                  <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                    <div>
-                      <p className="font-medium">Billing History</p>
-                      <p className="text-sm text-muted-foreground">View past invoices</p>
-                    </div>
-                    <Button variant="outline" size="sm">View All</Button>
-                  </div>
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                        <div>
+                          <p className="font-medium">Billing History</p>
+                          <p className="text-sm text-muted-foreground">View past invoices</p>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={handleManageBilling}>
+                          View All
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </Card>
             </TabsContent>
