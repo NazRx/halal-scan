@@ -7,7 +7,8 @@ import {
   Database,
   ChevronLeft,
   Shield,
-  MessageSquare
+  MessageSquare,
+  Beaker
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ const navItems = [
   { title: 'Feedback', href: '/admin/feedback', icon: MessageSquare },
   { title: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { title: 'Seed Data', href: '/admin/seed-data', icon: Database },
+  { title: 'Ingest Debug', href: '/admin/ingest-debug', icon: Beaker },
 ];
 
 export default function AdminLayout() {
