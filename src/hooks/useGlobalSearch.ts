@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useDebounce } from '@/hooks/useDebounce';
+import { mapDbStatus } from '@/lib/status-labels';
 
 export type SearchResultType = 'rx' | 'otc';
 
@@ -27,15 +28,6 @@ interface OtcProductRow {
   name: string;
   brand: string | null;
   category: string | null;
-}
-
-// Map DB halal_status to UI status
-function mapStatus(dbStatus: string | null): SearchResult['status'] {
-  if (!dbStatus) return 'unknown';
-  if (dbStatus === 'halal') return 'halal';
-  if (dbStatus === 'mushbooh') return 'questionable';
-  if (dbStatus === 'haram') return 'not-halal';
-  return 'unknown';
 }
 
 // Common misspellings and aliases
@@ -288,7 +280,7 @@ export function useGlobalSearch(query: string) {
             type: 'rx',
             primaryName: med.generic_name,
             secondaryLabel: brandNames,
-            status: mapStatus(rxVerdicts[med.id] || null),
+            status: mapDbStatus(rxVerdicts[med.id] || null),
             matchType,
           });
         });
@@ -300,7 +292,7 @@ export function useGlobalSearch(query: string) {
             type: 'otc',
             primaryName: product.name,
             secondaryLabel: product.brand,
-            status: mapStatus(otcVerdicts[product.id] || null),
+            status: mapDbStatus(otcVerdicts[product.id] || null),
           });
         });
 

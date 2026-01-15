@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PremiumGate } from '@/components/premium/PremiumGate';
 import { useSavedManufacturers, SavedManufacturer } from '@/hooks/useSavedManufacturers';
 import { toast } from 'sonner';
+import { mapDbStatus } from '@/lib/status-labels';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,15 +31,6 @@ export default function SavedManufacturers() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNickname, setEditNickname] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-
-  const mapStatus = (status: string | undefined): 'halal' | 'questionable' | 'not-halal' | 'unknown' => {
-    switch (status) {
-      case 'halal': return 'halal';
-      case 'mushbooh': return 'questionable';
-      case 'haram': return 'not-halal';
-      default: return 'unknown';
-    }
-  };
 
   const handleStartEdit = (item: SavedManufacturer) => {
     setEditingId(item.variant_id);
@@ -194,7 +186,7 @@ export default function SavedManufacturers() {
                               </h3>
                               {item.verdict?.status && (
                                 <StatusBadge 
-                                  status={mapStatus(item.verdict.status)} 
+                                  status={mapDbStatus(item.verdict.status)} 
                                   size="sm" 
                                 />
                               )}

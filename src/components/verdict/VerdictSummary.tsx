@@ -25,27 +25,31 @@ export function VerdictSummary({ verdict, showManufacturerWarning = false, produ
   const statusConfig = {
     halal: {
       icon: CheckCircle,
-      title: 'Halal',
+      title: '✅ Halal (Permissible)',
       bgClass: 'bg-status-halal/10 border-status-halal/30',
       iconClass: 'text-status-halal',
+      tooltip: 'Based on available ingredient data, no flagged ingredients were detected. Manufacturer excipients may still vary.',
     },
     questionable: {
       icon: AlertTriangle,
-      title: 'Questionable',
+      title: '⚠️ Mashbooh (Questionable)',
       bgClass: 'bg-status-questionable/10 border-status-questionable/30',
       iconClass: 'text-status-questionable',
+      tooltip: 'Contains ingredients that are often animal-derived or not fully disclosed (e.g., gelatin, glycerin, magnesium stearate).',
     },
     not_halal: {
       icon: XCircle,
-      title: 'Not Halal',
+      title: '🚫 Prohibited (Not Halal)',
       bgClass: 'bg-status-not-halal/10 border-status-not-halal/30',
       iconClass: 'text-status-not-halal',
+      tooltip: 'Contains a clearly prohibited ingredient (e.g., explicitly porcine-derived ingredient). If medically necessary and no alternative exists, necessity may apply.',
     },
     unknown: {
       icon: HelpCircle,
-      title: 'Unknown',
+      title: '❓ Unknown (Needs Verification)',
       bgClass: 'bg-muted border-border',
       iconClass: 'text-muted-foreground',
+      tooltip: 'Not enough ingredient data was available to confirm. Check manufacturer/NDC or consult your pharmacist.',
     },
   };
 

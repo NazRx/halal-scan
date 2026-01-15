@@ -1,9 +1,16 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { Check, AlertTriangle, X, HelpCircle } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { STATUS_LABELS_SHORT, STATUS_TOOLTIPS, type UIStatus } from "@/lib/status-labels";
 
 const statusBadgeVariants = cva(
-  "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all",
+  "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all cursor-help",
   {
     variants: {
       status: {
@@ -33,11 +40,11 @@ const statusIcons = {
   unknown: HelpCircle,
 };
 
-const statusLabels = {
-  halal: "Halal",
-  questionable: "Questionable",
-  "not-halal": "Not Halal",
-  unknown: "Unknown",
+const statusEmojis: Record<UIStatus, string> = {
+  halal: '✅',
+  questionable: '⚠️',
+  'not-halal': '🚫',
+  unknown: '❓',
 };
 
 export interface StatusBadgeProps
@@ -45,6 +52,8 @@ export interface StatusBadgeProps
     VariantProps<typeof statusBadgeVariants> {
   showIcon?: boolean;
   showLabel?: boolean;
+  showEmoji?: boolean;
+  showTooltip?: boolean;
   animate?: boolean;
 }
 
@@ -54,23 +63,47 @@ export function StatusBadge({
   size,
   showIcon = true,
   showLabel = true,
+  showEmoji = false,
+  showTooltip = true,
   animate = false,
   ...props
 }: StatusBadgeProps) {
-  const Icon = statusIcons[status || "unknown"];
-  const label = statusLabels[status || "unknown"];
+  const statusKey = (status || "unknown") as UIStatus;
+  const Icon = statusIcons[statusKey];
+  const label = STATUS_LABELS_SHORT[statusKey];
+  const emoji = statusEmojis[statusKey];
+  const tooltip = STATUS_TOOLTIPS[statusKey];
 
-  return (
+  const badge = (
     <div
       className={cn(
         statusBadgeVariants({ status, size }),
         animate && "animate-status-glow",
+        !showTooltip && "cursor-default",
         className
       )}
       {...props}
     >
-      {showIcon && <Icon className={size === "xl" ? "h-7 w-7" : size === "lg" ? "h-5 w-5" : "h-4 w-4"} />}
+      {showEmoji && <span>{emoji}</span>}
+      {showIcon && !showEmoji && <Icon className={size === "xl" ? "h-7 w-7" : size === "lg" ? "h-5 w-5" : "h-4 w-4"} />}
       {showLabel && <span>{label}</span>}
     </div>
   );
+
+  if (showTooltip) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {badge}
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs text-center" side="bottom">
+            <p>{tooltip}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return badge;
 }

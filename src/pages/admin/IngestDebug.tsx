@@ -121,13 +121,13 @@ export default function IngestDebug() {
   const getStatusBadge = (status: string | null) => {
     switch (status) {
       case 'halal':
-        return <Badge className="bg-status-halal/15 text-status-halal border-status-halal/30">Halal</Badge>;
+        return <Badge className="bg-status-halal/15 text-status-halal border-status-halal/30">✅ Halal (Permissible)</Badge>;
       case 'haram':
-        return <Badge className="bg-status-not-halal/15 text-status-not-halal border-status-not-halal/30">Haram</Badge>;
+        return <Badge className="bg-status-not-halal/15 text-status-not-halal border-status-not-halal/30">🚫 Prohibited (Not Halal)</Badge>;
       case 'mushbooh':
-        return <Badge className="bg-status-questionable/15 text-status-questionable border-status-questionable/30">Mushbooh</Badge>;
+        return <Badge className="bg-status-questionable/15 text-status-questionable border-status-questionable/30">⚠️ Mashbooh (Questionable)</Badge>;
       default:
-        return <Badge variant="outline">Needs Verification</Badge>;
+        return <Badge variant="outline">❓ Unknown (Needs Verification)</Badge>;
     }
   };
 

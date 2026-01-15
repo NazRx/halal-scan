@@ -10,16 +10,18 @@ import type {
   HalalStatus,
 } from '@/types/verdict';
 
+// New confidence calculation weights
+// +60 if inactives exist
+// +30 if ≥80% of inactives match ingredient_rulings  
+// +10 if NDC/SPL manufacturer-specific
+// -20 if any unknown remains
+// Cap at 20 if only actives exist
 const CONFIDENCE_WEIGHTS = {
-  BASE: 20,
-  MANUFACTURER_SOURCE: 15,
-  CERTIFIER_SOURCE: 20,
-  REFERENCE_SOURCE: 10,
-  VARIANT_SPECIFIC_DATA: 15,
-  ALL_INGREDIENTS_SOURCED: 10,
-  CERTIFICATION_PRESENT: 10,
-  GENERIC_ASSUMPTION_PENALTY: -20,
-  UNKNOWN_INGREDIENT_PENALTY: -10,
+  INACTIVE_INGREDIENTS_EXIST: 60,
+  HIGH_MATCH_RATE: 30, // ≥80% matched
+  NDC_MANUFACTURER_SPECIFIC: 10,
+  UNKNOWN_PENALTY: -20,
+  ONLY_ACTIVES_CAP: 20,
 };
 
 function evaluateIngredient(ingredient: IngredientInput): IngredientVerdict {
@@ -121,37 +123,38 @@ function determineOverallStatus(
 
 function calculateConfidence(
   ingredientVerdicts: IngredientVerdict[],
-  input: VerdictEngineInput
+  input: VerdictEngineInput,
+  hasInactiveIngredients: boolean,
+  inactiveMatchRate?: number // 0-1 representing % matched
 ): number {
-  let confidence = CONFIDENCE_WEIGHTS.BASE;
+  let confidence = 0;
 
-  // Source quality bonuses
+  // +60 if inactives exist
+  if (hasInactiveIngredients) {
+    confidence += CONFIDENCE_WEIGHTS.INACTIVE_INGREDIENTS_EXIST;
+  }
+
+  // +30 if ≥80% of inactives match ingredient_rulings
+  if (inactiveMatchRate !== undefined && inactiveMatchRate >= 0.8) {
+    confidence += CONFIDENCE_WEIGHTS.HIGH_MATCH_RATE;
+  }
+
+  // +10 if NDC/SPL manufacturer-specific
   const hasManufacturerSource = input.ingredients.some(i => i.sourceType === 'manufacturer');
-  const hasCertifierSource = input.ingredients.some(i => i.sourceType === 'certifier');
-  const hasReferenceSource = input.ingredients.some(i => i.sourceType === 'reference');
-  const allIngredientsSourced = input.ingredients.every(i => i.sourceId);
-  const hasCertification = input.ingredients.some(i => i.isCertified);
-
-  if (hasManufacturerSource) confidence += CONFIDENCE_WEIGHTS.MANUFACTURER_SOURCE;
-  if (hasCertifierSource) confidence += CONFIDENCE_WEIGHTS.CERTIFIER_SOURCE;
-  if (hasReferenceSource) confidence += CONFIDENCE_WEIGHTS.REFERENCE_SOURCE;
-  if (allIngredientsSourced) confidence += CONFIDENCE_WEIGHTS.ALL_INGREDIENTS_SOURCED;
-  if (hasCertification) confidence += CONFIDENCE_WEIGHTS.CERTIFICATION_PRESENT;
-
-  // Rx-specific: variant data bonus
-  if (input.isRxVariant && input.hasVariantSpecificIngredients) {
-    confidence += CONFIDENCE_WEIGHTS.VARIANT_SPECIFIC_DATA;
+  if (hasManufacturerSource || input.hasVariantSpecificIngredients) {
+    confidence += CONFIDENCE_WEIGHTS.NDC_MANUFACTURER_SPECIFIC;
   }
 
-  // Penalties
-  const unsourcedCount = input.ingredients.filter(i => !i.sourceId).length;
-  if (unsourcedCount > 0 && input.ingredients.length > 0) {
-    const unsourcedRatio = unsourcedCount / input.ingredients.length;
-    confidence += Math.round(CONFIDENCE_WEIGHTS.GENERIC_ASSUMPTION_PENALTY * unsourcedRatio);
+  // -20 if any unknown status remains
+  const hasUnknownIngredients = ingredientVerdicts.some(v => v.status === 'unknown');
+  if (hasUnknownIngredients) {
+    confidence += CONFIDENCE_WEIGHTS.UNKNOWN_PENALTY;
   }
 
-  const unknownVerdicts = ingredientVerdicts.filter(v => v.status === 'unknown').length;
-  confidence += unknownVerdicts * CONFIDENCE_WEIGHTS.UNKNOWN_INGREDIENT_PENALTY;
+  // Cap at 20 if only actives exist (no inactives)
+  if (!hasInactiveIngredients) {
+    confidence = Math.min(confidence, CONFIDENCE_WEIGHTS.ONLY_ACTIVES_CAP);
+  }
 
   // Clamp to 0-100
   return Math.max(0, Math.min(100, confidence));
@@ -340,18 +343,28 @@ export function evaluateVerdict(input: VerdictEngineInput): VerdictOutput {
   // Check if there are any inactive ingredients
   // For Rx products, we need inactive ingredients to make a determination
   // For OTC products, if role is not specified, we assume ingredients include inactive ones
+  const inactiveIngredients = input.ingredients.filter(i => i.role === 'inactive');
   const hasInactiveIngredients = input.isRxVariant 
-    ? input.ingredients.some(i => i.role === 'inactive')
+    ? inactiveIngredients.length > 0
     : input.ingredients.length > 0; // OTC doesn't track roles, assume data is complete if present
 
-  // Determine overall status
-  const status = determineOverallStatus(ingredientVerdicts, hasInactiveIngredients);
+  // Calculate inactive match rate (how many have sources)
+  const matchedInactives = inactiveIngredients.filter(i => i.sourceId).length;
+  const inactiveMatchRate = inactiveIngredients.length > 0 
+    ? matchedInactives / inactiveIngredients.length 
+    : 0;
 
-  // Calculate confidence - lower confidence if no inactive ingredients
-  let confidence = calculateConfidence(ingredientVerdicts, input);
-  if (!hasInactiveIngredients && input.isRxVariant) {
-    confidence = Math.min(confidence, 30); // Cap at 30% if no inactive ingredients
+  // Determine overall status using DB-based logic
+  // Priority: haram/not_halal > mushbooh/questionable > unknown > halal
+  let status = determineOverallStatus(ingredientVerdicts, hasInactiveIngredients);
+  
+  // Never show halal when inactive ingredients are missing or any are unmapped
+  if (status === 'halal' && (!hasInactiveIngredients || inactiveMatchRate < 1)) {
+    status = 'unknown';
   }
+
+  // Calculate confidence with new formula
+  const confidence = calculateConfidence(ingredientVerdicts, input, hasInactiveIngredients, inactiveMatchRate);
 
   // Generate reasons with inactive ingredient check
   const reasons = generateReasonsWithInactiveCheck(ingredientVerdicts, status, hasInactiveIngredients);

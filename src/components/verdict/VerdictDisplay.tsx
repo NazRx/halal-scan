@@ -2,19 +2,14 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { ConfidenceMeter } from '@/components/ui/confidence-meter';
 import { VerdictSummary } from './VerdictSummary';
 import { IngredientBreakdown } from './IngredientBreakdown';
-import type { VerdictOutput, HalalStatus } from '@/types/verdict';
+import type { VerdictOutput } from '@/types/verdict';
+import { toUiStatus } from '@/lib/status-labels';
 
 interface VerdictDisplayProps {
   verdict: VerdictOutput;
   productName: string;
   productType: 'otc' | 'rx';
   showManufacturerWarning?: boolean;
-}
-
-// Convert engine status to UI status (not_halal → not-halal)
-function toUiStatus(status: HalalStatus): 'halal' | 'questionable' | 'not-halal' | 'unknown' {
-  if (status === 'not_halal') return 'not-halal';
-  return status;
 }
 
 export function VerdictDisplay({
