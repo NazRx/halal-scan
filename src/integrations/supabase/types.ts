@@ -417,9 +417,12 @@ export type Database = {
       }
       rx_meds: {
         Row: {
+          active_ingredients: string[] | null
           brand_names: string[] | null
           category: string | null
+          confidence_level: string | null
           created_at: string
+          dailymed_set_id: string | null
           default_status: Database["public"]["Enums"]["halal_status"] | null
           dosage_forms: string[] | null
           drug_class: string | null
@@ -429,15 +432,22 @@ export type Database = {
           fda_warnings: string[] | null
           generic_name: string
           id: string
+          inactive_ingredients: string[] | null
+          ndc: string | null
           notes: string | null
           route: string | null
           rx_otc: string | null
+          spl_last_fetched_at: string | null
+          status_reason: string | null
           updated_at: string
         }
         Insert: {
+          active_ingredients?: string[] | null
           brand_names?: string[] | null
           category?: string | null
+          confidence_level?: string | null
           created_at?: string
+          dailymed_set_id?: string | null
           default_status?: Database["public"]["Enums"]["halal_status"] | null
           dosage_forms?: string[] | null
           drug_class?: string | null
@@ -447,15 +457,22 @@ export type Database = {
           fda_warnings?: string[] | null
           generic_name: string
           id?: string
+          inactive_ingredients?: string[] | null
+          ndc?: string | null
           notes?: string | null
           route?: string | null
           rx_otc?: string | null
+          spl_last_fetched_at?: string | null
+          status_reason?: string | null
           updated_at?: string
         }
         Update: {
+          active_ingredients?: string[] | null
           brand_names?: string[] | null
           category?: string | null
+          confidence_level?: string | null
           created_at?: string
+          dailymed_set_id?: string | null
           default_status?: Database["public"]["Enums"]["halal_status"] | null
           dosage_forms?: string[] | null
           drug_class?: string | null
@@ -465,9 +482,13 @@ export type Database = {
           fda_warnings?: string[] | null
           generic_name?: string
           id?: string
+          inactive_ingredients?: string[] | null
+          ndc?: string | null
           notes?: string | null
           route?: string | null
           rx_otc?: string | null
+          spl_last_fetched_at?: string | null
+          status_reason?: string | null
           updated_at?: string
         }
         Relationships: []
