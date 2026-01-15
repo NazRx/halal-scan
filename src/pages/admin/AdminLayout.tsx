@@ -21,6 +21,7 @@ const navItems = [
   { title: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { title: 'Seed Data', href: '/admin/seed-data', icon: Database },
   { title: 'Ingest Debug', href: '/admin/ingest-debug', icon: Beaker },
+  { title: 'Hydrate Labels', href: '/admin/hydrate-label', icon: Beaker },
 ];
 
 export default function AdminLayout() {

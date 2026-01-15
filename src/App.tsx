@@ -1,4 +1,5 @@
 import { Toaster } from "@/components/ui/toaster";
+import { lazy } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -27,6 +28,7 @@ import Analytics from "./pages/admin/Analytics";
 import SeedData from "./pages/admin/SeedData";
 import FeedbackManagement from "./pages/admin/FeedbackManagement";
 import IngestDebug from "./pages/admin/IngestDebug";
+import HydrateLabelData from "./pages/admin/HydrateLabelData";
 import Feedback from "./pages/Feedback";
 
 const queryClient = new QueryClient();
@@ -67,6 +69,7 @@ const App = () => (
             <Route path="seed-data" element={<SeedData />} />
             <Route path="feedback" element={<FeedbackManagement />} />
             <Route path="ingest-debug" element={<IngestDebug />} />
+            <Route path="hydrate-label" element={<HydrateLabelData />} />
           </Route>
           
           <Route path="*" element={<NotFound />} />

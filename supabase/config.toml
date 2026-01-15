@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.ingest-inactives]
 verify_jwt = false
+
+[functions.hydrate-label-data]
+verify_jwt = false
