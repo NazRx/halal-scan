@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfidenceMeter } from "@/components/ui/confidence-meter";
+import { IngredientBreakdownSplit } from "@/components/verdict/IngredientBreakdownSplit";
 import { motion } from "framer-motion";
-import { ArrowLeft, Download, Share2, Printer, Check, AlertCircle, X, HelpCircle, AlertTriangle, Building2 } from "lucide-react";
+import { ArrowLeft, Download, Share2, Printer, Check, AlertCircle, X, HelpCircle, AlertTriangle, Building2, Pill, Beaker } from "lucide-react";
+import type { IngredientVerdict } from "@/types/verdict";
 
-// Mock report data
+// Mock report data - converted to new format
 const mockReport = {
   id: "report-123",
   generatedAt: new Date().toLocaleDateString(),
@@ -21,15 +23,25 @@ const mockReport = {
   status: "halal" as const,
   confidence: 95,
   summary: "All ingredients verified as halal-compliant. No animal-derived ingredients detected.",
-  ingredients: [
-    { name: "Acetaminophen", status: "halal" as const, role: "Active Ingredient", notes: "Synthetic compound" },
-    { name: "Pregelatinized Starch", status: "halal" as const, role: "Binder", notes: "Plant-derived" },
-    { name: "Sodium Starch Glycolate", status: "halal" as const, role: "Disintegrant", notes: "Plant-derived" },
-    { name: "Powdered Cellulose", status: "halal" as const, role: "Filler", notes: "Plant-derived" },
-    { name: "Magnesium Stearate", status: "halal" as const, role: "Lubricant", notes: "Verified plant-sourced" },
-    { name: "Hypromellose", status: "halal" as const, role: "Coating", notes: "Synthetic polymer" },
-    { name: "Titanium Dioxide", status: "halal" as const, role: "Colorant", notes: "Mineral-based" },
-  ],
+  activeIngredients: [
+    { 
+      ingredientId: "1", 
+      ingredientName: "Acetaminophen", 
+      status: "halal" as const, 
+      role: "active" as const,
+      concern: undefined,
+      notes: "Synthetic compound",
+      flags: [] 
+    },
+  ] as IngredientVerdict[],
+  inactiveIngredients: [
+    { ingredientId: "2", ingredientName: "Pregelatinized Starch", status: "halal" as const, role: "inactive" as const, notes: "Plant-derived", flags: [] },
+    { ingredientId: "3", ingredientName: "Sodium Starch Glycolate", status: "halal" as const, role: "inactive" as const, notes: "Plant-derived", flags: [] },
+    { ingredientId: "4", ingredientName: "Powdered Cellulose", status: "halal" as const, role: "inactive" as const, notes: "Plant-derived", flags: [] },
+    { ingredientId: "5", ingredientName: "Magnesium Stearate", status: "halal" as const, role: "inactive" as const, notes: "Verified plant-sourced", flags: [] },
+    { ingredientId: "6", ingredientName: "Hypromellose", status: "halal" as const, role: "inactive" as const, notes: "Synthetic polymer", flags: [] },
+    { ingredientId: "7", ingredientName: "Titanium Dioxide", status: "halal" as const, role: "inactive" as const, notes: "Mineral-based", flags: [] },
+  ] as IngredientVerdict[],
   sources: [
     "Manufacturer Ingredient List",
     "IFANCA Database",
@@ -195,37 +207,14 @@ const Report = () => {
             </div>
           </Card>
 
-          {/* Ingredients */}
+          {/* Ingredients - Split View */}
           <Card className="p-6 print:shadow-none print:border-2">
             <h2 className="font-semibold text-lg mb-4">Ingredient Analysis</h2>
             
-            <div className="space-y-2">
-              {report.ingredients.map((ingredient) => {
-                const Icon = statusIcons[ingredient.status];
-                return (
-                  <div
-                    key={ingredient.name}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50 print:bg-gray-50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-1 rounded-full ${
-                        ingredient.status === "halal" ? "bg-status-halal-bg text-status-halal print:bg-green-100 print:text-green-700" :
-                        ingredient.status === "questionable" ? "bg-status-questionable-bg text-status-questionable print:bg-yellow-100 print:text-yellow-700" :
-                        ingredient.status === "not-halal" ? "bg-status-not-halal-bg text-status-not-halal print:bg-red-100 print:text-red-700" :
-                        "bg-status-unknown-bg text-status-unknown print:bg-gray-100 print:text-gray-700"
-                      }`}>
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <span className="font-medium">{ingredient.name}</span>
-                        <span className="text-xs text-muted-foreground ml-2">({ingredient.role})</span>
-                      </div>
-                    </div>
-                    <span className="text-sm text-muted-foreground">{ingredient.notes}</span>
-                  </div>
-                );
-              })}
-            </div>
+            <IngredientBreakdownSplit 
+              ingredients={[...report.activeIngredients, ...report.inactiveIngredients]}
+              showTriggerReason={true}
+            />
           </Card>
 
           {/* Sources */}
