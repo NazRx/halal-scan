@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.hydrate-label-data]
 verify_jwt = false
+
+[functions.scheduled-hydrate]
+verify_jwt = false
