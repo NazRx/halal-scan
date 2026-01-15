@@ -92,7 +92,16 @@ function evaluateIngredient(ingredient: IngredientInput): IngredientVerdict {
   };
 }
 
-function determineOverallStatus(ingredientVerdicts: IngredientVerdict[]): HalalStatus {
+function determineOverallStatus(
+  ingredientVerdicts: IngredientVerdict[],
+  hasInactiveIngredients: boolean
+): HalalStatus {
+  // HOTFIX: If no inactive ingredients are available, force unknown status
+  // We cannot determine halal compliance without reviewing inactive ingredients
+  if (!hasInactiveIngredients) {
+    return 'unknown';
+  }
+
   // Priority: not_halal > questionable > unknown > halal
   
   const hasNotHalal = ingredientVerdicts.some(v => v.status === 'not_halal');
@@ -250,6 +259,30 @@ function generateReasons(
   return reasons;
 }
 
+function generateReasonsWithInactiveCheck(
+  ingredientVerdicts: IngredientVerdict[],
+  status: HalalStatus,
+  hasInactiveIngredients: boolean
+): VerdictReason[] {
+  const reasons = generateReasons(ingredientVerdicts, status);
+  
+  // Add specific reason when no inactive ingredients are available
+  if (!hasInactiveIngredients) {
+    // Remove any existing INSUFFICIENT_DATA reason to avoid duplication
+    const filteredReasons = reasons.filter(r => r.code !== 'INSUFFICIENT_DATA');
+    filteredReasons.unshift({
+      code: 'NO_INACTIVE_INGREDIENTS',
+      severity: 'warning',
+      message: 'Inactive ingredient data is not available. Halal status cannot be determined without reviewing inactive ingredients (excipients).',
+    });
+    return filteredReasons;
+  }
+
+  return reasons;
+
+  return reasons;
+}
+
 function generateSummary(status: HalalStatus, reasons: VerdictReason[]): string {
   switch (status) {
     case 'halal':
@@ -304,17 +337,29 @@ export function evaluateVerdict(input: VerdictEngineInput): VerdictOutput {
   // Evaluate each ingredient
   const ingredientVerdicts = input.ingredients.map(evaluateIngredient);
 
+  // Check if there are any inactive ingredients
+  // For Rx products, we need inactive ingredients to make a determination
+  // For OTC products, if role is not specified, we assume ingredients include inactive ones
+  const hasInactiveIngredients = input.isRxVariant 
+    ? input.ingredients.some(i => i.role === 'inactive')
+    : input.ingredients.length > 0; // OTC doesn't track roles, assume data is complete if present
+
   // Determine overall status
-  const status = determineOverallStatus(ingredientVerdicts);
+  const status = determineOverallStatus(ingredientVerdicts, hasInactiveIngredients);
 
-  // Calculate confidence
-  const confidence = calculateConfidence(ingredientVerdicts, input);
+  // Calculate confidence - lower confidence if no inactive ingredients
+  let confidence = calculateConfidence(ingredientVerdicts, input);
+  if (!hasInactiveIngredients && input.isRxVariant) {
+    confidence = Math.min(confidence, 30); // Cap at 30% if no inactive ingredients
+  }
 
-  // Generate reasons
-  const reasons = generateReasons(ingredientVerdicts, status);
+  // Generate reasons with inactive ingredient check
+  const reasons = generateReasonsWithInactiveCheck(ingredientVerdicts, status, hasInactiveIngredients);
 
   // Generate summary
-  const summaryReason = generateSummary(status, reasons);
+  const summaryReason = hasInactiveIngredients 
+    ? generateSummary(status, reasons)
+    : 'Inactive ingredient (excipient) data is not available. Halal status cannot be determined without this information.';
 
   return {
     status,
