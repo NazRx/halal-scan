@@ -282,8 +282,6 @@ function generateReasonsWithInactiveCheck(
   }
 
   return reasons;
-
-  return reasons;
 }
 
 function generateSummary(status: HalalStatus, reasons: VerdictReason[]): string {
