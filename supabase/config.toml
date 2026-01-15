@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.fetch-rxnorm]
 verify_jwt = false
+
+[functions.ingest-inactives]
+verify_jwt = false

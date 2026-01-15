@@ -53,6 +53,117 @@ export type Database = {
         }
         Relationships: []
       }
+      ndc_inactive_ingredients: {
+        Row: {
+          created_at: string
+          id: string
+          ingredient_name_normalized: string
+          ingredient_text_raw: string
+          match_confidence: string | null
+          matched_ingredient_id: string | null
+          matched_status: Database["public"]["Enums"]["halal_status"] | null
+          ndc: string
+          notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          unii_code: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ingredient_name_normalized: string
+          ingredient_text_raw: string
+          match_confidence?: string | null
+          matched_ingredient_id?: string | null
+          matched_status?: Database["public"]["Enums"]["halal_status"] | null
+          ndc: string
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          unii_code?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ingredient_name_normalized?: string
+          ingredient_text_raw?: string
+          match_confidence?: string | null
+          matched_ingredient_id?: string | null
+          matched_status?: Database["public"]["Enums"]["halal_status"] | null
+          ndc?: string
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          unii_code?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ndc_inactive_ingredients_matched_ingredient_id_fkey"
+            columns: ["matched_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ndc_inactive_ingredients_ndc_fkey"
+            columns: ["ndc"]
+            isOneToOne: false
+            referencedRelation: "ndc_products"
+            referencedColumns: ["ndc"]
+          },
+        ]
+      }
+      ndc_products: {
+        Row: {
+          brand_name: string | null
+          created_at: string
+          dosage_form: string | null
+          generic_name: string | null
+          labeler_name: string | null
+          last_ingested_at: string | null
+          ndc: string
+          route: string | null
+          set_id: string | null
+          spl_version: string | null
+          strength: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_name?: string | null
+          created_at?: string
+          dosage_form?: string | null
+          generic_name?: string | null
+          labeler_name?: string | null
+          last_ingested_at?: string | null
+          ndc: string
+          route?: string | null
+          set_id?: string | null
+          spl_version?: string | null
+          strength?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_name?: string | null
+          created_at?: string
+          dosage_form?: string | null
+          generic_name?: string | null
+          labeler_name?: string | null
+          last_ingested_at?: string | null
+          ndc?: string
+          route?: string | null
+          set_id?: string | null
+          spl_version?: string | null
+          strength?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       organization_members: {
         Row: {
           created_at: string
@@ -827,7 +938,27 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      ndc_ingredient_summary: {
+        Row: {
+          halal_count: number | null
+          haram_count: number | null
+          matched_count: number | null
+          ndc: string | null
+          overall_status: string | null
+          questionable_count: number | null
+          total_inactive_count: number | null
+          unmatched_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ndc_inactive_ingredients_ndc_fkey"
+            columns: ["ndc"]
+            isOneToOne: false
+            referencedRelation: "ndc_products"
+            referencedColumns: ["ndc"]
+          },
+        ]
+      }
     }
     Functions: {
       has_org_role: {

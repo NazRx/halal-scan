@@ -26,6 +26,7 @@ import UserManagement from "./pages/admin/UserManagement";
 import Analytics from "./pages/admin/Analytics";
 import SeedData from "./pages/admin/SeedData";
 import FeedbackManagement from "./pages/admin/FeedbackManagement";
+import IngestDebug from "./pages/admin/IngestDebug";
 import Feedback from "./pages/Feedback";
 
 const queryClient = new QueryClient();
@@ -65,6 +66,7 @@ const App = () => (
             <Route path="analytics" element={<Analytics />} />
             <Route path="seed-data" element={<SeedData />} />
             <Route path="feedback" element={<FeedbackManagement />} />
+            <Route path="ingest-debug" element={<IngestDebug />} />
           </Route>
           
           <Route path="*" element={<NotFound />} />
