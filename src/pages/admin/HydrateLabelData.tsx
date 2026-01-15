@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Play, CheckCircle, AlertCircle, AlertTriangle, Info, Search, ListChecks, StopCircle } from "lucide-react";
+import { Loader2, Play, CheckCircle, AlertCircle, AlertTriangle, Info, Search, ListChecks, StopCircle, Clock, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 interface HydrateLog {
@@ -51,6 +51,21 @@ interface BatchResult {
   error?: string;
 }
 
+interface ScheduledHydrateResult {
+  med_id: string;
+  generic_name: string;
+  success: boolean;
+  status?: string;
+  error?: string;
+}
+
+interface ScheduledJobResult {
+  success: boolean;
+  message: string;
+  logs: string[];
+  results: ScheduledHydrateResult[];
+}
+
 export default function HydrateLabelData() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
@@ -64,6 +79,10 @@ export default function HydrateLabelData() {
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
   const [batchResults, setBatchResults] = useState<BatchResult[]>([]);
   const [shouldStopBatch, setShouldStopBatch] = useState(false);
+
+  // Scheduled job state
+  const [isRunningScheduled, setIsRunningScheduled] = useState(false);
+  const [scheduledJobResult, setScheduledJobResult] = useState<ScheduledJobResult | null>(null);
 
   // Fetch rx_meds for selection
   const { data: meds, isLoading: medsLoading } = useQuery({
@@ -252,6 +271,52 @@ export default function HydrateLabelData() {
     setShouldStopBatch(true);
   };
 
+  const handleRunScheduledJob = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast.error("You must be logged in");
+      return;
+    }
+
+    setIsRunningScheduled(true);
+    setScheduledJobResult(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("scheduled-hydrate");
+
+      if (error) {
+        toast.error(`Scheduled job failed: ${error.message}`);
+        setScheduledJobResult({
+          success: false,
+          message: error.message,
+          logs: [],
+          results: [],
+        });
+        return;
+      }
+
+      setScheduledJobResult(data as ScheduledJobResult);
+      queryClient.invalidateQueries({ queryKey: ["rx-meds-list"] });
+
+      if (data.success) {
+        toast.success(data.message || "Scheduled hydration completed!");
+      } else {
+        toast.error(data.message || "Scheduled hydration failed");
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
+      toast.error(`Error: ${errorMsg}`);
+      setScheduledJobResult({
+        success: false,
+        message: errorMsg,
+        logs: [],
+        results: [],
+      });
+    } finally {
+      setIsRunningScheduled(false);
+    }
+  };
+
   const getLogIcon = (status: string) => {
     switch (status) {
       case "success":
@@ -290,11 +355,15 @@ export default function HydrateLabelData() {
       </div>
 
       <Tabs defaultValue="single" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="single">Single Medication</TabsTrigger>
           <TabsTrigger value="batch">
             <ListChecks className="mr-2 h-4 w-4" />
             Batch Hydration
+          </TabsTrigger>
+          <TabsTrigger value="scheduled">
+            <Clock className="mr-2 h-4 w-4" />
+            Scheduled Job
           </TabsTrigger>
         </TabsList>
 
@@ -582,6 +651,145 @@ export default function HydrateLabelData() {
                 </ScrollArea>
               </CardContent>
             </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="scheduled" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5" />
+                Run Scheduled Hydration Job
+              </CardTitle>
+              <CardDescription>
+                Manually trigger the nightly scheduled job that hydrates up to 50 unhydrated rx_meds records.
+                This job normally runs automatically at 2 AM UTC daily.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 bg-muted/50 rounded-lg space-y-2 text-sm">
+                <p><strong>What this does:</strong></p>
+                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                  <li>Finds up to 50 medications that haven't been hydrated yet</li>
+                  <li>Fetches NDC from openFDA for each medication</li>
+                  <li>Gets DailyMed set_id and parses ingredient data</li>
+                  <li>Computes halal status based on ingredient rulings</li>
+                </ul>
+              </div>
+
+              <Button 
+                onClick={handleRunScheduledJob} 
+                disabled={isRunningScheduled}
+                className="w-full"
+                size="lg"
+              >
+                {isRunningScheduled ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Running Scheduled Job...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="mr-2 h-4 w-4" />
+                    Run Scheduled Hydration Now
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {scheduledJobResult && (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    Job Result
+                    <Badge variant={scheduledJobResult.success ? "default" : "destructive"}>
+                      {scheduledJobResult.success ? "Success" : "Failed"}
+                    </Badge>
+                  </CardTitle>
+                  <CardDescription>{scheduledJobResult.message}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {scheduledJobResult.results.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex gap-4 text-sm">
+                        <span className="text-green-600">
+                          <CheckCircle className="h-4 w-4 inline mr-1" />
+                          {scheduledJobResult.results.filter(r => r.success).length} successful
+                        </span>
+                        <span className="text-red-600">
+                          <AlertCircle className="h-4 w-4 inline mr-1" />
+                          {scheduledJobResult.results.filter(r => !r.success).length} failed
+                        </span>
+                      </div>
+
+                      <ScrollArea className="h-[200px] border rounded-lg">
+                        <div className="p-2 space-y-2">
+                          {scheduledJobResult.results.map((result, index) => (
+                            <div 
+                              key={index}
+                              className={`p-2 rounded-lg flex items-center justify-between text-sm ${
+                                result.success ? "bg-green-50 dark:bg-green-950" : "bg-red-50 dark:bg-red-950"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                {result.success ? (
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                ) : (
+                                  <AlertCircle className="h-4 w-4 text-red-600" />
+                                )}
+                                <span>{result.generic_name}</span>
+                              </div>
+                              {result.status && (
+                                <Badge variant={
+                                  result.status === "halal" ? "default" :
+                                  result.status === "haram" ? "destructive" :
+                                  "secondary"
+                                } className="text-xs">
+                                  {result.status}
+                                </Badge>
+                              )}
+                              {result.error && (
+                                <span className="text-xs text-red-600">{result.error}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {scheduledJobResult.logs.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Job Logs</CardTitle>
+                    <CardDescription>Execution timeline from the scheduled job</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className="h-[300px]">
+                      <div className="space-y-1 font-mono text-xs">
+                        {scheduledJobResult.logs.map((log, index) => (
+                          <div 
+                            key={index}
+                            className={`p-2 rounded ${
+                              log.includes('✓') ? 'bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-200' :
+                              log.includes('✗') ? 'bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-200' :
+                              log.includes('Fatal') || log.includes('error') ? 'bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-200' :
+                              'bg-muted'
+                            }`}
+                          >
+                            {log}
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              )}
+            </>
           )}
         </TabsContent>
       </Tabs>
