@@ -9,19 +9,11 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PremiumGate } from '@/components/premium/PremiumGate';
 import { useViewHistory } from '@/hooks/useViewHistory';
+import { mapDbStatus } from '@/lib/status-labels';
 
 export default function History() {
   const navigate = useNavigate();
   const { history, loading, error } = useViewHistory(50);
-
-  const mapStatus = (status: string | undefined): 'halal' | 'questionable' | 'not-halal' | 'unknown' => {
-    switch (status) {
-      case 'halal': return 'halal';
-      case 'mushbooh': return 'questionable';
-      case 'haram': return 'not-halal';
-      default: return 'unknown';
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -113,7 +105,7 @@ export default function History() {
                               </h3>
                               {item.metadata?.status && (
                                 <StatusBadge 
-                                  status={mapStatus(item.metadata.status)} 
+                                  status={mapDbStatus(item.metadata.status)} 
                                   size="sm" 
                                 />
                               )}

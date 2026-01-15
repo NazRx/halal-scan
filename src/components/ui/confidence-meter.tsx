@@ -17,7 +17,7 @@ interface ConfidenceMeterProps {
   compact?: boolean; // Minimal view for lists
 }
 
-type ConfidenceLevel = 'high' | 'moderate' | 'low';
+type ConfidenceLevel = 'high' | 'medium' | 'low';
 
 interface ConfidenceLevelConfig {
   level: ConfidenceLevel;
@@ -28,22 +28,23 @@ interface ConfidenceLevelConfig {
   barColor: string;
 }
 
+// Updated thresholds: 70+ = High, 40-69 = Medium, <40 = Low
 function getConfidenceConfig(value: number): ConfidenceLevelConfig {
-  if (value >= 80) {
+  if (value >= 70) {
     return {
       level: 'high',
       label: 'High Confidence',
-      description: 'Strong evidence supports halal compliance for this product.',
+      description: 'Comprehensive ingredient data with manufacturer or certifier verification.',
       color: 'text-status-halal',
       bgColor: 'bg-status-halal/10',
       barColor: 'bg-status-halal',
     };
   }
-  if (value >= 50) {
+  if (value >= 40) {
     return {
-      level: 'moderate',
-      label: 'Moderate Confidence',
-      description: 'Ingredients appear halal, but some sourcing details are unverified.',
+      level: 'medium',
+      label: 'Medium Confidence',
+      description: 'Partial ingredient data available. Some ingredients may need verification.',
       color: 'text-status-questionable',
       bgColor: 'bg-status-questionable/10',
       barColor: 'bg-status-questionable',
@@ -52,7 +53,7 @@ function getConfidenceConfig(value: number): ConfidenceLevelConfig {
   return {
     level: 'low',
     label: 'Low Confidence',
-    description: 'Insufficient or conflicting information to verify halal compliance.',
+    description: 'Limited ingredient data available. More verification needed.',
     color: 'text-status-not-halal',
     bgColor: 'bg-status-not-halal/10',
     barColor: 'bg-status-not-halal',
@@ -61,7 +62,7 @@ function getConfidenceConfig(value: number): ConfidenceLevelConfig {
 
 const levelEmoji = {
   high: '🟢',
-  moderate: '🟡',
+  medium: '🟡',
   low: '🔴',
 };
 
