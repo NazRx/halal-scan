@@ -616,40 +616,99 @@ async function fetchSplIngredients(
       data: activeIngredients,
     });
 
-    // Use keyword window extraction as primary method
-    const keywordResult = extractInactivesByKeywordWindow(xmlText, logs);
-    let inactiveIngredients = keywordResult.ingredients;
-    const inactiveRawText = keywordResult.rawText;
+    // --- Inactive ingredients: tighter parsing with hard boundaries + strict filters ---
+    const inactiveIngredients: string[] = [];
 
-    // Secondary: Also try inactiveIngredient tags
-    const tagIngredients: string[] = [];
-    const inactiveMatches = xmlText.matchAll(/<inactiveIngredient>[\s\S]*?<name>([^<]+)<\/name>[\s\S]*?<\/inactiveIngredient>/gi);
-    for (const match of inactiveMatches) {
-      if (match[1]) {
-        tagIngredients.push(match[1].trim());
+    // 1) Try to capture the "inactive ingredients:" sentence from plain text first
+    // Pull a short window after the phrase, then cut at the first strong boundary.
+    const plainText = xmlText
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#\d+;/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const keyIdx = plainText.toLowerCase().indexOf("inactive ingredients");
+    let inactiveRawText = "";
+    
+    if (keyIdx !== -1) {
+      // Take a limited window after the keyword (prevents "entire label" bleed)
+      const window = plainText.slice(keyIdx, Math.min(plainText.length, keyIdx + 600));
+
+      // Strong boundaries: stop as soon as we hit clinical sections
+      const boundaries = [
+        "the mechanism of action",
+        "indications",
+        "warnings",
+        "dosage",
+        "clinical pharmacology",
+        "contraindications",
+        "adverse reactions",
+      ];
+
+      let cut = window.length;
+      const lowerWin = window.toLowerCase();
+      for (const b of boundaries) {
+        const bi = lowerWin.indexOf(b);
+        if (bi !== -1) cut = Math.min(cut, bi);
+      }
+      const snippet = window.slice(0, cut);
+      inactiveRawText = snippet;
+
+      // Extract after ":" if present
+      const afterColon = snippet.includes(":") ? snippet.split(":").slice(1).join(":") : snippet;
+
+      // Split candidates
+      const rawParts = afterColon.split(/[,;]|\band\b/gi).map(s => s.trim());
+
+      // Strict filters
+      const rejectStarts = [
+        "undergo",
+        "plasma",
+        "peak",
+        "study",
+        "without food",
+        "respectively",
+      ];
+
+      for (const part of rawParts) {
+        const cleaned = part
+          .replace(/\.$/, "")
+          .replace(/^inactive ingredients?/i, "")
+          .trim();
+
+        const lower = cleaned.toLowerCase();
+
+        // Minimal effective filter rules
+        if (!cleaned) continue;
+        if (cleaned.length < 2 || cleaned.length > 40) continue;
+        if (/\d|%/.test(cleaned)) continue;              // reject numbers/% like 84% 116%
+        if (!/^[a-zA-Z\s-]+$/.test(cleaned)) continue;   // letters/spaces/hyphens only
+        if (cleaned.split(/\s+/).length > 4) continue;   // max 4 words
+        if (rejectStarts.some(rs => lower.startsWith(rs))) continue;
+
+        if (!inactiveIngredients.includes(cleaned)) inactiveIngredients.push(cleaned);
       }
     }
-    
-    if (tagIngredients.length > 0) {
-      logs.push({
-        step: "spl_inactive_tags",
-        status: "success",
-        message: `Found ${tagIngredients.length} inactive ingredients via XML tags`,
-        data: tagIngredients,
-      });
-      
-      // Merge with keyword extraction results
-      for (const ing of tagIngredients) {
-        if (!inactiveIngredients.some(i => i.toLowerCase() === ing.toLowerCase())) {
-          inactiveIngredients.push(ing);
-        }
-      }
+
+    // 2) Also collect explicit inactiveIngredient tags (these are usually clean)
+    const inactiveMatches = xmlText.matchAll(
+      /<inactiveIngredient>[\s\S]*?<name>([^<]+)<\/name>[\s\S]*?<\/inactiveIngredient>/gi
+    );
+    for (const match of inactiveMatches) {
+      const val = match[1]?.trim();
+      if (!val) continue;
+      const cleaned = val.replace(/\s+/g, " ").trim();
+      if (!inactiveIngredients.includes(cleaned)) inactiveIngredients.push(cleaned);
     }
 
     logs.push({
-      step: "spl_inactive_final",
+      step: "spl_inactive",
       status: inactiveIngredients.length > 0 ? "success" : "warning",
-      message: `Final inactive ingredient count: ${inactiveIngredients.length}`,
+      message: `Found ${inactiveIngredients.length} inactive ingredients`,
       data: inactiveIngredients,
     });
 
