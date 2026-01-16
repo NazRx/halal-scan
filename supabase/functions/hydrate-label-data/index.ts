@@ -12,10 +12,25 @@ interface HydrateLog {
   data?: unknown;
 }
 
+interface VariantResult {
+  ndc: string;
+  set_id?: string;
+  manufacturer: string;
+  variant_id: string;
+  status: string;
+  confidence: number;
+  active_ingredients: string[];
+  inactive_ingredients: string[];
+}
+
 interface HydrateResult {
   success: boolean;
   logs: HydrateLog[];
   med_id: string;
+  variants_hydrated: number;
+  variant_ids: string[];
+  variants?: VariantResult[];
+  // Legacy fields for single variant (backward compat)
   ndc?: string;
   set_id?: string;
   active_ingredients?: string[];
@@ -37,6 +52,14 @@ interface DbIngredient {
   default_concern_reason: string | null;
 }
 
+interface OpenFdaNdcResult {
+  ndc: string;
+  labeler_name: string;
+  brand_name?: string;
+  dosage_form?: string;
+  strength?: string;
+}
+
 // Normalize ingredient name for matching
 function normalizeIngredientName(name: string): string {
   return name
@@ -47,19 +70,21 @@ function normalizeIngredientName(name: string): string {
     .trim();
 }
 
-// Search openFDA for NDC based on medication info - FIX: use proper query format
-async function findNdcFromOpenFda(
+// Search openFDA for up to 10 NDC results
+async function findAllNdcsFromOpenFda(
   genericName: string,
   dosageForms: string[] | null,
   brandNames: string[] | null,
   logs: HydrateLog[]
-): Promise<{ ndc: string; labeler_name?: string } | null> {
+): Promise<OpenFdaNdcResult[]> {
   logs.push({
     step: "openfda_search",
     status: "info",
-    message: `Searching openFDA for: ${genericName}`,
+    message: `Searching openFDA for ALL manufacturers of: ${genericName}`,
     data: { genericName, dosageForms, brandNames },
   });
+
+  const results: OpenFdaNdcResult[] = [];
 
   try {
     const normalizedGeneric = genericName.toLowerCase().replace(/[^a-z0-9\s]/g, "");
@@ -71,7 +96,7 @@ async function findNdcFromOpenFda(
       query += ` AND dosage_form:"${form}"`;
     }
 
-    const url = `https://api.fda.gov/drug/ndc.json?search=${encodeURIComponent(query)}&limit=5`;
+    const url = `https://api.fda.gov/drug/ndc.json?search=${encodeURIComponent(query)}&limit=10`;
     logs.push({
       step: "openfda_request",
       status: "info",
@@ -83,7 +108,7 @@ async function findNdcFromOpenFda(
     if (!response.ok) {
       // Try fallback search with just generic name
       const fallbackQuery = `generic_name:"${normalizedGeneric}"`;
-      const fallbackUrl = `https://api.fda.gov/drug/ndc.json?search=${encodeURIComponent(fallbackQuery)}&limit=5`;
+      const fallbackUrl = `https://api.fda.gov/drug/ndc.json?search=${encodeURIComponent(fallbackQuery)}&limit=10`;
       logs.push({
         step: "openfda_fallback",
         status: "warning",
@@ -97,23 +122,35 @@ async function findNdcFromOpenFda(
           status: "error",
           message: `openFDA search failed: ${fallbackResponse.status}`,
         });
-        return null;
+        return results;
       }
       
       const fallbackData = await fallbackResponse.json();
       if (fallbackData.results && fallbackData.results.length > 0) {
-        const result = fallbackData.results[0];
-        // FIX: prefer packaging[].package_ndc if present
-        const ndc = result.packaging?.[0]?.package_ndc || result.product_ndc;
+        for (const result of fallbackData.results) {
+          // Prefer packaging[].package_ndc if present
+          const ndc = result.packaging?.[0]?.package_ndc || result.product_ndc;
+          const labeler = result.labeler_name || result.openfda?.manufacturer_name?.[0] || "Unknown";
+          
+          // Avoid duplicates by labeler
+          if (!results.some(r => r.labeler_name === labeler && r.ndc === ndc)) {
+            results.push({
+              ndc,
+              labeler_name: labeler,
+              brand_name: result.brand_name,
+              dosage_form: result.dosage_form,
+              strength: result.active_ingredients?.[0]?.strength,
+            });
+          }
+        }
         logs.push({
           step: "openfda_search",
           status: "success",
-          message: `Found NDC via fallback: ${ndc}`,
-          data: result,
+          message: `Found ${results.length} NDCs via fallback`,
+          data: results.map(r => ({ ndc: r.ndc, labeler: r.labeler_name })),
         });
-        return { ndc, labeler_name: result.labeler_name };
       }
-      return null;
+      return results;
     }
 
     const data = await response.json();
@@ -124,44 +161,42 @@ async function findNdcFromOpenFda(
         status: "warning",
         message: "No results found in openFDA",
       });
-      return null;
+      return results;
     }
 
-    // Try to find best match - prefer one that matches brand if available
-    let bestMatch = data.results[0];
-    
-    if (brandNames && brandNames.length > 0) {
-      const brandLower = brandNames.map((b: string) => b.toLowerCase());
-      const brandMatch = data.results.find((r: { brand_name?: string }) => 
-        r.brand_name && brandLower.some((b: string) => r.brand_name!.toLowerCase().includes(b))
-      );
-      if (brandMatch) {
-        bestMatch = brandMatch;
-        logs.push({
-          step: "openfda_search",
-          status: "info",
-          message: `Found brand match: ${bestMatch.brand_name}`,
+    // Process all results (up to 10)
+    for (const result of data.results) {
+      // Prefer packaging[].package_ndc if present
+      const ndc = result.packaging?.[0]?.package_ndc || result.product_ndc;
+      const labeler = result.labeler_name || result.openfda?.manufacturer_name?.[0] || "Unknown";
+      
+      // Avoid exact duplicates
+      if (!results.some(r => r.labeler_name === labeler && r.ndc === ndc)) {
+        results.push({
+          ndc,
+          labeler_name: labeler,
+          brand_name: result.brand_name,
+          dosage_form: result.dosage_form,
+          strength: result.active_ingredients?.[0]?.strength,
         });
       }
     }
 
-    // FIX: prefer packaging[].package_ndc if present
-    const ndc = bestMatch.packaging?.[0]?.package_ndc || bestMatch.product_ndc;
     logs.push({
       step: "openfda_search",
       status: "success",
-      message: `Found NDC: ${ndc}`,
-      data: { brand: bestMatch.brand_name, generic: bestMatch.generic_name, labeler: bestMatch.labeler_name },
+      message: `Found ${results.length} unique NDCs from ${data.results.length} results`,
+      data: results.map(r => ({ ndc: r.ndc, labeler: r.labeler_name })),
     });
     
-    return { ndc, labeler_name: bestMatch.labeler_name };
+    return results;
   } catch (error) {
     logs.push({
       step: "openfda_search",
       status: "error",
       message: `openFDA error: ${error instanceof Error ? error.message : String(error)}`,
     });
-    return null;
+    return results;
   }
 }
 
@@ -235,7 +270,7 @@ async function getSetIdFromNdc(ndc: string, logs: HydrateLog[]): Promise<string 
   }
 }
 
-// FIX #1: Robust "keyword window extraction" for inactive ingredients
+// Robust "keyword window extraction" for inactive ingredients
 function extractInactivesByKeywordWindow(xmlText: string, logs: HydrateLog[]): { ingredients: string[]; rawText: string } {
   const keywords = [
     "inactive ingredient",
@@ -434,7 +469,7 @@ async function fetchSplIngredients(
       data: activeIngredients,
     });
 
-    // FIX #1: Use keyword window extraction as primary method
+    // Use keyword window extraction as primary method
     const keywordResult = extractInactivesByKeywordWindow(xmlText, logs);
     let inactiveIngredients = keywordResult.ingredients;
     const inactiveRawText = keywordResult.rawText;
@@ -486,7 +521,7 @@ async function fetchSplIngredients(
   }
 }
 
-// FIX #4: Improved ingredient matching with contains logic
+// Improved ingredient matching with contains logic
 function matchIngredient(ingName: string, dbIngredients: DbIngredient[]): DbIngredient | null {
   const normalized = normalizeIngredientName(ingName);
   
@@ -517,7 +552,7 @@ function matchIngredient(ingName: string, dbIngredients: DbIngredient[]): DbIngr
   return containsMatch || null;
 }
 
-// FIX #4: Improved status computation with numeric confidence
+// Improved status computation with numeric confidence
 async function computeStatus(
   activeIngredients: string[],
   inactiveIngredients: string[],
@@ -557,7 +592,7 @@ async function computeStatus(
 
     const dbIngredients = (ingredients || []) as DbIngredient[];
     
-    // FIX #4: Status based primarily on INACTIVE ingredients
+    // Status based primarily on INACTIVE ingredients
     // If no inactive ingredients, force needs_verification
     if (inactiveIngredients.length === 0) {
       logs.push({
@@ -596,7 +631,7 @@ async function computeStatus(
       }
     }
 
-    // FIX #4: Status based on INACTIVE ingredients
+    // Status based on INACTIVE ingredients
     for (const ingName of inactiveIngredients) {
       const match = matchIngredient(ingName, dbIngredients);
 
@@ -634,7 +669,7 @@ async function computeStatus(
       data: matchResults,
     });
 
-    // FIX #4: Determine status with proper numeric confidence
+    // Determine status with proper numeric confidence
     let status: string;
     let confidence: number;
     let reason: string;
@@ -680,7 +715,8 @@ async function computeStatus(
   }
 }
 
-// FIX #3: Create/update rx_variants, rx_variant_ingredients, rx_verdicts
+// Create/update rx_variants, rx_variant_ingredients, rx_verdicts
+// Now keyed by (rx_med_id, manufacturer, ndc) to allow multiple variants per med
 async function upsertVariantData(
   supabase: any,
   medId: string,
@@ -688,39 +724,60 @@ async function upsertVariantData(
   labelerName: string | null,
   dosageForm: string | null,
   strengthText: string | null,
+  splSetId: string | null,
   status: string,
   confidence: number,
   reason: string,
   matchedIngredients: { name: string; id: string; role: string }[],
   logs: HydrateLog[]
 ): Promise<string | null> {
+  const manufacturer = labelerName || "Unknown Manufacturer";
+  
   logs.push({
     step: "upsert_variant",
     status: "info",
-    message: `Creating/updating variant for med_id: ${medId}`,
+    message: `Creating/updating variant for manufacturer: ${manufacturer}, NDC: ${ndc}`,
   });
 
   try {
-    // Check if variant exists for this med_id and labeler
-    const manufacturer = labelerName || "General";
-    const { data: existingVariant } = await supabase
+    // Check if variant exists for this med_id, manufacturer AND has this NDC in ndc_list
+    const { data: existingVariants } = await supabase
       .from("rx_variants")
-      .select("id")
+      .select("id, ndc_list")
       .eq("rx_med_id", medId)
-      .eq("manufacturer", manufacturer)
-      .maybeSingle();
+      .eq("manufacturer", manufacturer);
 
-    let variantId: string;
+    let variantId: string | null = null;
+    let existingVariant: any = null;
+
+    // Find variant that contains this NDC or exact manufacturer match
+    if (existingVariants && existingVariants.length > 0) {
+      // First try to find one with matching NDC
+      existingVariant = existingVariants.find((v: any) => 
+        v.ndc_list && v.ndc_list.includes(ndc)
+      );
+      
+      // If not found by NDC, use the first one for this manufacturer
+      if (!existingVariant) {
+        existingVariant = existingVariants[0];
+      }
+    }
 
     if (existingVariant) {
       variantId = existingVariant.id;
-      // Update existing variant
+      // Update existing variant - add NDC to list if not present
+      const currentNdcList = existingVariant.ndc_list || [];
+      const updatedNdcList = currentNdcList.includes(ndc) 
+        ? currentNdcList 
+        : [...currentNdcList, ndc];
+      
       const { error: updateError } = await supabase
         .from("rx_variants")
         .update({
-          ndc_list: [ndc],
-          dosage_form: dosageForm,
-          strength_text: strengthText,
+          ndc_list: updatedNdcList,
+          dosage_form: dosageForm || undefined,
+          strength_text: strengthText || undefined,
+          spl_set_id: splSetId || undefined,
           data_source: "hydrate-label-data",
           updated_at: new Date().toISOString(),
         })
@@ -740,7 +797,7 @@ async function upsertVariantData(
         message: `Updated existing variant: ${variantId}`,
       });
     } else {
-      // Create new variant
+      // Create new variant for this manufacturer
       const { data: newVariant, error: insertError } = await supabase
         .from("rx_variants")
         .insert({
@@ -749,6 +806,7 @@ async function upsertVariantData(
           ndc_list: [ndc],
           dosage_form: dosageForm,
           strength_text: strengthText,
+          spl_set_id: splSetId,
           data_source: "hydrate-label-data",
         })
         .select("id")
@@ -766,7 +824,7 @@ async function upsertVariantData(
       logs.push({
         step: "upsert_variant",
         status: "success",
-        message: `Created new variant: ${variantId}`,
+        message: `Created new variant for ${manufacturer}: ${variantId}`,
       });
     }
 
@@ -910,6 +968,105 @@ async function ensureIngredientsExist(
   }
 }
 
+// Process a single NDC result
+async function processNdcResult(
+  supabase: any,
+  medId: string,
+  ndcResult: OpenFdaNdcResult,
+  supabaseUrl: string,
+  supabaseKey: string,
+  logs: HydrateLog[]
+): Promise<VariantResult | null> {
+  const { ndc, labeler_name, dosage_form, strength } = ndcResult;
+  
+  logs.push({
+    step: "process_ndc",
+    status: "info",
+    message: `Processing NDC ${ndc} for manufacturer: ${labeler_name}`,
+  });
+
+  // Get DailyMed set_id
+  const setId = await getSetIdFromNdc(ndc, logs);
+  
+  let activeIngredients: string[] = [];
+  let inactiveIngredients: string[] = [];
+  let inactiveRawText = "";
+  let status = "needs_verification";
+  let confidence = 10;
+  let reason = "Inactive ingredients not available for this NDC yet.";
+  let matchedIngredients: { name: string; id: string; role: string }[] = [];
+  
+  if (setId) {
+    // Fetch and parse SPL ingredients
+    const ingredients = await fetchSplIngredients(setId, logs);
+    
+    if (ingredients) {
+      activeIngredients = ingredients.active;
+      inactiveIngredients = ingredients.inactive;
+      inactiveRawText = ingredients.inactiveRawText;
+      
+      // Ensure ingredients exist check
+      await ensureIngredientsExist(
+        supabase,
+        [...activeIngredients, ...inactiveIngredients],
+        logs
+      );
+      
+      // Compute status
+      const statusResult = await computeStatus(
+        activeIngredients,
+        inactiveIngredients,
+        supabaseUrl,
+        supabaseKey,
+        logs
+      );
+      
+      status = statusResult.status;
+      confidence = statusResult.confidence;
+      reason = statusResult.reason;
+      matchedIngredients = statusResult.matchedIngredients;
+    }
+  } else {
+    // No set_id found - still create variant but with needs_verification
+    logs.push({
+      step: "process_ndc",
+      status: "warning",
+      message: `No DailyMed set_id found for NDC ${ndc} - creating variant with needs_verification`,
+    });
+  }
+
+  // Upsert variant data
+  const variantId = await upsertVariantData(
+    supabase,
+    medId,
+    ndc,
+    labeler_name,
+    dosage_form || null,
+    strength || null,
+    setId,
+    status,
+    confidence,
+    reason,
+    matchedIngredients,
+    logs
+  );
+
+  if (!variantId) {
+    return null;
+  }
+
+  return {
+    ndc,
+    set_id: setId || undefined,
+    manufacturer: labeler_name,
+    variant_id: variantId,
+    status,
+    confidence,
+    active_ingredients: activeIngredients,
+    inactive_ingredients: inactiveIngredients,
+  };
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -971,12 +1128,15 @@ Deno.serve(async (req) => {
       success: false,
       logs,
       med_id,
+      variants_hydrated: 0,
+      variant_ids: [],
+      variants: [],
     };
 
     logs.push({
       step: "start",
       status: "info",
-      message: `Starting hydration for med_id: ${med_id}`,
+      message: `Starting multi-variant hydration for med_id: ${med_id}`,
     });
 
     // Fetch medication info
@@ -1005,112 +1165,162 @@ Deno.serve(async (req) => {
       data: { generic_name: med.generic_name, brand_names: med.brand_names, dosage_forms: med.dosage_forms },
     });
 
-    // Step 1: Find NDC from openFDA
-    const ndcResult = await findNdcFromOpenFda(
+    // Step 1: Find ALL NDCs from openFDA (up to 10)
+    const ndcResults = await findAllNdcsFromOpenFda(
       med.generic_name,
       med.dosage_forms,
       med.brand_names,
       logs
     );
 
-    if (ndcResult) {
-      const { ndc, labeler_name } = ndcResult;
-      result.ndc = ndc;
-      
-      // Step 2: Get DailyMed set_id
-      const setId = await getSetIdFromNdc(ndc, logs);
-      
-      if (setId) {
-        result.set_id = setId;
-        
-        // Step 3: Fetch and parse SPL ingredients
-        const ingredients = await fetchSplIngredients(setId, logs);
-        
-        if (ingredients) {
-          result.active_ingredients = ingredients.active;
-          result.inactive_ingredients = ingredients.inactive;
-          result.inactive_raw_text = ingredients.inactiveRawText;
-          
-          // Ensure ingredients exist check
-          await ensureIngredientsExist(
-            supabase,
-            [...ingredients.active, ...ingredients.inactive],
-            logs
-          );
-          
-          // Step 4: Compute status
-          const statusResult = await computeStatus(
-            ingredients.active,
-            ingredients.inactive,
-            supabaseUrl,
-            supabaseServiceKey,
-            logs
-          );
-          
-          result.status = statusResult.status;
-          result.confidence = statusResult.confidence;
-          result.confidence_level = statusResult.confidence >= 80 ? "high" : statusResult.confidence >= 50 ? "medium" : "low";
-          result.status_reason = statusResult.reason;
-          
-          // FIX #3: Upsert variant data to rx_variants, rx_variant_ingredients, rx_verdicts
-          const variantId = await upsertVariantData(
-            supabase,
-            med_id,
-            ndc,
-            labeler_name || null,
-            (med.dosage_forms || [])[0] || null,
-            null,
-            statusResult.status,
-            statusResult.confidence,
-            statusResult.reason,
-            statusResult.matchedIngredients,
-            logs
-          );
-          
-          if (variantId) {
-            result.variant_id = variantId;
-          }
-          
-          // Step 5: Update rx_meds record
-          const { error: updateError } = await supabase
-            .from("rx_meds")
-            .update({
-              ndc,
-              dailymed_set_id: setId,
-              active_ingredients: ingredients.active,
-              inactive_ingredients: ingredients.inactive,
-              inactive_raw_text: ingredients.inactiveRawText,
-              confidence_level: result.confidence_level,
-              status_reason: statusResult.reason,
-              default_status: statusResult.status,
-              spl_last_fetched_at: new Date().toISOString(),
-            })
-            .eq("id", med_id);
+    if (ndcResults.length === 0) {
+      logs.push({
+        step: "complete",
+        status: "warning",
+        message: "No NDCs found in openFDA - cannot hydrate variants",
+      });
+      result.logs = logs;
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-          if (updateError) {
-            logs.push({
-              step: "update_db",
-              status: "error",
-              message: `Failed to update rx_meds: ${updateError.message}`,
-            });
-          } else {
-            logs.push({
-              step: "update_db",
-              status: "success",
-              message: "Successfully updated rx_meds record",
-            });
-            result.success = true;
+    logs.push({
+      step: "hydrate_variants",
+      status: "info",
+      message: `Processing ${ndcResults.length} NDC results to create/update variants`,
+    });
+
+    // Step 2: Process each NDC result to create/update variants
+    const variantResults: VariantResult[] = [];
+    
+    // Collect raw text and ingredient info for rx_meds update
+    let allInactiveIngredients: string[] = [];
+    let allActiveIngredients: string[] = [];
+    let firstInactiveRawText = "";
+    let firstNdc = "";
+    let firstSetId = "";
+    
+    for (const ndcResult of ndcResults) {
+      const variantResult = await processNdcResult(
+        supabase,
+        med_id,
+        ndcResult,
+        supabaseUrl,
+        supabaseServiceKey,
+        logs
+      );
+      
+      if (variantResult) {
+        variantResults.push(variantResult);
+        result.variant_ids.push(variantResult.variant_id);
+        
+        // Collect all unique ingredients
+        for (const ing of variantResult.active_ingredients) {
+          if (!allActiveIngredients.includes(ing)) {
+            allActiveIngredients.push(ing);
           }
         }
+        for (const ing of variantResult.inactive_ingredients) {
+          if (!allInactiveIngredients.includes(ing)) {
+            allInactiveIngredients.push(ing);
+          }
+        }
+        
+        // Keep first successful NDC/set_id for rx_meds record
+        if (!firstNdc && variantResult.ndc) {
+          firstNdc = variantResult.ndc;
+        }
+        if (!firstSetId && variantResult.set_id) {
+          firstSetId = variantResult.set_id;
+        }
       }
+    }
+
+    result.variants_hydrated = variantResults.length;
+    result.variants = variantResults;
+
+    // Set legacy single-variant fields for backward compatibility
+    if (variantResults.length > 0) {
+      const firstVariant = variantResults[0];
+      result.ndc = firstVariant.ndc;
+      result.set_id = firstVariant.set_id;
+      result.active_ingredients = firstVariant.active_ingredients;
+      result.inactive_ingredients = firstVariant.inactive_ingredients;
+      result.status = firstVariant.status;
+      result.confidence = firstVariant.confidence;
+      result.variant_id = firstVariant.variant_id;
+    }
+
+    // Step 3: Update rx_meds record with aggregated info
+    if (variantResults.length > 0) {
+      // Determine best overall status for rx_meds.default_status
+      let bestStatus = "needs_verification";
+      let bestConfidence = 10;
+      let bestReason = "Multiple variants available - check individual manufacturers";
+      
+      // Find the best (most favorable) status among variants
+      const statusPriority = { "halal": 4, "mushbooh": 3, "needs_verification": 2, "haram": 1 };
+      for (const v of variantResults) {
+        const currentPriority = statusPriority[v.status as keyof typeof statusPriority] || 0;
+        const bestPriority = statusPriority[bestStatus as keyof typeof statusPriority] || 0;
+        if (currentPriority > bestPriority) {
+          bestStatus = v.status;
+          bestConfidence = v.confidence;
+        }
+      }
+      
+      if (allInactiveIngredients.length === 0) {
+        bestStatus = "needs_verification";
+        bestConfidence = 10;
+        bestReason = "No inactive ingredient data available across variants";
+      }
+
+      const confidenceLevel = bestConfidence >= 80 ? "high" : bestConfidence >= 50 ? "medium" : "low";
+      
+      const { error: updateError } = await supabase
+        .from("rx_meds")
+        .update({
+          ndc: firstNdc || null,
+          dailymed_set_id: firstSetId || null,
+          active_ingredients: allActiveIngredients,
+          inactive_ingredients: allInactiveIngredients,
+          confidence_level: confidenceLevel,
+          status_reason: bestReason,
+          default_status: bestStatus,
+          spl_last_fetched_at: new Date().toISOString(),
+        })
+        .eq("id", med_id);
+
+      if (updateError) {
+        logs.push({
+          step: "update_db",
+          status: "error",
+          message: `Failed to update rx_meds: ${updateError.message}`,
+        });
+      } else {
+        logs.push({
+          step: "update_db",
+          status: "success",
+          message: `Updated rx_meds with ${variantResults.length} variants hydrated`,
+        });
+        result.success = true;
+      }
+      
+      result.confidence_level = confidenceLevel;
+      result.status_reason = bestReason;
     }
 
     logs.push({
       step: "complete",
       status: result.success ? "success" : "warning",
       message: result.success 
-        ? "Hydration completed successfully" 
+        ? `Hydration completed: ${variantResults.length} variants created/updated` 
         : "Hydration completed with issues - some data may be missing",
+      data: {
+        variants_hydrated: variantResults.length,
+        variant_ids: result.variant_ids,
+      },
     });
 
     return new Response(JSON.stringify(result), {
@@ -1122,6 +1332,8 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         error: error instanceof Error ? error.message : "Unknown error",
         success: false,
+        variants_hydrated: 0,
+        variant_ids: [],
         logs: [{ step: "error", status: "error", message: String(error) }],
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
