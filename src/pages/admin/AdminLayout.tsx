@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -8,10 +9,13 @@ import {
   ChevronLeft,
   Shield,
   MessageSquare,
-  Beaker
+  Beaker,
+  PanelLeftClose,
+  PanelLeft
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const navItems = [
   { title: 'Dashboard', href: '/admin', icon: LayoutDashboard },
@@ -26,55 +30,115 @@ const navItems = [
 
 export default function AdminLayout() {
   const location = useLocation();
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen flex bg-muted/30">
-      {/* Sidebar */}
-      <aside className="w-64 bg-card border-r flex flex-col">
-        <div className="p-4 border-b">
-          <div className="flex items-center gap-2">
-            <Shield className="h-6 w-6 text-primary" />
-            <span className="font-semibold text-lg">Admin Panel</span>
+    <TooltipProvider delayDuration={0}>
+      <div className="min-h-screen flex bg-muted/30 w-full">
+        {/* Sidebar */}
+        <aside 
+          className={cn(
+            "bg-card border-r flex flex-col transition-all duration-300 ease-in-out",
+            collapsed ? "w-16" : "w-64"
+          )}
+        >
+          <div className="p-4 border-b flex items-center justify-between">
+            <div className={cn(
+              "flex items-center gap-2 overflow-hidden transition-all duration-300",
+              collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+            )}>
+              <Shield className="h-6 w-6 text-primary flex-shrink-0" />
+              <span className="font-semibold text-lg whitespace-nowrap">Admin Panel</span>
+            </div>
+            {collapsed && (
+              <Shield className="h-6 w-6 text-primary mx-auto" />
+            )}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setCollapsed(!collapsed)}
+              className={cn(
+                "h-8 w-8 flex-shrink-0 transition-all",
+                collapsed && "mx-auto"
+              )}
+            >
+              {collapsed ? (
+                <PanelLeft className="h-4 w-4" />
+              ) : (
+                <PanelLeftClose className="h-4 w-4" />
+              )}
+            </Button>
           </div>
-        </div>
 
-        <nav className="flex-1 p-4 space-y-1">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.href || 
-              (item.href !== '/admin' && location.pathname.startsWith(item.href));
-            
-            return (
-              <Link
-                key={item.href}
-                to={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                  isActive 
-                    ? "bg-primary text-primary-foreground" 
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.title}
-              </Link>
-            );
-          })}
-        </nav>
+          <nav className="flex-1 p-2 space-y-1">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.href || 
+                (item.href !== '/admin' && location.pathname.startsWith(item.href));
+              
+              const linkContent = (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    isActive 
+                      ? "bg-primary text-primary-foreground" 
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    collapsed && "justify-center px-2"
+                  )}
+                >
+                  <item.icon className="h-4 w-4 flex-shrink-0" />
+                  {!collapsed && <span className="truncate">{item.title}</span>}
+                </Link>
+              );
 
-        <div className="p-4 border-t">
-          <Button variant="ghost" size="sm" asChild className="w-full justify-start">
-            <Link to="/app">
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Back to App
-            </Link>
-          </Button>
-        </div>
-      </aside>
+              if (collapsed) {
+                return (
+                  <Tooltip key={item.href}>
+                    <TooltipTrigger asChild>
+                      {linkContent}
+                    </TooltipTrigger>
+                    <TooltipContent side="right" sideOffset={8}>
+                      {item.title}
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
 
-      {/* Main Content */}
-      <main className="flex-1 p-8 overflow-auto">
-        <Outlet />
-      </main>
-    </div>
+              return linkContent;
+            })}
+          </nav>
+
+          <div className="p-2 border-t">
+            {collapsed ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" asChild className="w-full">
+                    <Link to="/app">
+                      <ChevronLeft className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8}>
+                  Back to App
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <Button variant="ghost" size="sm" asChild className="w-full justify-start">
+                <Link to="/app">
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  Back to App
+                </Link>
+              </Button>
+            )}
+          </div>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 p-8 overflow-auto">
+          <Outlet />
+        </main>
+      </div>
+    </TooltipProvider>
   );
 }
