@@ -270,8 +270,9 @@ async function getSetIdFromNdc(ndc: string, logs: HydrateLog[]): Promise<string 
   }
 }
 
-// Robust "keyword window extraction" for inactive ingredients
+// STRICT "keyword window extraction" for inactive ingredients
 function extractInactivesByKeywordWindow(xmlText: string, logs: HydrateLog[]): { ingredients: string[]; rawText: string } {
+  // STEP 1: Keywords to find inactive ingredient section
   const keywords = [
     "inactive ingredient",
     "inactive ingredients",
@@ -281,36 +282,18 @@ function extractInactivesByKeywordWindow(xmlText: string, logs: HydrateLog[]): {
     "excipients",
   ];
   
-  const stopPatterns = [
-    /\bINDICATIONS\b/i,
-    /\bWARNINGS\b/i,
-    /\bDOSAGE\b/i,
-    /\bACTIVE INGREDIENT/i,
-    /\bDIRECTIONS\b/i,
-    /\bPURPOSE\b/i,
-    /\bUSES\b/i,
-    /\bASK A DOCTOR\b/i,
-    /\bSTOP USE\b/i,
-    /\bDRUG FACTS\b/i,
-  ];
-  
-  const junkFilters = [
-    /^inactive ingredients?$/i,
-    /^each (tablet|capsule|softgel) contains$/i,
-    /^contains$/i,
-    /^may contain$/i,
-    /^include$/i,
-    /^the$/i,
-    /^this$/i,
-    /^and$/i,
-    /^or$/i,
-    /^\d+$/,
-    /^mg$/i,
-    /^mcg$/i,
-    /^ml$/i,
+  // STEP 1: Strong section boundaries to stop extraction
+  const sectionBoundaries = [
+    "the mechanism of action",
+    "indications",
+    "warnings",
+    "dosage",
+    "clinical pharmacology",
+    "contraindications",
+    "adverse reactions",
   ];
 
-  // Search case-insensitive for first occurrence
+  // Search case-insensitive for first occurrence of any keyword
   let matchIndex = -1;
   let matchedKeyword = "";
   
@@ -341,21 +324,30 @@ function extractInactivesByKeywordWindow(xmlText: string, logs: HydrateLog[]): {
   // Take window of 2500 chars after match
   let window = xmlText.substring(matchIndex, matchIndex + 2500);
   
-  // Stop early at major section starts
-  for (const pattern of stopPatterns) {
-    const stopMatch = window.match(pattern);
-    if (stopMatch && stopMatch.index && stopMatch.index > 50) {
-      window = window.substring(0, stopMatch.index);
-      logs.push({
-        step: "keyword_extraction",
-        status: "info",
-        message: `Truncated at "${stopMatch[0]}"`,
-      });
-      break;
+  // STEP 1: Truncate at FIRST occurrence of any section boundary
+  const lowerWindow = window.toLowerCase();
+  let earliestBoundary = window.length;
+  let boundaryFound = "";
+  
+  for (const boundary of sectionBoundaries) {
+    const idx = lowerWindow.indexOf(boundary);
+    if (idx !== -1 && idx > 20 && idx < earliestBoundary) {
+      earliestBoundary = idx;
+      boundaryFound = boundary;
     }
   }
+  
+  if (earliestBoundary < window.length) {
+    window = window.substring(0, earliestBoundary);
+    logs.push({
+      step: "keyword_extraction",
+      status: "info",
+      message: `Truncated at section boundary: "${boundaryFound}"`,
+    });
+  }
 
-  // Strip tags to spaces
+  // STEP 2: Normalize the inactive text
+  // Remove XML/HTML tags
   let cleanText = window.replace(/<[^>]+>/g, " ");
   
   // Decode common entities
@@ -368,52 +360,207 @@ function extractInactivesByKeywordWindow(xmlText: string, logs: HydrateLog[]): {
     .replace(/&#\d+;/g, "")
     .replace(/&nbsp;/g, " ");
   
-  // Collapse whitespace
+  // Collapse multiple spaces into one
   cleanText = cleanText.replace(/\s+/g, " ").trim();
   
-  // Save raw text for debugging (500-1000 chars)
-  const rawText = cleanText.substring(0, 1000);
+  // Remove leading phrases (case-insensitive)
+  const leadingPhrases = [
+    "inactive ingredients:",
+    "inactive ingredients",
+    "inactive ingredient:",
+    "inactive ingredient",
+    "each tablet contains:",
+    "each tablet contains",
+    "each capsule contains:",
+    "each capsule contains",
+    "contains:",
+  ];
+  
+  let lowerClean = cleanText.toLowerCase();
+  for (const phrase of leadingPhrases) {
+    if (lowerClean.startsWith(phrase)) {
+      cleanText = cleanText.substring(phrase.length).trim();
+      lowerClean = cleanText.toLowerCase();
+    }
+  }
+  
+  // STEP 6: Save raw text for debugging (500-800 chars)
+  const rawText = cleanText.substring(0, 800);
 
-  // Split by comma, semicolon, and word "and"
-  const parts = cleanText.split(/[,;]|\band\b/i);
+  // STEP 3: Split into candidate ingredients
+  // Split by commas, semicolons, and the word "and" (as separator)
+  const parts = cleanText.split(/[,;]|\s+and\s+/i);
   
   const ingredients: string[] = [];
+  
   for (const part of parts) {
-    let cleaned = part.trim();
-    // Remove trailing period
-    cleaned = cleaned.replace(/\.$/, "").trim();
-    // Remove parenthetical content like "(as dihydrate)"
-    cleaned = cleaned.replace(/\s*\([^)]*\)\s*/g, " ").trim();
+    // Trim whitespace and trailing punctuation
+    let candidate = part.trim().replace(/[.,;:]+$/, "").trim();
     
-    // Skip too short or too long
-    if (cleaned.length < 3 || cleaned.length > 100) continue;
+    // STEP 4: Apply STRICT ingredient filters
     
-    // Filter out junk
-    let isJunk = false;
-    for (const filter of junkFilters) {
-      if (filter.test(cleaned)) {
-        isJunk = true;
+    // Character rules: Only letters, spaces, or hyphens
+    if (!/^[a-zA-Z\s-]+$/.test(candidate)) {
+      continue;
+    }
+    
+    // Reject if contains any digits
+    if (/\d/.test(candidate)) {
+      continue;
+    }
+    
+    // Reject if contains %
+    if (candidate.includes("%")) {
+      continue;
+    }
+    
+    // Length rules: 2-40 characters
+    if (candidate.length < 2 || candidate.length > 40) {
+      continue;
+    }
+    
+    // Maximum 4 words
+    const wordCount = candidate.split(/\s+/).length;
+    if (wordCount > 4) {
+      continue;
+    }
+    
+    // Content rules: Reject if starts with specific words
+    const rejectStartsWith = [
+      "undergo",
+      "plasma",
+      "peak",
+      "study",
+      "without food",
+      "respectively",
+      "the",
+      "this",
+      "each",
+      "may",
+      "also",
+      "including",
+      "such as",
+      "other",
+      "none",
+      "no ",
+      "not ",
+      "is ",
+      "are ",
+      "was ",
+      "were ",
+      "have ",
+      "has ",
+      "had ",
+      "be ",
+      "been ",
+      "being ",
+      "it ",
+      "its ",
+      "with ",
+      "from ",
+      "for ",
+      "by ",
+      "at ",
+      "in ",
+      "on ",
+      "to ",
+      "as ",
+    ];
+    
+    const lowerCandidate = candidate.toLowerCase();
+    let rejected = false;
+    
+    for (const prefix of rejectStartsWith) {
+      if (lowerCandidate.startsWith(prefix)) {
+        rejected = true;
         break;
       }
     }
-    if (isJunk) continue;
+    if (rejected) continue;
     
-    // Skip if starts with common non-ingredient words
-    if (/^(the|this|each|may|also|including|such as|other|none|no |not )/i.test(cleaned)) continue;
+    // Content rules: Reject if contains specific words
+    const rejectContains = [
+      "concentration",
+      "metabolism",
+      "radiolabeled",
+      "absorption",
+      "pharmacokinetic",
+      "bioavailability",
+      "half-life",
+      "clearance",
+      "distribution",
+      "elimination",
+      "excretion",
+      "binding",
+      "protein",
+      "steady state",
+      "auc",
+      "cmax",
+      "tmax",
+      "plasma level",
+      "systemic",
+      "oral administration",
+      "intravenous",
+      "patients",
+      "subjects",
+      "volunteers",
+      "studies",
+      "clinical",
+      "trial",
+      "dose",
+      "dosing",
+      "administered",
+      "treatment",
+      "therapy",
+      "efficacy",
+      "effect",
+      "response",
+      "indicated",
+      "recommended",
+    ];
     
-    ingredients.push(cleaned);
+    for (const word of rejectContains) {
+      if (lowerCandidate.includes(word)) {
+        rejected = true;
+        break;
+      }
+    }
+    if (rejected) continue;
+    
+    // Reject single common words that aren't ingredients
+    const singleWordRejects = [
+      "and", "or", "the", "a", "an", "is", "are", "was", "were",
+      "be", "been", "being", "have", "has", "had", "do", "does",
+      "did", "will", "would", "could", "should", "may", "might",
+      "must", "shall", "can", "need", "dare", "ought", "used",
+      "mg", "ml", "mcg", "g", "kg", "l", "mm", "cm", "m",
+      "oral", "tablet", "capsule", "solution", "injection",
+    ];
+    
+    if (wordCount === 1 && singleWordRejects.includes(lowerCandidate)) {
+      continue;
+    }
+    
+    ingredients.push(candidate);
   }
   
-  // Deduplicate
-  const uniqueIngredients = [...new Set(ingredients.map(i => i.toLowerCase()))].map(lower => {
-    return ingredients.find(i => i.toLowerCase() === lower) || lower;
-  });
+  // STEP 5: Deduplicate (preserve original casing)
+  const seen = new Set<string>();
+  const uniqueIngredients: string[] = [];
+  
+  for (const ing of ingredients) {
+    const normalized = ing.toLowerCase();
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      uniqueIngredients.push(ing);
+    }
+  }
 
   logs.push({
     step: "keyword_extraction",
     status: uniqueIngredients.length > 0 ? "success" : "warning",
-    message: `Extracted ${uniqueIngredients.length} ingredients via keyword window`,
-    data: uniqueIngredients.slice(0, 10),
+    message: `Extracted ${uniqueIngredients.length} ingredients via strict filtering`,
+    data: uniqueIngredients.slice(0, 15),
   });
 
   return { ingredients: uniqueIngredients, rawText };
