@@ -53,12 +53,13 @@ interface MedicationData {
   lastVerifiedDate: string; // ISO date string for precise verification date
 }
 
-// Map DB status to UI status
+// Map DB status to UI status - FIX #5: treat needs_verification as unknown
 function mapStatus(dbStatus: string | null): 'halal' | 'questionable' | 'not-halal' | 'unknown' {
   if (!dbStatus) return 'unknown';
   if (dbStatus === 'halal') return 'halal';
   if (dbStatus === 'mushbooh') return 'questionable';
   if (dbStatus === 'haram') return 'not-halal';
+  if (dbStatus === 'needs_verification') return 'unknown';
   return 'unknown';
 }
 
@@ -160,6 +161,26 @@ const RxMedication = () => {
           };
         });
 
+        // FIX #5: Fallback manufacturer from rx_meds when no variants exist
+        if (manufacturers.length === 0 && rxMed.inactive_ingredients && rxMed.inactive_ingredients.length > 0) {
+          manufacturers.push({
+            id: `hydrated-${rxMed.id}`,
+            name: 'General (Hydrated)',
+            ndc: rxMed.ndc || 'N/A',
+            dosageForm: (rxMed.dosage_forms || [])[0] || 'Unknown',
+            strength: 'Various',
+            status: mapStatus(rxMed.default_status || null),
+            confidence: rxMed.confidence_level === 'high' ? 85 : rxMed.confidence_level === 'medium' ? 60 : 30,
+            inactiveIngredients: (rxMed.inactive_ingredients || []).map((ing: string) => ({
+              name: ing,
+              status: 'unknown' as const,
+            })),
+            classificationRationale: rxMed.status_reason || undefined,
+            isBrand: false,
+            isPromoted: false,
+          });
+        }
+
         // Get active ingredients (typically from first variant or all have same active)
         const activeIngredients = (variantIngredients || [])
           .filter(vi => vi.role === 'active')
@@ -172,7 +193,7 @@ const RxMedication = () => {
 
         // Calculate overall status
         const statuses = verdicts?.map(v => mapStatus(v.status)) || [];
-        let overallStatus: 'halal' | 'questionable' | 'not-halal' | 'unknown' = 'unknown';
+        let overallStatus: 'halal' | 'questionable' | 'not-halal' | 'unknown' = mapStatus(rxMed.default_status || null);
         if (statuses.length > 0) {
           const uniqueStatuses = [...new Set(statuses)];
           if (uniqueStatuses.length === 1) {
@@ -186,7 +207,7 @@ const RxMedication = () => {
 
         const avgConfidence = verdicts && verdicts.length > 0
           ? Math.round(verdicts.reduce((sum, v) => sum + (v.confidence || 0), 0) / verdicts.length)
-          : 0;
+          : (rxMed.confidence_level === 'high' ? 85 : rxMed.confidence_level === 'medium' ? 60 : 30);
 
         setMedication({
           id: rxMed.id,

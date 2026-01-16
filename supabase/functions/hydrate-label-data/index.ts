@@ -20,9 +20,12 @@ interface HydrateResult {
   set_id?: string;
   active_ingredients?: string[];
   inactive_ingredients?: string[];
+  inactive_raw_text?: string;
   status?: string;
+  confidence?: number;
   confidence_level?: string;
   status_reason?: string;
+  variant_id?: string;
 }
 
 interface DbIngredient {
@@ -44,13 +47,13 @@ function normalizeIngredientName(name: string): string {
     .trim();
 }
 
-// Search openFDA for NDC based on medication info
+// Search openFDA for NDC based on medication info - FIX: use proper query format
 async function findNdcFromOpenFda(
   genericName: string,
   dosageForms: string[] | null,
   brandNames: string[] | null,
   logs: HydrateLog[]
-): Promise<string | null> {
+): Promise<{ ndc: string; labeler_name?: string } | null> {
   logs.push({
     step: "openfda_search",
     status: "info",
@@ -59,20 +62,13 @@ async function findNdcFromOpenFda(
   });
 
   try {
-    // Build search query - prioritize generic name
-    const searchTerms: string[] = [];
-    
-    // Add generic name search
     const normalizedGeneric = genericName.toLowerCase().replace(/[^a-z0-9\s]/g, "");
-    searchTerms.push(`generic_name:"${normalizedGeneric}"`);
     
-    // Build the query
-    let query = searchTerms.join("+AND+");
-    
-    // Add dosage form if available
+    // Build proper query with " AND " instead of "+AND+"
+    let query = `generic_name:"${normalizedGeneric}"`;
     if (dosageForms && dosageForms.length > 0) {
       const form = dosageForms[0].toLowerCase();
-      query += `+AND+dosage_form:"${form}"`;
+      query += ` AND dosage_form:"${form}"`;
     }
 
     const url = `https://api.fda.gov/drug/ndc.json?search=${encodeURIComponent(query)}&limit=5`;
@@ -86,7 +82,8 @@ async function findNdcFromOpenFda(
     
     if (!response.ok) {
       // Try fallback search with just generic name
-      const fallbackUrl = `https://api.fda.gov/drug/ndc.json?search=generic_name:"${encodeURIComponent(normalizedGeneric)}"&limit=5`;
+      const fallbackQuery = `generic_name:"${normalizedGeneric}"`;
+      const fallbackUrl = `https://api.fda.gov/drug/ndc.json?search=${encodeURIComponent(fallbackQuery)}&limit=5`;
       logs.push({
         step: "openfda_fallback",
         status: "warning",
@@ -105,14 +102,16 @@ async function findNdcFromOpenFda(
       
       const fallbackData = await fallbackResponse.json();
       if (fallbackData.results && fallbackData.results.length > 0) {
-        const ndc = fallbackData.results[0].product_ndc;
+        const result = fallbackData.results[0];
+        // FIX: prefer packaging[].package_ndc if present
+        const ndc = result.packaging?.[0]?.package_ndc || result.product_ndc;
         logs.push({
           step: "openfda_search",
           status: "success",
           message: `Found NDC via fallback: ${ndc}`,
-          data: fallbackData.results[0],
+          data: result,
         });
-        return ndc;
+        return { ndc, labeler_name: result.labeler_name };
       }
       return null;
     }
@@ -146,15 +145,16 @@ async function findNdcFromOpenFda(
       }
     }
 
-    const ndc = bestMatch.product_ndc;
+    // FIX: prefer packaging[].package_ndc if present
+    const ndc = bestMatch.packaging?.[0]?.package_ndc || bestMatch.product_ndc;
     logs.push({
       step: "openfda_search",
       status: "success",
       message: `Found NDC: ${ndc}`,
-      data: { brand: bestMatch.brand_name, generic: bestMatch.generic_name },
+      data: { brand: bestMatch.brand_name, generic: bestMatch.generic_name, labeler: bestMatch.labeler_name },
     });
     
-    return ndc;
+    return { ndc, labeler_name: bestMatch.labeler_name };
   } catch (error) {
     logs.push({
       step: "openfda_search",
@@ -235,11 +235,160 @@ async function getSetIdFromNdc(ndc: string, logs: HydrateLog[]): Promise<string 
   }
 }
 
-// Fetch and parse SPL content for ingredients
+// FIX #1: Robust "keyword window extraction" for inactive ingredients
+function extractInactivesByKeywordWindow(xmlText: string, logs: HydrateLog[]): { ingredients: string[]; rawText: string } {
+  const keywords = [
+    "inactive ingredient",
+    "inactive ingredients",
+    "each tablet contains",
+    "each capsule contains",
+    "contains:",
+    "excipients",
+  ];
+  
+  const stopPatterns = [
+    /\bINDICATIONS\b/i,
+    /\bWARNINGS\b/i,
+    /\bDOSAGE\b/i,
+    /\bACTIVE INGREDIENT/i,
+    /\bDIRECTIONS\b/i,
+    /\bPURPOSE\b/i,
+    /\bUSES\b/i,
+    /\bASK A DOCTOR\b/i,
+    /\bSTOP USE\b/i,
+    /\bDRUG FACTS\b/i,
+  ];
+  
+  const junkFilters = [
+    /^inactive ingredients?$/i,
+    /^each (tablet|capsule|softgel) contains$/i,
+    /^contains$/i,
+    /^may contain$/i,
+    /^include$/i,
+    /^the$/i,
+    /^this$/i,
+    /^and$/i,
+    /^or$/i,
+    /^\d+$/,
+    /^mg$/i,
+    /^mcg$/i,
+    /^ml$/i,
+  ];
+
+  // Search case-insensitive for first occurrence
+  let matchIndex = -1;
+  let matchedKeyword = "";
+  
+  const lowerXml = xmlText.toLowerCase();
+  for (const kw of keywords) {
+    const idx = lowerXml.indexOf(kw.toLowerCase());
+    if (idx !== -1 && (matchIndex === -1 || idx < matchIndex)) {
+      matchIndex = idx;
+      matchedKeyword = kw;
+    }
+  }
+  
+  if (matchIndex === -1) {
+    logs.push({
+      step: "keyword_extraction",
+      status: "warning",
+      message: "No inactive keyword found in XML",
+    });
+    return { ingredients: [], rawText: "" };
+  }
+
+  logs.push({
+    step: "keyword_extraction",
+    status: "info",
+    message: `Found keyword "${matchedKeyword}" at position ${matchIndex}`,
+  });
+
+  // Take window of 2500 chars after match
+  let window = xmlText.substring(matchIndex, matchIndex + 2500);
+  
+  // Stop early at major section starts
+  for (const pattern of stopPatterns) {
+    const stopMatch = window.match(pattern);
+    if (stopMatch && stopMatch.index && stopMatch.index > 50) {
+      window = window.substring(0, stopMatch.index);
+      logs.push({
+        step: "keyword_extraction",
+        status: "info",
+        message: `Truncated at "${stopMatch[0]}"`,
+      });
+      break;
+    }
+  }
+
+  // Strip tags to spaces
+  let cleanText = window.replace(/<[^>]+>/g, " ");
+  
+  // Decode common entities
+  cleanText = cleanText
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#\d+;/g, "")
+    .replace(/&nbsp;/g, " ");
+  
+  // Collapse whitespace
+  cleanText = cleanText.replace(/\s+/g, " ").trim();
+  
+  // Save raw text for debugging (500-1000 chars)
+  const rawText = cleanText.substring(0, 1000);
+
+  // Split by comma, semicolon, and word "and"
+  const parts = cleanText.split(/[,;]|\band\b/i);
+  
+  const ingredients: string[] = [];
+  for (const part of parts) {
+    let cleaned = part.trim();
+    // Remove trailing period
+    cleaned = cleaned.replace(/\.$/, "").trim();
+    // Remove parenthetical content like "(as dihydrate)"
+    cleaned = cleaned.replace(/\s*\([^)]*\)\s*/g, " ").trim();
+    
+    // Skip too short or too long
+    if (cleaned.length < 3 || cleaned.length > 100) continue;
+    
+    // Filter out junk
+    let isJunk = false;
+    for (const filter of junkFilters) {
+      if (filter.test(cleaned)) {
+        isJunk = true;
+        break;
+      }
+    }
+    if (isJunk) continue;
+    
+    // Skip if starts with common non-ingredient words
+    if (/^(the|this|each|may|also|including|such as|other|none|no |not )/i.test(cleaned)) continue;
+    
+    ingredients.push(cleaned);
+  }
+  
+  // Deduplicate
+  const uniqueIngredients = [...new Set(ingredients.map(i => i.toLowerCase()))].map(lower => {
+    return ingredients.find(i => i.toLowerCase() === lower) || lower;
+  });
+
+  logs.push({
+    step: "keyword_extraction",
+    status: uniqueIngredients.length > 0 ? "success" : "warning",
+    message: `Extracted ${uniqueIngredients.length} ingredients via keyword window`,
+    data: uniqueIngredients.slice(0, 10),
+  });
+
+  return { ingredients: uniqueIngredients, rawText };
+}
+
+// Fetch and parse SPL content for ingredients with improved extraction
 async function fetchSplIngredients(
   setId: string,
   logs: HydrateLog[]
-): Promise<{ active: string[]; inactive: string[] } | null> {
+): Promise<{ active: string[]; inactive: string[]; inactiveRawText: string } | null> {
   logs.push({
     step: "spl_fetch",
     status: "info",
@@ -285,54 +434,47 @@ async function fetchSplIngredients(
       data: activeIngredients,
     });
 
-    // Parse inactive ingredients section
-    const inactiveIngredients: string[] = [];
-    
-    // Look for inactive ingredient section
-    const inactiveSection = xmlText.match(/<component>[\s\S]*?<title[^>]*>[\s\S]*?INACTIVE[\s\S]*?INGREDIENT[\s\S]*?<\/title>[\s\S]*?<text>([\s\S]*?)<\/text>/i);
-    
-    if (inactiveSection && inactiveSection[1]) {
-      // Extract text content, removing XML tags
-      let textContent = inactiveSection[1]
-        .replace(/<[^>]+>/g, " ")
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&#\d+;/g, "");
-      
-      // Split by common delimiters
-      const parts = textContent.split(/[,;]|\band\b/i);
-      
-      for (const part of parts) {
-        const cleaned = part.trim().replace(/\.$/, "").trim();
-        if (cleaned.length > 2 && cleaned.length < 100) {
-          // Filter out common non-ingredient text
-          if (!cleaned.match(/^(the|this|each|contains|may contain|inactive ingredients|include)/i)) {
-            inactiveIngredients.push(cleaned);
-          }
-        }
+    // FIX #1: Use keyword window extraction as primary method
+    const keywordResult = extractInactivesByKeywordWindow(xmlText, logs);
+    let inactiveIngredients = keywordResult.ingredients;
+    const inactiveRawText = keywordResult.rawText;
+
+    // Secondary: Also try inactiveIngredient tags
+    const tagIngredients: string[] = [];
+    const inactiveMatches = xmlText.matchAll(/<inactiveIngredient>[\s\S]*?<name>([^<]+)<\/name>[\s\S]*?<\/inactiveIngredient>/gi);
+    for (const match of inactiveMatches) {
+      if (match[1]) {
+        tagIngredients.push(match[1].trim());
       }
     }
     
-    // Also try inactiveIngredient tags
-    const inactiveMatches = xmlText.matchAll(/<inactiveIngredient>[\s\S]*?<name>([^<]+)<\/name>[\s\S]*?<\/inactiveIngredient>/gi);
-    for (const match of inactiveMatches) {
-      if (match[1] && !inactiveIngredients.includes(match[1].trim())) {
-        inactiveIngredients.push(match[1].trim());
+    if (tagIngredients.length > 0) {
+      logs.push({
+        step: "spl_inactive_tags",
+        status: "success",
+        message: `Found ${tagIngredients.length} inactive ingredients via XML tags`,
+        data: tagIngredients,
+      });
+      
+      // Merge with keyword extraction results
+      for (const ing of tagIngredients) {
+        if (!inactiveIngredients.some(i => i.toLowerCase() === ing.toLowerCase())) {
+          inactiveIngredients.push(ing);
+        }
       }
     }
 
     logs.push({
-      step: "spl_inactive",
+      step: "spl_inactive_final",
       status: inactiveIngredients.length > 0 ? "success" : "warning",
-      message: `Found ${inactiveIngredients.length} inactive ingredients`,
+      message: `Final inactive ingredient count: ${inactiveIngredients.length}`,
       data: inactiveIngredients,
     });
 
     return {
       active: activeIngredients,
       inactive: inactiveIngredients,
+      inactiveRawText,
     };
   } catch (error) {
     logs.push({
@@ -344,19 +486,52 @@ async function fetchSplIngredients(
   }
 }
 
-// Match ingredients against rulings and compute status
+// FIX #4: Improved ingredient matching with contains logic
+function matchIngredient(ingName: string, dbIngredients: DbIngredient[]): DbIngredient | null {
+  const normalized = normalizeIngredientName(ingName);
+  
+  // First try exact match
+  const exactMatch = dbIngredients.find((ing) => {
+    const nameMatch = normalizeIngredientName(ing.name) === normalized;
+    const synonymMatch = ing.synonyms?.some(
+      (syn: string) => normalizeIngredientName(syn) === normalized
+    );
+    return nameMatch || synonymMatch;
+  });
+  
+  if (exactMatch) return exactMatch;
+  
+  // Then try contains matching
+  const containsMatch = dbIngredients.find((ing) => {
+    const dbNormalized = normalizeIngredientName(ing.name);
+    // Check if ingredient name contains db name or vice versa
+    const nameContains = normalized.includes(dbNormalized) || dbNormalized.includes(normalized);
+    // Check synonyms
+    const synonymContains = ing.synonyms?.some((syn: string) => {
+      const synNormalized = normalizeIngredientName(syn);
+      return normalized.includes(synNormalized) || synNormalized.includes(normalized);
+    });
+    return nameContains || synonymContains;
+  });
+  
+  return containsMatch || null;
+}
+
+// FIX #4: Improved status computation with numeric confidence
 async function computeStatus(
   activeIngredients: string[],
   inactiveIngredients: string[],
   supabaseUrl: string,
   supabaseKey: string,
   logs: HydrateLog[]
-): Promise<{ status: string; confidence: string; reason: string }> {
+): Promise<{ status: string; confidence: number; reason: string; matchedIngredients: { name: string; id: string; role: string }[] }> {
   logs.push({
     step: "status_compute",
     status: "info",
     message: "Computing status based on ingredients",
   });
+
+  const matchedIngredients: { name: string; id: string; role: string }[] = [];
 
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -374,38 +549,65 @@ async function computeStatus(
       });
       return {
         status: "needs_verification",
-        confidence: "low",
+        confidence: 10,
         reason: "Failed to match ingredients against database",
+        matchedIngredients: [],
       };
     }
 
     const dbIngredients = (ingredients || []) as DbIngredient[];
-    const allIngredients = [...activeIngredients, ...inactiveIngredients];
-    const matchResults: { name: string; matched: boolean; status?: string; concern?: string }[] = [];
+    
+    // FIX #4: Status based primarily on INACTIVE ingredients
+    // If no inactive ingredients, force needs_verification
+    if (inactiveIngredients.length === 0) {
+      logs.push({
+        step: "status_compute",
+        status: "warning",
+        message: "No inactive ingredients found - cannot determine halal status",
+      });
+      return {
+        status: "needs_verification",
+        confidence: 10,
+        reason: "No inactive ingredient data available - cannot determine halal status. Please consult the original label or contact the manufacturer.",
+        matchedIngredients: [],
+      };
+    }
+
+    const matchResults: { name: string; matched: boolean; status?: string; concern?: string; id?: string }[] = [];
     
     let hasHaram = false;
     let hasMushbooh = false;
     let hasUnmatched = false;
     const concerningIngredients: string[] = [];
 
-    for (const ingName of allIngredients) {
-      const normalized = normalizeIngredientName(ingName);
-      
-      // Try to match
-      const match = dbIngredients.find((ing) => {
-        const nameMatch = normalizeIngredientName(ing.name) === normalized;
-        const synonymMatch = ing.synonyms?.some(
-          (syn: string) => normalizeIngredientName(syn) === normalized
-        );
-        return nameMatch || synonymMatch;
-      });
+    // Match active ingredients first
+    for (const ingName of activeIngredients) {
+      const match = matchIngredient(ingName, dbIngredients);
+      if (match) {
+        matchedIngredients.push({ name: ingName, id: match.id, role: "active" });
+        matchResults.push({
+          name: ingName,
+          matched: true,
+          status: match.default_status || undefined,
+          id: match.id,
+        });
+      } else {
+        matchResults.push({ name: ingName, matched: false });
+      }
+    }
+
+    // FIX #4: Status based on INACTIVE ingredients
+    for (const ingName of inactiveIngredients) {
+      const match = matchIngredient(ingName, dbIngredients);
 
       if (match) {
+        matchedIngredients.push({ name: ingName, id: match.id, role: "inactive" });
         matchResults.push({
           name: ingName,
           matched: true,
           status: match.default_status || undefined,
           concern: match.default_concern_reason || undefined,
+          id: match.id,
         });
 
         if (match.default_status === "haram") {
@@ -432,41 +634,37 @@ async function computeStatus(
       data: matchResults,
     });
 
-    // Determine status
+    // FIX #4: Determine status with proper numeric confidence
     let status: string;
-    let confidence: string;
+    let confidence: number;
     let reason: string;
 
     if (hasHaram) {
       status = "haram";
-      confidence = "high";
+      confidence = 90;
       reason = `Contains prohibited ingredient(s): ${concerningIngredients.join(", ")}`;
     } else if (hasMushbooh) {
       status = "mushbooh";
-      confidence = matchRate >= 0.8 ? "medium" : "low";
+      confidence = 60;
       reason = `Contains questionable ingredient(s): ${concerningIngredients.join(", ")}`;
-    } else if (inactiveIngredients.length === 0) {
-      status = "needs_verification";
-      confidence = "low";
-      reason = "No inactive ingredient data available - cannot determine halal status";
     } else if (hasUnmatched) {
       status = "needs_verification";
-      confidence = "low";
-      reason = `Some ingredients could not be verified (${totalCount - matchedCount} unmatched)`;
+      confidence = 30;
+      reason = `Some ingredients could not be verified (${totalCount - matchedCount} of ${inactiveIngredients.length} unmatched)`;
     } else {
       status = "halal";
-      confidence = matchRate >= 0.8 ? "high" : "medium";
-      reason = "All ingredients verified as halal-compliant";
+      confidence = 85;
+      reason = "All inactive ingredients verified as halal-compliant";
     }
 
     logs.push({
       step: "status_result",
       status: "success",
-      message: `Status: ${status}, Confidence: ${confidence}`,
+      message: `Status: ${status}, Confidence: ${confidence}%`,
       data: { status, confidence, reason },
     });
 
-    return { status, confidence, reason };
+    return { status, confidence, reason, matchedIngredients };
   } catch (error) {
     logs.push({
       step: "status_compute",
@@ -475,9 +673,240 @@ async function computeStatus(
     });
     return {
       status: "needs_verification",
-      confidence: "low",
+      confidence: 10,
       reason: "Error during status computation",
+      matchedIngredients: [],
     };
+  }
+}
+
+// FIX #3: Create/update rx_variants, rx_variant_ingredients, rx_verdicts
+async function upsertVariantData(
+  supabase: any,
+  medId: string,
+  ndc: string,
+  labelerName: string | null,
+  dosageForm: string | null,
+  strengthText: string | null,
+  status: string,
+  confidence: number,
+  reason: string,
+  matchedIngredients: { name: string; id: string; role: string }[],
+  logs: HydrateLog[]
+): Promise<string | null> {
+  logs.push({
+    step: "upsert_variant",
+    status: "info",
+    message: `Creating/updating variant for med_id: ${medId}`,
+  });
+
+  try {
+    // Check if variant exists for this med_id and labeler
+    const manufacturer = labelerName || "General";
+    const { data: existingVariant } = await supabase
+      .from("rx_variants")
+      .select("id")
+      .eq("rx_med_id", medId)
+      .eq("manufacturer", manufacturer)
+      .maybeSingle();
+
+    let variantId: string;
+
+    if (existingVariant) {
+      variantId = existingVariant.id;
+      // Update existing variant
+      const { error: updateError } = await supabase
+        .from("rx_variants")
+        .update({
+          ndc_list: [ndc],
+          dosage_form: dosageForm,
+          strength_text: strengthText,
+          data_source: "hydrate-label-data",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", variantId);
+
+      if (updateError) {
+        logs.push({
+          step: "upsert_variant",
+          status: "error",
+          message: `Failed to update variant: ${updateError.message}`,
+        });
+        return null;
+      }
+      logs.push({
+        step: "upsert_variant",
+        status: "success",
+        message: `Updated existing variant: ${variantId}`,
+      });
+    } else {
+      // Create new variant
+      const { data: newVariant, error: insertError } = await supabase
+        .from("rx_variants")
+        .insert({
+          rx_med_id: medId,
+          manufacturer,
+          ndc_list: [ndc],
+          dosage_form: dosageForm,
+          strength_text: strengthText,
+          data_source: "hydrate-label-data",
+        })
+        .select("id")
+        .single();
+
+      if (insertError || !newVariant) {
+        logs.push({
+          step: "upsert_variant",
+          status: "error",
+          message: `Failed to create variant: ${insertError?.message}`,
+        });
+        return null;
+      }
+      variantId = newVariant.id;
+      logs.push({
+        step: "upsert_variant",
+        status: "success",
+        message: `Created new variant: ${variantId}`,
+      });
+    }
+
+    // Delete existing rx_variant_ingredients for this variant
+    await supabase
+      .from("rx_variant_ingredients")
+      .delete()
+      .eq("variant_id", variantId);
+
+    // Insert rx_variant_ingredients
+    if (matchedIngredients.length > 0) {
+      const ingredientRows = matchedIngredients.map(ing => ({
+        variant_id: variantId,
+        ingredient_id: ing.id,
+        role: ing.role,
+        notes: null,
+      }));
+
+      const { error: ingError } = await supabase
+        .from("rx_variant_ingredients")
+        .insert(ingredientRows);
+
+      if (ingError) {
+        logs.push({
+          step: "upsert_ingredients",
+          status: "warning",
+          message: `Failed to insert some ingredients: ${ingError.message}`,
+        });
+      } else {
+        logs.push({
+          step: "upsert_ingredients",
+          status: "success",
+          message: `Inserted ${ingredientRows.length} variant ingredients`,
+        });
+      }
+    }
+
+    // Upsert rx_verdicts
+    const { data: existingVerdict } = await supabase
+      .from("rx_verdicts")
+      .select("id")
+      .eq("variant_id", variantId)
+      .maybeSingle();
+
+    if (existingVerdict) {
+      const { error: verdictError } = await supabase
+        .from("rx_verdicts")
+        .update({
+          status,
+          confidence,
+          classification_rationale: reason,
+          summary_reason: reason,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingVerdict.id);
+
+      if (verdictError) {
+        logs.push({
+          step: "upsert_verdict",
+          status: "error",
+          message: `Failed to update verdict: ${verdictError.message}`,
+        });
+      } else {
+        logs.push({
+          step: "upsert_verdict",
+          status: "success",
+          message: `Updated verdict for variant: ${variantId}`,
+        });
+      }
+    } else {
+      const { error: verdictError } = await supabase
+        .from("rx_verdicts")
+        .insert({
+          variant_id: variantId,
+          status,
+          confidence,
+          classification_rationale: reason,
+          summary_reason: reason,
+        });
+
+      if (verdictError) {
+        logs.push({
+          step: "upsert_verdict",
+          status: "error",
+          message: `Failed to create verdict: ${verdictError.message}`,
+        });
+      } else {
+        logs.push({
+          step: "upsert_verdict",
+          status: "success",
+          message: `Created verdict for variant: ${variantId}`,
+        });
+      }
+    }
+
+    return variantId;
+  } catch (error) {
+    logs.push({
+      step: "upsert_variant",
+      status: "error",
+      message: `Error in upsertVariantData: ${error instanceof Error ? error.message : String(error)}`,
+    });
+    return null;
+  }
+}
+
+// Ensure ingredients exist in DB
+async function ensureIngredientsExist(
+  supabase: any,
+  ingredientNames: string[],
+  logs: HydrateLog[]
+): Promise<void> {
+  if (ingredientNames.length === 0) return;
+
+  try {
+    // Get existing ingredients
+    const { data: existing } = await supabase
+      .from("ingredients")
+      .select("name");
+
+    const existingNames = new Set((existing || []).map((i: any) => normalizeIngredientName(i.name)));
+    
+    // Find missing ingredients
+    const missing = ingredientNames.filter(name => !existingNames.has(normalizeIngredientName(name)));
+    
+    if (missing.length > 0) {
+      // We don't auto-create ingredients - they need to be reviewed
+      logs.push({
+        step: "check_ingredients",
+        status: "info",
+        message: `${missing.length} ingredients not in database (will show as unmatched)`,
+        data: missing.slice(0, 10),
+      });
+    }
+  } catch (error) {
+    logs.push({
+      step: "check_ingredients",
+      status: "warning",
+      message: `Error checking ingredients: ${error instanceof Error ? error.message : String(error)}`,
+    });
   }
 }
 
@@ -577,14 +1006,15 @@ Deno.serve(async (req) => {
     });
 
     // Step 1: Find NDC from openFDA
-    const ndc = await findNdcFromOpenFda(
+    const ndcResult = await findNdcFromOpenFda(
       med.generic_name,
       med.dosage_forms,
       med.brand_names,
       logs
     );
 
-    if (ndc) {
+    if (ndcResult) {
+      const { ndc, labeler_name } = ndcResult;
       result.ndc = ndc;
       
       // Step 2: Get DailyMed set_id
@@ -599,6 +1029,14 @@ Deno.serve(async (req) => {
         if (ingredients) {
           result.active_ingredients = ingredients.active;
           result.inactive_ingredients = ingredients.inactive;
+          result.inactive_raw_text = ingredients.inactiveRawText;
+          
+          // Ensure ingredients exist check
+          await ensureIngredientsExist(
+            supabase,
+            [...ingredients.active, ...ingredients.inactive],
+            logs
+          );
           
           // Step 4: Compute status
           const statusResult = await computeStatus(
@@ -610,8 +1048,28 @@ Deno.serve(async (req) => {
           );
           
           result.status = statusResult.status;
-          result.confidence_level = statusResult.confidence;
+          result.confidence = statusResult.confidence;
+          result.confidence_level = statusResult.confidence >= 80 ? "high" : statusResult.confidence >= 50 ? "medium" : "low";
           result.status_reason = statusResult.reason;
+          
+          // FIX #3: Upsert variant data to rx_variants, rx_variant_ingredients, rx_verdicts
+          const variantId = await upsertVariantData(
+            supabase,
+            med_id,
+            ndc,
+            labeler_name || null,
+            (med.dosage_forms || [])[0] || null,
+            null,
+            statusResult.status,
+            statusResult.confidence,
+            statusResult.reason,
+            statusResult.matchedIngredients,
+            logs
+          );
+          
+          if (variantId) {
+            result.variant_id = variantId;
+          }
           
           // Step 5: Update rx_meds record
           const { error: updateError } = await supabase
@@ -621,7 +1079,8 @@ Deno.serve(async (req) => {
               dailymed_set_id: setId,
               active_ingredients: ingredients.active,
               inactive_ingredients: ingredients.inactive,
-              confidence_level: statusResult.confidence,
+              inactive_raw_text: ingredients.inactiveRawText,
+              confidence_level: result.confidence_level,
               status_reason: statusResult.reason,
               default_status: statusResult.status,
               spl_last_fetched_at: new Date().toISOString(),
