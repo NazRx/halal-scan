@@ -29,9 +29,22 @@ interface HydrateResult {
   set_id?: string;
   active_ingredients?: string[];
   inactive_ingredients?: string[];
+  inactive_raw_text?: string;
   status?: string;
+  confidence?: number;
   confidence_level?: string;
   status_reason?: string;
+  variant_id?: string;
+}
+
+interface DbVerification {
+  ndc: string | null;
+  dailymed_set_id: string | null;
+  inactive_ingredients: string[] | null;
+  inactive_raw_text: string | null;
+  default_status: string | null;
+  status_reason: string | null;
+  confidence_level: string | null;
 }
 
 interface BatchProgress {
@@ -72,6 +85,7 @@ export default function HydrateLabelData() {
   const [selectedMedId, setSelectedMedId] = useState<string>("");
   const [isHydrating, setIsHydrating] = useState(false);
   const [result, setResult] = useState<HydrateResult | null>(null);
+  const [dbVerification, setDbVerification] = useState<DbVerification | null>(null);
 
   // Batch state
   const [selectedMedIds, setSelectedMedIds] = useState<Set<string>>(new Set());
@@ -111,6 +125,7 @@ export default function HydrateLabelData() {
 
     setIsHydrating(true);
     setResult(null);
+    setDbVerification(null);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -130,6 +145,17 @@ export default function HydrateLabelData() {
 
       setResult(data as HydrateResult);
       queryClient.invalidateQueries({ queryKey: ["rx-meds-list"] });
+      
+      // FIX #6: Re-fetch the updated rx_meds row to verify DB writes
+      const { data: updatedMed } = await supabase
+        .from("rx_meds")
+        .select("ndc, dailymed_set_id, inactive_ingredients, inactive_raw_text, default_status, status_reason, confidence_level")
+        .eq("id", selectedMedId)
+        .single();
+      
+      if (updatedMed) {
+        setDbVerification(updatedMed as DbVerification);
+      }
       
       if (data.success) {
         toast.success("Label data hydrated successfully!");
@@ -796,10 +822,76 @@ export default function HydrateLabelData() {
 
       {result && (
         <>
+          {/* FIX #6: Database Verification Section */}
+          {dbVerification && (
+            <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                  <CheckCircle className="h-5 w-5" />
+                  Database Verification (Actual DB Values)
+                </CardTitle>
+                <CardDescription>
+                  These values were re-fetched from the database after hydration to confirm writes succeeded.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <strong>NDC:</strong> {dbVerification.ndc || <span className="text-muted-foreground">null</span>}
+                  </div>
+                  <div>
+                    <strong>DailyMed Set ID:</strong> {dbVerification.dailymed_set_id || <span className="text-muted-foreground">null</span>}
+                  </div>
+                  <div>
+                    <strong>Status:</strong>{" "}
+                    {dbVerification.default_status ? (
+                      <Badge variant={
+                        dbVerification.default_status === "halal" ? "default" :
+                        dbVerification.default_status === "haram" ? "destructive" :
+                        "secondary"
+                      }>
+                        {dbVerification.default_status}
+                      </Badge>
+                    ) : <span className="text-muted-foreground">null</span>}
+                  </div>
+                  <div>
+                    <strong>Confidence:</strong> {dbVerification.confidence_level || <span className="text-muted-foreground">null</span>}
+                  </div>
+                </div>
+
+                {dbVerification.status_reason && (
+                  <div className="p-3 bg-muted rounded-lg text-sm">
+                    <strong>Status Reason:</strong> {dbVerification.status_reason}
+                  </div>
+                )}
+
+                {dbVerification.inactive_ingredients && dbVerification.inactive_ingredients.length > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-2">Inactive Ingredients in DB ({dbVerification.inactive_ingredients.length})</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {dbVerification.inactive_ingredients.map((ing, i) => (
+                        <Badge key={i} variant="secondary">{ing}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {dbVerification.inactive_raw_text && (
+                  <div>
+                    <h4 className="font-medium mb-2">Raw Inactive Text (Debug)</h4>
+                    <pre className="text-xs bg-muted p-2 rounded overflow-x-auto whitespace-pre-wrap max-h-32">
+                      {dbVerification.inactive_raw_text}
+                    </pre>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                Result
+                Function Result
                 <Badge variant={result.success ? "default" : "destructive"}>
                   {result.success ? "Success" : "Incomplete"}
                 </Badge>
@@ -829,10 +921,15 @@ export default function HydrateLabelData() {
                     </Badge>
                   </div>
                 )}
-                {result.confidence_level && (
+                {result.confidence !== undefined && (
                   <div>
                     <strong>Confidence:</strong>{" "}
-                    <Badge variant="outline">{result.confidence_level}</Badge>
+                    <Badge variant="outline">{result.confidence}%</Badge>
+                  </div>
+                )}
+                {result.variant_id && (
+                  <div className="col-span-2">
+                    <strong>Variant ID:</strong> <code className="text-xs bg-muted px-1 py-0.5 rounded">{result.variant_id}</code>
                   </div>
                 )}
               </div>
@@ -864,6 +961,17 @@ export default function HydrateLabelData() {
                   </div>
                 </div>
               )}
+
+              {result.inactive_raw_text && (
+                <div>
+                  <h4 className="font-medium mb-2">Raw Inactive Text</h4>
+                  <pre className="text-xs bg-muted p-2 rounded overflow-x-auto whitespace-pre-wrap max-h-32">
+                    {result.inactive_raw_text}
+                  </pre>
+                </div>
+              )}
+            </CardContent>
+          </Card>
             </CardContent>
           </Card>
 

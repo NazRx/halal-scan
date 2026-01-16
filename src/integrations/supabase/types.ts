@@ -433,6 +433,7 @@ export type Database = {
           generic_name: string
           id: string
           inactive_ingredients: string[] | null
+          inactive_raw_text: string | null
           ndc: string | null
           notes: string | null
           route: string | null
@@ -458,6 +459,7 @@ export type Database = {
           generic_name: string
           id?: string
           inactive_ingredients?: string[] | null
+          inactive_raw_text?: string | null
           ndc?: string | null
           notes?: string | null
           route?: string | null
@@ -483,6 +485,7 @@ export type Database = {
           generic_name?: string
           id?: string
           inactive_ingredients?: string[] | null
+          inactive_raw_text?: string | null
           ndc?: string | null
           notes?: string | null
           route?: string | null
