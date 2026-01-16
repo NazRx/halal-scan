@@ -329,7 +329,9 @@ export default function HydrateLabelData() {
     setScheduledJobResult(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke("scheduled-hydrate");
+      const { data, error } = await supabase.functions.invoke("scheduled-hydrate", {
+        body: { limit: 50 },
+      });
 
       if (error) {
         toast.error(`Scheduled job failed: ${error.message}`);
@@ -953,13 +955,13 @@ export default function HydrateLabelData() {
           {/* Single Batch Job Card */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5" />
-                Run Single Batch (75 medications)
-              </CardTitle>
-              <CardDescription>
-                Run a single batch of 75 medications. Useful for testing or partial hydration.
-              </CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5" />
+              Run Single Batch (50 medications)
+            </CardTitle>
+            <CardDescription>
+              Run a single batch of up to 50 medications. Useful for testing or partial hydration.
+            </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Button 
