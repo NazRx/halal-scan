@@ -26,15 +26,34 @@ Deno.serve(async (req) => {
   const logs: string[] = [];
   const results: HydrateResult[] = [];
   
+  // Parse request body for batch size override
+  let batchSize = 75; // Default batch size (increased from 50)
   try {
-    logs.push(`[${new Date().toISOString()}] Starting scheduled hydration job`);
+    const body = await req.json();
+    if (body?.batch_size && typeof body.batch_size === 'number') {
+      batchSize = Math.min(Math.max(body.batch_size, 10), 100); // Clamp between 10-100
+    }
+  } catch {
+    // No body or invalid JSON, use defaults
+  }
+  
+  try {
+    logs.push(`[${new Date().toISOString()}] Starting scheduled hydration job (batch size: ${batchSize})`);
+
+    // Get total count of unhydrated meds first
+    const { count: totalUnhydrated } = await supabase
+      .from('rx_meds')
+      .select('id', { count: 'exact', head: true })
+      .is('spl_last_fetched_at', null);
+
+    logs.push(`Total unhydrated medications: ${totalUnhydrated || 0}`);
 
     // Find rx_meds that haven't been hydrated yet (no spl_last_fetched_at)
     const { data: unhydratedMeds, error: fetchError } = await supabase
       .from('rx_meds')
       .select('id, generic_name')
       .is('spl_last_fetched_at', null)
-      .limit(50); // Process up to 50 per run to avoid timeouts
+      .limit(batchSize);
 
     if (fetchError) {
       throw new Error(`Failed to fetch unhydrated meds: ${fetchError.message}`);
@@ -47,7 +66,10 @@ Deno.serve(async (req) => {
           success: true, 
           message: 'No medications to hydrate',
           logs,
-          results 
+          results,
+          remaining_count: 0,
+          total_processed: 0,
+          batch_size: batchSize,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -91,7 +113,7 @@ Deno.serve(async (req) => {
         }
 
         // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 300));
 
       } catch (medError) {
         const errorMsg = medError instanceof Error ? medError.message : 'Unknown error';
@@ -108,7 +130,13 @@ Deno.serve(async (req) => {
     const successCount = results.filter(r => r.success).length;
     const failCount = results.filter(r => !r.success).length;
     
-    logs.push(`[${new Date().toISOString()}] Scheduled hydration complete: ${successCount} success, ${failCount} failed`);
+    // Re-count remaining after processing
+    const { count: remainingCount } = await supabase
+      .from('rx_meds')
+      .select('id', { count: 'exact', head: true })
+      .is('spl_last_fetched_at', null);
+    
+    logs.push(`[${new Date().toISOString()}] Scheduled hydration complete: ${successCount} success, ${failCount} failed, ${remainingCount || 0} remaining`);
 
     return new Response(
       JSON.stringify({
@@ -116,6 +144,9 @@ Deno.serve(async (req) => {
         message: `Processed ${results.length} medications: ${successCount} success, ${failCount} failed`,
         logs,
         results,
+        remaining_count: remainingCount || 0,
+        total_processed: results.length,
+        batch_size: batchSize,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -130,6 +161,7 @@ Deno.serve(async (req) => {
         error: errorMsg,
         logs,
         results,
+        remaining_count: -1,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );

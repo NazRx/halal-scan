@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Play, CheckCircle, AlertCircle, AlertTriangle, Info, Search, ListChecks, StopCircle, Clock, Zap } from "lucide-react";
+import { Loader2, Play, CheckCircle, AlertCircle, AlertTriangle, Info, Search, ListChecks, StopCircle, Clock, Zap, Rocket } from "lucide-react";
 import { toast } from "sonner";
 
 interface HydrateLog {
@@ -77,6 +77,21 @@ interface ScheduledJobResult {
   message: string;
   logs: string[];
   results: ScheduledHydrateResult[];
+  remaining_count?: number;
+  total_processed?: number;
+  batch_size?: number;
+}
+
+interface HydrateAllProgress {
+  totalMeds: number;
+  totalProcessed: number;
+  totalSuccess: number;
+  totalFailed: number;
+  batchesCompleted: number;
+  estimatedBatchesTotal: number;
+  currentBatchResults: ScheduledHydrateResult[];
+  isComplete: boolean;
+  startTime: number;
 }
 
 export default function HydrateLabelData() {
@@ -97,6 +112,12 @@ export default function HydrateLabelData() {
   // Scheduled job state
   const [isRunningScheduled, setIsRunningScheduled] = useState(false);
   const [scheduledJobResult, setScheduledJobResult] = useState<ScheduledJobResult | null>(null);
+
+  // Hydrate All state
+  const [isHydratingAll, setIsHydratingAll] = useState(false);
+  const [hydrateAllProgress, setHydrateAllProgress] = useState<HydrateAllProgress | null>(null);
+  const shouldStopHydrateAllRef = useRef(false);
+  const [allResults, setAllResults] = useState<ScheduledHydrateResult[]>([]);
 
   // Fetch rx_meds for selection
   const { data: meds, isLoading: medsLoading } = useQuery({
@@ -341,6 +362,123 @@ export default function HydrateLabelData() {
     } finally {
       setIsRunningScheduled(false);
     }
+  };
+
+  const handleHydrateAll = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast.error("You must be logged in");
+      return;
+    }
+
+    // Get initial count
+    const { count: initialCount } = await supabase
+      .from('rx_meds')
+      .select('id', { count: 'exact', head: true })
+      .is('spl_last_fetched_at', null);
+
+    if (!initialCount || initialCount === 0) {
+      toast.info("All medications are already hydrated!");
+      return;
+    }
+
+    const batchSize = 75;
+    const estimatedBatches = Math.ceil(initialCount / batchSize);
+
+    setIsHydratingAll(true);
+    shouldStopHydrateAllRef.current = false;
+    setAllResults([]);
+    setHydrateAllProgress({
+      totalMeds: initialCount,
+      totalProcessed: 0,
+      totalSuccess: 0,
+      totalFailed: 0,
+      batchesCompleted: 0,
+      estimatedBatchesTotal: estimatedBatches,
+      currentBatchResults: [],
+      isComplete: false,
+      startTime: Date.now(),
+    });
+
+    let batchNumber = 0;
+    let totalProcessed = 0;
+    let totalSuccess = 0;
+    let totalFailed = 0;
+    const allBatchResults: ScheduledHydrateResult[] = [];
+
+    while (!shouldStopHydrateAllRef.current) {
+      batchNumber++;
+      
+      try {
+        const { data, error } = await supabase.functions.invoke("scheduled-hydrate", {
+          body: { batch_size: batchSize },
+        });
+
+        if (error) {
+          toast.error(`Batch ${batchNumber} failed: ${error.message}`);
+          break;
+        }
+
+        const jobResult = data as ScheduledJobResult;
+        
+        // Update totals
+        const batchSuccess = jobResult.results.filter(r => r.success).length;
+        const batchFailed = jobResult.results.filter(r => !r.success).length;
+        totalProcessed += jobResult.results.length;
+        totalSuccess += batchSuccess;
+        totalFailed += batchFailed;
+        
+        // Accumulate all results
+        allBatchResults.push(...jobResult.results);
+        setAllResults([...allBatchResults]);
+
+        setHydrateAllProgress({
+          totalMeds: initialCount,
+          totalProcessed,
+          totalSuccess,
+          totalFailed,
+          batchesCompleted: batchNumber,
+          estimatedBatchesTotal: Math.ceil((jobResult.remaining_count || 0) / batchSize) + batchNumber,
+          currentBatchResults: jobResult.results,
+          isComplete: (jobResult.remaining_count || 0) === 0,
+          startTime: hydrateAllProgress?.startTime || Date.now(),
+        });
+
+        // Check if complete
+        if ((jobResult.remaining_count || 0) === 0) {
+          toast.success(`All medications hydrated! ${totalSuccess} success, ${totalFailed} failed`);
+          break;
+        }
+
+        // Small delay between batches
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
+        toast.error(`Error in batch ${batchNumber}: ${errorMsg}`);
+        break;
+      }
+    }
+
+    if (shouldStopHydrateAllRef.current) {
+      toast.info(`Hydration stopped after ${batchNumber} batches. ${totalProcessed} medications processed.`);
+    }
+
+    setHydrateAllProgress(prev => prev ? { ...prev, isComplete: true } : null);
+    setIsHydratingAll(false);
+    queryClient.invalidateQueries({ queryKey: ["rx-meds-list"] });
+  };
+
+  const stopHydrateAll = () => {
+    shouldStopHydrateAllRef.current = true;
+    toast.info("Stopping after current batch completes...");
+  };
+
+  const formatElapsedTime = (startTime: number) => {
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const minutes = Math.floor(elapsed / 60);
+    const seconds = elapsed % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const getLogIcon = (status: string) => {
@@ -681,43 +819,164 @@ export default function HydrateLabelData() {
         </TabsContent>
 
         <TabsContent value="scheduled" className="space-y-4">
+          {/* Hydrate All Card */}
+          <Card className="border-primary/50 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Rocket className="h-5 w-5 text-primary" />
+                Hydrate All Medications
+              </CardTitle>
+              <CardDescription>
+                Automatically hydrate all remaining unhydrated medications in batches. 
+                This will run continuously until complete or stopped.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {hydrateAllProgress && (
+                <Card className="bg-background">
+                  <CardContent className="pt-4 space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span>
+                        Batch {hydrateAllProgress.batchesCompleted} 
+                        {hydrateAllProgress.estimatedBatchesTotal > 0 && 
+                          ` / ~${hydrateAllProgress.estimatedBatchesTotal}`}
+                      </span>
+                      <span className="text-muted-foreground">
+                        Elapsed: {formatElapsedTime(hydrateAllProgress.startTime)}
+                      </span>
+                    </div>
+                    <Progress 
+                      value={(hydrateAllProgress.totalProcessed / hydrateAllProgress.totalMeds) * 100} 
+                    />
+                    <div className="flex justify-between text-sm">
+                      <span>{hydrateAllProgress.totalProcessed} / {hydrateAllProgress.totalMeds} medications</span>
+                      <span>{Math.round((hydrateAllProgress.totalProcessed / hydrateAllProgress.totalMeds) * 100)}%</span>
+                    </div>
+                    <div className="flex gap-4 text-sm">
+                      <span className="text-green-600">
+                        <CheckCircle className="h-4 w-4 inline mr-1" />
+                        {hydrateAllProgress.totalSuccess} successful
+                      </span>
+                      <span className="text-red-600">
+                        <AlertCircle className="h-4 w-4 inline mr-1" />
+                        {hydrateAllProgress.totalFailed} failed
+                      </span>
+                    </div>
+                    {hydrateAllProgress.isComplete && (
+                      <Badge variant="default" className="w-full justify-center py-1">
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Complete!
+                      </Badge>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleHydrateAll} 
+                  disabled={isHydratingAll || isRunningScheduled}
+                  className="flex-1"
+                  size="lg"
+                >
+                  {isHydratingAll ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Hydrating All...
+                    </>
+                  ) : (
+                    <>
+                      <Rocket className="mr-2 h-4 w-4" />
+                      Hydrate All Medications
+                    </>
+                  )}
+                </Button>
+                {isHydratingAll && (
+                  <Button variant="destructive" onClick={stopHydrateAll} size="lg">
+                    <StopCircle className="mr-2 h-4 w-4" />
+                    Stop
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* All Results */}
+          {allResults.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>All Hydration Results ({allResults.length})</CardTitle>
+                <CardDescription>
+                  Complete list of processed medications
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[300px]">
+                  <div className="space-y-1">
+                    {allResults.map((result, index) => (
+                      <div 
+                        key={index}
+                        className={`p-2 rounded-lg flex items-center justify-between text-sm ${
+                          result.success ? "bg-green-50 dark:bg-green-950" : "bg-red-50 dark:bg-red-950"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {result.success ? (
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <AlertCircle className="h-4 w-4 text-red-600" />
+                          )}
+                          <span>{result.generic_name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {result.status && (
+                            <Badge variant={
+                              result.status === "halal" ? "default" :
+                              result.status === "haram" ? "destructive" :
+                              "secondary"
+                            } className="text-xs">
+                              {result.status}
+                            </Badge>
+                          )}
+                          {result.error && (
+                            <span className="text-xs text-red-600 truncate max-w-[150px]">{result.error}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Single Batch Job Card */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Zap className="h-5 w-5" />
-                Run Scheduled Hydration Job
+                Run Single Batch (75 medications)
               </CardTitle>
               <CardDescription>
-                Manually trigger the nightly scheduled job that hydrates up to 50 unhydrated rx_meds records.
-                This job normally runs automatically at 2 AM UTC daily.
+                Run a single batch of 75 medications. Useful for testing or partial hydration.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 bg-muted/50 rounded-lg space-y-2 text-sm">
-                <p><strong>What this does:</strong></p>
-                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                  <li>Finds up to 50 medications that haven't been hydrated yet</li>
-                  <li>Fetches NDC from openFDA for each medication</li>
-                  <li>Gets DailyMed set_id and parses ingredient data</li>
-                  <li>Computes halal status based on ingredient rulings</li>
-                </ul>
-              </div>
-
               <Button 
                 onClick={handleRunScheduledJob} 
-                disabled={isRunningScheduled}
+                disabled={isRunningScheduled || isHydratingAll}
                 className="w-full"
-                size="lg"
+                variant="outline"
               >
                 {isRunningScheduled ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Running Scheduled Job...
+                    Running Single Batch...
                   </>
                 ) : (
                   <>
                     <Zap className="mr-2 h-4 w-4" />
-                    Run Scheduled Hydration Now
+                    Run Single Batch
                   </>
                 )}
               </Button>
