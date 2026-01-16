@@ -972,8 +972,6 @@ export default function HydrateLabelData() {
               )}
             </CardContent>
           </Card>
-            </CardContent>
-          </Card>
 
           <Card>
             <CardHeader>
