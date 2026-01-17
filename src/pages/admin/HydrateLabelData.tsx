@@ -78,23 +78,36 @@ interface ScheduledJobResult {
   message: string;
   logs: string[];
   results: ScheduledHydrateResult[];
-  summary?: { complete: number; partial: number; failed: number };
-  remaining_count?: number;
-  total_processed?: number;
-  batch_size?: number;
+  summary?: { complete: number; partial: number; no_data?: number; failed: number };
+  // Queue stats
+  total_before?: number;
+  processed?: number;
+  terminal_count?: number;
+  remaining_after?: number;
+  elapsed_ms?: number;
+  has_more?: boolean;
 }
 
 interface HydrateAllProgress {
   totalMeds: number;
   totalProcessed: number;
-  totalComplete: number;  // NEW: complete hydrations
-  totalPartial: number;   // NEW: partial/no_data hydrations
-  totalFailed: number;    // Only actual errors
+  totalComplete: number;
+  totalPartial: number;
+  totalNoData: number;
+  totalFailed: number;
   batchesCompleted: number;
   estimatedBatchesTotal: number;
   currentBatchResults: ScheduledHydrateResult[];
   isComplete: boolean;
   startTime: number;
+  // New queue stats
+  lastBatchStats?: {
+    totalBefore: number;
+    processed: number;
+    terminalCount: number;
+    remainingAfter: number;
+    elapsedMs: number;
+  };
 }
 
 export default function HydrateLabelData() {
@@ -407,6 +420,7 @@ export default function HydrateLabelData() {
       totalProcessed: 0,
       totalComplete: 0,
       totalPartial: 0,
+      totalNoData: 0,
       totalFailed: 0,
       batchesCompleted: 0,
       estimatedBatchesTotal: estimatedBatches,
@@ -419,6 +433,7 @@ export default function HydrateLabelData() {
     let totalProcessed = 0;
     let totalComplete = 0;
     let totalPartial = 0;
+    let totalNoData = 0;
     let totalFailed = 0;
     const allBatchResults: ScheduledHydrateResult[] = [];
 
@@ -429,7 +444,6 @@ export default function HydrateLabelData() {
         const { data, error } = await supabase.functions.invoke("scheduled-hydrate", {
           body: { 
             limit: batchSize,
-            // No offset needed - edge function automatically gets next unhydrated batch
           },
           headers: {
             Authorization: `Bearer ${session.access_token}`,
@@ -441,51 +455,57 @@ export default function HydrateLabelData() {
           break;
         }
 
-        const jobResult = data as ScheduledJobResult & {
-          processed?: number;
-          remaining?: number;
-          has_more?: boolean;
-        };
+        const jobResult = data as ScheduledJobResult;
         
         // Guard: if no meds were processed, we're done or something is wrong
         if (!jobResult.results || jobResult.results.length === 0) {
-          toast.success(`All medications hydrated! ${totalComplete} complete, ${totalPartial} partial, ${totalFailed} failed`);
+          toast.success(`All medications hydrated! ${totalComplete} complete, ${totalPartial} partial, ${totalNoData} no_data, ${totalFailed} failed`);
           break;
         }
         
         // Update totals based on status
         const batchComplete = jobResult.results.filter(r => r.status === "complete").length;
-        const batchPartial = jobResult.results.filter(r => r.status === "partial" || r.status === "no_data").length;
+        const batchPartial = jobResult.results.filter(r => r.status === "partial").length;
+        const batchNoData = jobResult.results.filter(r => r.status === "no_data").length;
         const batchFailed = jobResult.results.filter(r => r.status === "error").length;
         totalProcessed += jobResult.results.length;
         totalComplete += batchComplete;
         totalPartial += batchPartial;
+        totalNoData += batchNoData;
         totalFailed += batchFailed;
         
         // Accumulate all results
         allBatchResults.push(...jobResult.results);
         setAllResults([...allBatchResults]);
 
-        // Use has_more from the response to determine if we should continue
+        // Use has_more and remaining_after from the response
         const hasMore = jobResult.has_more === true;
-        const remaining = jobResult.remaining ?? 0;
+        const remainingAfter = jobResult.remaining_after ?? 0;
 
         setHydrateAllProgress({
           totalMeds: initialCount,
           totalProcessed,
           totalComplete,
           totalPartial,
+          totalNoData,
           totalFailed,
           batchesCompleted: batchNumber,
-          estimatedBatchesTotal: hasMore ? Math.ceil(remaining / batchSize) + batchNumber : batchNumber,
+          estimatedBatchesTotal: hasMore ? Math.ceil(remainingAfter / batchSize) + batchNumber : batchNumber,
           currentBatchResults: jobResult.results,
           isComplete: !hasMore,
           startTime: hydrateAllProgress?.startTime || Date.now(),
+          lastBatchStats: {
+            totalBefore: jobResult.total_before ?? 0,
+            processed: jobResult.processed ?? 0,
+            terminalCount: jobResult.terminal_count ?? 0,
+            remainingAfter: remainingAfter,
+            elapsedMs: jobResult.elapsed_ms ?? 0,
+          },
         });
 
         // Check if complete based on has_more flag
         if (!hasMore) {
-          toast.success(`All medications hydrated! ${totalComplete} complete, ${totalPartial} partial, ${totalFailed} failed`);
+          toast.success(`All medications hydrated! ${totalComplete} complete, ${totalPartial} partial, ${totalNoData} no_data, ${totalFailed} failed`);
           break;
         }
 
@@ -900,11 +920,39 @@ export default function HydrateLabelData() {
                         <AlertTriangle className="h-4 w-4 inline mr-1" />
                         {hydrateAllProgress.totalPartial} partial
                       </span>
+                      <span className="text-orange-600">
+                        ○ {hydrateAllProgress.totalNoData} no_data
+                      </span>
                       <span className="text-red-600">
                         <AlertCircle className="h-4 w-4 inline mr-1" />
                         {hydrateAllProgress.totalFailed} failed
                       </span>
                     </div>
+                    {/* Queue stats */}
+                    {hydrateAllProgress.lastBatchStats && (
+                      <div className="text-xs text-muted-foreground border-t pt-2 mt-2 space-y-1">
+                        <div className="flex justify-between">
+                          <span>Queue before batch:</span>
+                          <span className="font-mono">{hydrateAllProgress.lastBatchStats.totalBefore}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Processed this batch:</span>
+                          <span className="font-mono">{hydrateAllProgress.lastBatchStats.processed}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Terminal (removed from queue):</span>
+                          <span className="font-mono">{hydrateAllProgress.lastBatchStats.terminalCount}</span>
+                        </div>
+                        <div className="flex justify-between font-medium">
+                          <span>Remaining after:</span>
+                          <span className="font-mono">{hydrateAllProgress.lastBatchStats.remainingAfter}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Batch time:</span>
+                          <span className="font-mono">{(hydrateAllProgress.lastBatchStats.elapsedMs / 1000).toFixed(1)}s</span>
+                        </div>
+                      </div>
+                    )}
                     {hydrateAllProgress.isComplete && (
                       <Badge variant="default" className="w-full justify-center py-1">
                         <CheckCircle className="h-4 w-4 mr-2" />

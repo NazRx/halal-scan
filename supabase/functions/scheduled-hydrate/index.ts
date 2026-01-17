@@ -58,23 +58,24 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const limit = Math.min(Number(body?.limit ?? 50), 50);
-    // Note: We no longer use offset for pagination since we filter by spl_last_fetched_at IS NULL
-    // Each batch will automatically get the next set of unhydrated meds
 
     logs.push(`✓ Starting batch hydration (limit=${limit})`);
 
-    // Count total remaining BEFORE we start (for accurate has_more calculation)
-    const { count: totalUnhydrated, error: countError } = await supabase
+    // Count total unhydrated BEFORE we start
+    // A med is "unhydrated" if spl_last_fetched_at IS NULL
+    // (This means it has never reached a terminal state: complete or no_data)
+    // Partial hydrations intentionally do NOT set spl_last_fetched_at, so they stay in queue
+    const { count: totalBefore, error: countError } = await supabase
       .from("rx_meds")
       .select("id", { count: "exact", head: true })
       .is("spl_last_fetched_at", null);
 
     if (countError) throw countError;
 
-    logs.push(`📊 Total unhydrated medications: ${totalUnhydrated ?? 0}`);
+    logs.push(`📊 Total unhydrated medications before: ${totalBefore ?? 0}`);
 
-    // Pull up to N meds that are NOT hydrated yet
-    // No offset needed - we always get the first N unhydrated meds, and they get marked after processing
+    // Pull up to N meds that are NOT hydrated yet (spl_last_fetched_at IS NULL)
+    // These are meds that have never reached a terminal state (complete or no_data)
     const { data: meds, error: medsError } = await supabase
       .from("rx_meds")
       .select("id, generic_name")
@@ -85,14 +86,18 @@ Deno.serve(async (req) => {
     if (medsError) throw medsError;
 
     if (!meds || meds.length === 0) {
+      const elapsedMs = Date.now() - startedAt;
       return new Response(JSON.stringify({
         success: true,
         message: "No unhydrated medications found.",
         logs,
         results: [],
+        // Stats
+        total_before: totalBefore ?? 0,
         processed: 0,
+        remaining_after: 0,
+        elapsed_ms: elapsedMs,
         has_more: false,
-        remaining: 0,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -107,6 +112,7 @@ Deno.serve(async (req) => {
       error?: string;
     }> = [];
     let processed = 0;
+    let terminalCount = 0; // Meds that reached terminal state (complete or no_data)
 
     for (let i = 0; i < meds.length; i++) {
       const med = meds[i];
@@ -116,12 +122,11 @@ Deno.serve(async (req) => {
       const elapsed = Date.now() - startedAt;
       if (elapsed > 45_000) {
         logs.push(`⚠︎ Stopping early to avoid timeout. Elapsed=${elapsed}ms, processed=${processed}`);
-        // EXIT GRACEFULLY - don't mark remaining as failed
         break;
       }
 
       try {
-        // Call your existing per-med hydrator
+        // Call the per-med hydrator
         const { data, error } = await supabase.functions.invoke("hydrate-label-data", {
           body: { med_id: med.id },
           headers: {
@@ -144,7 +149,12 @@ Deno.serve(async (req) => {
         } else {
           // Classify based on hydrate-label-data response
           const hydrateStatus = data?.hydrate_status || (data?.success ? "complete" : "partial");
-          const isSuccess = data?.success !== false; // Only false on actual errors
+          const isSuccess = data?.success !== false;
+          
+          // Track terminal states (complete or no_data set spl_last_fetched_at)
+          if (hydrateStatus === "complete" || hydrateStatus === "no_data") {
+            terminalCount++;
+          }
           
           results.push({
             med_id: med.id,
@@ -171,46 +181,55 @@ Deno.serve(async (req) => {
         logs.push(`✗ Exception: ${med.generic_name}`);
       }
 
-      // Throttle to protect openFDA/DailyMed - reduced from 900ms to 150ms
+      // Throttle to protect openFDA/DailyMed
       await sleep(150);
     }
 
     // Calculate summary counts
     const complete = results.filter(r => r.status === "complete").length;
-    const partial = results.filter(r => r.status === "partial" || r.status === "no_data").length;
+    const partial = results.filter(r => r.status === "partial").length;
+    const noData = results.filter(r => r.status === "no_data").length;
     const failed = results.filter(r => r.status === "error").length;
 
-    // Calculate remaining: total unhydrated minus what we processed this batch
-    // Note: meds we processed are now hydrated (spl_last_fetched_at is set)
-    const remaining = Math.max(0, (totalUnhydrated ?? 0) - processed);
-    const hasMore = remaining > 0;
+    // Calculate remaining_after: 
+    // Only terminal states (complete, no_data) remove meds from queue
+    // Partial and error stay in queue for retry
+    const remainingAfter = Math.max(0, (totalBefore ?? 0) - terminalCount);
+    const hasMore = remainingAfter > 0;
+    const elapsedMs = Date.now() - startedAt;
 
-    logs.push(`📊 Batch summary: ${processed} processed, ${remaining} remaining, has_more=${hasMore}`);
+    logs.push(`📊 Batch summary: ${processed} processed (${terminalCount} terminal), ${remainingAfter} remaining, has_more=${hasMore}, elapsed=${elapsedMs}ms`);
 
     return new Response(JSON.stringify({
       success: true,
-      message: `Batch complete: ${complete} complete, ${partial} partial, ${failed} failed`,
+      message: `Batch complete: ${complete} complete, ${partial} partial, ${noData} no_data, ${failed} failed`,
       logs,
       results,
       // Summary counts
-      summary: { complete, partial, failed },
-      // Pagination metadata - now based on actual remaining count
+      summary: { complete, partial, no_data: noData, failed },
+      // Queue stats for UI
+      total_before: totalBefore ?? 0,
       processed,
-      remaining,
+      terminal_count: terminalCount,
+      remaining_after: remainingAfter,
+      elapsed_ms: elapsedMs,
       has_more: hasMore,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (err) {
+    const elapsedMs = Date.now() - startedAt;
     logs.push(`Fatal: ${err instanceof Error ? err.message : String(err)}`);
     return new Response(JSON.stringify({
       success: false,
       message: err instanceof Error ? err.message : "Unknown error",
       logs,
       results: [],
+      total_before: 0,
       processed: 0,
-      remaining: 0,
+      remaining_after: 0,
+      elapsed_ms: elapsedMs,
       has_more: false,
     }), {
       status: 500,
