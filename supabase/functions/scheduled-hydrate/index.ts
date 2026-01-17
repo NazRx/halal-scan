@@ -99,6 +99,9 @@ Deno.serve(async (req) => {
         // Call your existing per-med hydrator
         const { data, error } = await supabase.functions.invoke("hydrate-label-data", {
           body: { med_id: med.id },
+          headers: {
+            Authorization: authHeader,
+          },
         });
 
         if (error || !data?.success) {
