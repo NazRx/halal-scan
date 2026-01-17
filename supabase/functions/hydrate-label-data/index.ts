@@ -25,6 +25,8 @@ interface VariantResult {
 
 interface HydrateResult {
   success: boolean;
+  hydrate_status: "complete" | "partial" | "no_data" | "error";  // NEW: structured status
+  hydrate_status_detail?: string;  // NEW: detailed reason
   logs: HydrateLog[];
   med_id: string;
   variants_hydrated: number;
@@ -1331,7 +1333,9 @@ Deno.serve(async (req) => {
 
     const logs: HydrateLog[] = [];
     const result: HydrateResult = {
-      success: false,
+      success: true,  // Optimistic - only set false on actual errors
+      hydrate_status: "no_data",  // Default - will be upgraded based on results
+      hydrate_status_detail: "",
       logs,
       med_id,
       variants_hydrated: 0,
@@ -1385,6 +1389,16 @@ Deno.serve(async (req) => {
         status: "warning",
         message: "No NDCs found in openFDA - cannot hydrate variants",
       });
+      result.success = true;  // Not an error - just no data available
+      result.hydrate_status = "no_data";
+      result.hydrate_status_detail = "No NDCs found in openFDA for this medication";
+      
+      // Mark as processed so it won't be retried indefinitely
+      await supabase
+        .from("rx_meds")
+        .update({ spl_last_fetched_at: new Date().toISOString() })
+        .eq("id", med_id);
+      
       result.logs = logs;
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1504,6 +1518,9 @@ Deno.serve(async (req) => {
           status: "error",
           message: `Failed to update rx_meds: ${updateError.message}`,
         });
+        result.success = false;  // Actual error
+        result.hydrate_status = "error";
+        result.hydrate_status_detail = `Database update failed: ${updateError.message}`;
       } else {
         logs.push({
           step: "update_db",
@@ -1511,6 +1528,15 @@ Deno.serve(async (req) => {
           message: `Updated rx_meds with ${variantResults.length} variants hydrated`,
         });
         result.success = true;
+        
+        // Determine hydrate_status based on data completeness
+        if (allInactiveIngredients.length > 0) {
+          result.hydrate_status = "complete";
+          result.hydrate_status_detail = `${variantResults.length} variants with ${allInactiveIngredients.length} inactive ingredients`;
+        } else {
+          result.hydrate_status = "partial";
+          result.hydrate_status_detail = "Variants created but no inactive ingredient data found";
+        }
       }
       
       result.confidence_level = confidenceLevel;
@@ -1538,6 +1564,8 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         error: error instanceof Error ? error.message : "Unknown error",
         success: false,
+        hydrate_status: "error",
+        hydrate_status_detail: error instanceof Error ? error.message : "Unknown error",
         variants_hydrated: 0,
         variant_ids: [],
         logs: [{ step: "error", status: "error", message: String(error) }],

@@ -86,7 +86,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    const results: Array<{ med_id: string; generic_name: string; success: boolean; status?: string; error?: string }> = [];
+    const results: Array<{ 
+      med_id: string; 
+      generic_name: string; 
+      success: boolean; 
+      status: "complete" | "partial" | "no_data" | "error";
+      status_detail?: string;
+      error?: string;
+    }> = [];
     let processed = 0;
 
     for (let i = 0; i < meds.length; i++) {
@@ -112,23 +119,33 @@ Deno.serve(async (req) => {
 
         processed++;
 
-        if (error || !data?.success) {
+        if (error) {
+          // Actual invocation error (network, auth, etc.)
           results.push({
             med_id: med.id,
             generic_name: med.generic_name,
             success: false,
-            status: data?.status,
-            error: error?.message || data?.status_reason || "Hydration incomplete",
+            status: "error",
+            error: error.message,
           });
-          logs.push(`✗ Failed: ${med.generic_name}`);
+          logs.push(`✗ Error: ${med.generic_name} - ${error.message}`);
         } else {
+          // Classify based on hydrate-label-data response
+          const hydrateStatus = data?.hydrate_status || (data?.success ? "complete" : "partial");
+          const isSuccess = data?.success !== false; // Only false on actual errors
+          
           results.push({
             med_id: med.id,
             generic_name: med.generic_name,
-            success: true,
-            status: data?.status,
+            success: isSuccess,
+            status: hydrateStatus,
+            status_detail: data?.hydrate_status_detail || data?.status_reason,
           });
-          logs.push(`✓ Success: ${med.generic_name} (${data?.status ?? "status unknown"})`);
+          
+          const icon = hydrateStatus === "complete" ? "✓" : 
+                       hydrateStatus === "partial" ? "◐" : 
+                       hydrateStatus === "no_data" ? "○" : "✗";
+          logs.push(`${icon} ${med.generic_name} (${hydrateStatus})`);
         }
       } catch (e) {
         processed++;
@@ -136,6 +153,7 @@ Deno.serve(async (req) => {
           med_id: med.id,
           generic_name: med.generic_name,
           success: false,
+          status: "error",
           error: e instanceof Error ? e.message : String(e),
         });
         logs.push(`✗ Exception: ${med.generic_name}`);
@@ -145,14 +163,18 @@ Deno.serve(async (req) => {
       await sleep(150);
     }
 
-    const ok = results.filter(r => r.success).length;
-    const bad = results.length - ok;
+    // Calculate summary counts
+    const complete = results.filter(r => r.status === "complete").length;
+    const partial = results.filter(r => r.status === "partial" || r.status === "no_data").length;
+    const failed = results.filter(r => r.status === "error").length;
 
     return new Response(JSON.stringify({
       success: true,
-      message: `Batch complete: ${ok} successful, ${bad} failed`,
+      message: `Batch complete: ${complete} complete, ${partial} partial, ${failed} failed`,
       logs,
       results,
+      // Summary counts
+      summary: { complete, partial, failed },
       // Pagination metadata for resumable batches
       processed,
       next_offset: offset + processed,
