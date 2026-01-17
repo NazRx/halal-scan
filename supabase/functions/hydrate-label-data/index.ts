@@ -1036,15 +1036,19 @@ async function upsertVariantData(
       });
     }
 
-    // Delete existing rx_variant_ingredients for this variant
-    await supabase
-      .from("rx_variant_ingredients")
-      .delete()
-      .eq("variant_id", variantId);
-
-    // Insert rx_variant_ingredients
+    // Upsert rx_variant_ingredients - handles duplicates gracefully
     if (matchedIngredients.length > 0) {
-      const ingredientRows = matchedIngredients.map(ing => ({
+      // De-duplicate ingredients by id (keep first occurrence)
+      const seenIngredients = new Set<string>();
+      const uniqueIngredients = matchedIngredients.filter(ing => {
+        if (seenIngredients.has(ing.id)) {
+          return false;
+        }
+        seenIngredients.add(ing.id);
+        return true;
+      });
+
+      const ingredientRows = uniqueIngredients.map(ing => ({
         variant_id: variantId,
         ingredient_id: ing.id,
         role: ing.role,
@@ -1053,19 +1057,36 @@ async function upsertVariantData(
 
       const { error: ingError } = await supabase
         .from("rx_variant_ingredients")
-        .insert(ingredientRows);
+        .upsert(ingredientRows, { 
+          onConflict: 'variant_id,ingredient_id',
+          ignoreDuplicates: false
+        });
 
       if (ingError) {
         logs.push({
           step: "upsert_ingredients",
           status: "warning",
-          message: `Failed to insert some ingredients: ${ingError.message}`,
+          message: `Failed to upsert some ingredients: ${ingError.message}`,
         });
       } else {
         logs.push({
           step: "upsert_ingredients",
           status: "success",
-          message: `Inserted ${ingredientRows.length} variant ingredients`,
+          message: `Upserted ${ingredientRows.length} variant ingredients`,
+        });
+      }
+    } else {
+      // No ingredients to add - clean up old ones
+      const { error: deleteError } = await supabase
+        .from("rx_variant_ingredients")
+        .delete()
+        .eq("variant_id", variantId);
+        
+      if (!deleteError) {
+        logs.push({
+          step: "upsert_ingredients",
+          status: "info",
+          message: "No ingredients to add, cleared existing entries",
         });
       }
     }
