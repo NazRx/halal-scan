@@ -58,17 +58,29 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const limit = Math.min(Number(body?.limit ?? 50), 50);
-    const offset = Math.max(Number(body?.offset ?? 0), 0);
+    // Note: We no longer use offset for pagination since we filter by spl_last_fetched_at IS NULL
+    // Each batch will automatically get the next set of unhydrated meds
 
-    logs.push(`✓ Starting batch hydration (limit=${limit}, offset=${offset})`);
+    logs.push(`✓ Starting batch hydration (limit=${limit})`);
 
-    // Pull up to N meds that are NOT hydrated yet using range-based pagination
+    // Count total remaining BEFORE we start (for accurate has_more calculation)
+    const { count: totalUnhydrated, error: countError } = await supabase
+      .from("rx_meds")
+      .select("id", { count: "exact", head: true })
+      .is("spl_last_fetched_at", null);
+
+    if (countError) throw countError;
+
+    logs.push(`📊 Total unhydrated medications: ${totalUnhydrated ?? 0}`);
+
+    // Pull up to N meds that are NOT hydrated yet
+    // No offset needed - we always get the first N unhydrated meds, and they get marked after processing
     const { data: meds, error: medsError } = await supabase
       .from("rx_meds")
       .select("id, generic_name")
       .is("spl_last_fetched_at", null)
       .order("generic_name", { ascending: true })
-      .range(offset, offset + limit - 1);
+      .limit(limit);
 
     if (medsError) throw medsError;
 
@@ -79,8 +91,8 @@ Deno.serve(async (req) => {
         logs,
         results: [],
         processed: 0,
-        next_offset: offset,
-        done: true,
+        has_more: false,
+        remaining: 0,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -168,6 +180,13 @@ Deno.serve(async (req) => {
     const partial = results.filter(r => r.status === "partial" || r.status === "no_data").length;
     const failed = results.filter(r => r.status === "error").length;
 
+    // Calculate remaining: total unhydrated minus what we processed this batch
+    // Note: meds we processed are now hydrated (spl_last_fetched_at is set)
+    const remaining = Math.max(0, (totalUnhydrated ?? 0) - processed);
+    const hasMore = remaining > 0;
+
+    logs.push(`📊 Batch summary: ${processed} processed, ${remaining} remaining, has_more=${hasMore}`);
+
     return new Response(JSON.stringify({
       success: true,
       message: `Batch complete: ${complete} complete, ${partial} partial, ${failed} failed`,
@@ -175,10 +194,10 @@ Deno.serve(async (req) => {
       results,
       // Summary counts
       summary: { complete, partial, failed },
-      // Pagination metadata for resumable batches
+      // Pagination metadata - now based on actual remaining count
       processed,
-      next_offset: offset + processed,
-      done: processed < limit, // True if we processed fewer than requested (no more left or timeout)
+      remaining,
+      has_more: hasMore,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -191,8 +210,8 @@ Deno.serve(async (req) => {
       logs,
       results: [],
       processed: 0,
-      next_offset: 0,
-      done: false,
+      remaining: 0,
+      has_more: false,
     }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
