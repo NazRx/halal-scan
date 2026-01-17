@@ -157,6 +157,9 @@ export default function HydrateLabelData() {
 
       const { data, error } = await supabase.functions.invoke("hydrate-label-data", {
         body: { med_id: selectedMedId },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
       if (error) {
@@ -255,6 +258,9 @@ export default function HydrateLabelData() {
       try {
         const { data, error } = await supabase.functions.invoke("hydrate-label-data", {
           body: { med_id: medId },
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
         });
 
         const batchResult: BatchResult = {
@@ -331,6 +337,9 @@ export default function HydrateLabelData() {
     try {
       const { data, error } = await supabase.functions.invoke("scheduled-hydrate", {
         body: { limit: 50 },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
       if (error) {
@@ -414,6 +423,9 @@ export default function HydrateLabelData() {
       try {
         const { data, error } = await supabase.functions.invoke("scheduled-hydrate", {
           body: { batch_size: batchSize },
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
         });
 
         if (error) {
