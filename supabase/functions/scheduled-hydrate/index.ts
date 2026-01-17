@@ -58,16 +58,17 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const limit = Math.min(Number(body?.limit ?? 50), 50);
+    const offset = Math.max(Number(body?.offset ?? 0), 0);
 
-    logs.push(`✓ Starting batch hydration (limit=${limit})`);
+    logs.push(`✓ Starting batch hydration (limit=${limit}, offset=${offset})`);
 
-    // Pull up to N meds that are NOT hydrated yet
+    // Pull up to N meds that are NOT hydrated yet using range-based pagination
     const { data: meds, error: medsError } = await supabase
       .from("rx_meds")
       .select("id, generic_name")
       .is("spl_last_fetched_at", null)
       .order("generic_name", { ascending: true })
-      .limit(limit);
+      .range(offset, offset + limit - 1);
 
     if (medsError) throw medsError;
 
@@ -77,12 +78,16 @@ Deno.serve(async (req) => {
         message: "No unhydrated medications found.",
         logs,
         results: [],
+        processed: 0,
+        next_offset: offset,
+        done: true,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const results: Array<{ med_id: string; generic_name: string; success: boolean; status?: string; error?: string }> = [];
+    let processed = 0;
 
     for (let i = 0; i < meds.length; i++) {
       const med = meds[i];
@@ -91,7 +96,8 @@ Deno.serve(async (req) => {
       // Runtime guard: stop before edge runtime kills us
       const elapsed = Date.now() - startedAt;
       if (elapsed > 45_000) {
-        logs.push(`⚠︎ Stopping early to avoid timeout. Elapsed=${elapsed}ms`);
+        logs.push(`⚠︎ Stopping early to avoid timeout. Elapsed=${elapsed}ms, processed=${processed}`);
+        // EXIT GRACEFULLY - don't mark remaining as failed
         break;
       }
 
@@ -103,6 +109,8 @@ Deno.serve(async (req) => {
             Authorization: authHeader,
           },
         });
+
+        processed++;
 
         if (error || !data?.success) {
           results.push({
@@ -123,6 +131,7 @@ Deno.serve(async (req) => {
           logs.push(`✓ Success: ${med.generic_name} (${data?.status ?? "status unknown"})`);
         }
       } catch (e) {
+        processed++;
         results.push({
           med_id: med.id,
           generic_name: med.generic_name,
@@ -132,8 +141,8 @@ Deno.serve(async (req) => {
         logs.push(`✗ Exception: ${med.generic_name}`);
       }
 
-      // Throttle to protect openFDA/DailyMed + avoid worker churn
-      await sleep(900);
+      // Throttle to protect openFDA/DailyMed - reduced from 900ms to 150ms
+      await sleep(150);
     }
 
     const ok = results.filter(r => r.success).length;
@@ -144,6 +153,10 @@ Deno.serve(async (req) => {
       message: `Batch complete: ${ok} successful, ${bad} failed`,
       logs,
       results,
+      // Pagination metadata for resumable batches
+      processed,
+      next_offset: offset + processed,
+      done: processed < limit, // True if we processed fewer than requested (no more left or timeout)
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -155,6 +168,9 @@ Deno.serve(async (req) => {
       message: err instanceof Error ? err.message : "Unknown error",
       logs,
       results: [],
+      processed: 0,
+      next_offset: 0,
+      done: false,
     }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
