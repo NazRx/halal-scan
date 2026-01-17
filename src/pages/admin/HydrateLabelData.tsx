@@ -68,7 +68,8 @@ interface ScheduledHydrateResult {
   med_id: string;
   generic_name: string;
   success: boolean;
-  status?: string;
+  status: "complete" | "partial" | "no_data" | "error";
+  status_detail?: string;
   error?: string;
 }
 
@@ -77,6 +78,7 @@ interface ScheduledJobResult {
   message: string;
   logs: string[];
   results: ScheduledHydrateResult[];
+  summary?: { complete: number; partial: number; failed: number };
   remaining_count?: number;
   total_processed?: number;
   batch_size?: number;
@@ -85,8 +87,9 @@ interface ScheduledJobResult {
 interface HydrateAllProgress {
   totalMeds: number;
   totalProcessed: number;
-  totalSuccess: number;
-  totalFailed: number;
+  totalComplete: number;  // NEW: complete hydrations
+  totalPartial: number;   // NEW: partial/no_data hydrations
+  totalFailed: number;    // Only actual errors
   batchesCompleted: number;
   estimatedBatchesTotal: number;
   currentBatchResults: ScheduledHydrateResult[];
@@ -402,7 +405,8 @@ export default function HydrateLabelData() {
     setHydrateAllProgress({
       totalMeds: initialCount,
       totalProcessed: 0,
-      totalSuccess: 0,
+      totalComplete: 0,
+      totalPartial: 0,
       totalFailed: 0,
       batchesCompleted: 0,
       estimatedBatchesTotal: estimatedBatches,
@@ -414,7 +418,8 @@ export default function HydrateLabelData() {
     let batchNumber = 0;
     let currentOffset = 0; // Track offset for pagination
     let totalProcessed = 0;
-    let totalSuccess = 0;
+    let totalComplete = 0;
+    let totalPartial = 0;
     let totalFailed = 0;
     const allBatchResults: ScheduledHydrateResult[] = [];
 
@@ -443,11 +448,13 @@ export default function HydrateLabelData() {
           done?: boolean;
         };
         
-        // Update totals
-        const batchSuccess = jobResult.results.filter(r => r.success).length;
-        const batchFailed = jobResult.results.filter(r => !r.success).length;
+        // Update totals based on status
+        const batchComplete = jobResult.results.filter(r => r.status === "complete").length;
+        const batchPartial = jobResult.results.filter(r => r.status === "partial" || r.status === "no_data").length;
+        const batchFailed = jobResult.results.filter(r => r.status === "error").length;
         totalProcessed += jobResult.results.length;
-        totalSuccess += batchSuccess;
+        totalComplete += batchComplete;
+        totalPartial += batchPartial;
         totalFailed += batchFailed;
         
         // Update offset for next batch
@@ -462,7 +469,8 @@ export default function HydrateLabelData() {
         setHydrateAllProgress({
           totalMeds: initialCount,
           totalProcessed,
-          totalSuccess,
+          totalComplete,
+          totalPartial,
           totalFailed,
           batchesCompleted: batchNumber,
           estimatedBatchesTotal: isDone ? batchNumber : Math.ceil((initialCount - totalProcessed) / batchSize) + batchNumber,
@@ -473,7 +481,7 @@ export default function HydrateLabelData() {
 
         // Check if complete (done === true means we processed fewer than limit)
         if (isDone) {
-          toast.success(`All medications hydrated! ${totalSuccess} success, ${totalFailed} failed`);
+          toast.success(`All medications hydrated! ${totalComplete} complete, ${totalPartial} partial, ${totalFailed} failed`);
           break;
         }
 
@@ -879,10 +887,14 @@ export default function HydrateLabelData() {
                       <span>{hydrateAllProgress.totalProcessed} / {hydrateAllProgress.totalMeds} medications</span>
                       <span>{Math.round((hydrateAllProgress.totalProcessed / hydrateAllProgress.totalMeds) * 100)}%</span>
                     </div>
-                    <div className="flex gap-4 text-sm">
+                    <div className="flex gap-4 text-sm flex-wrap">
                       <span className="text-green-600">
                         <CheckCircle className="h-4 w-4 inline mr-1" />
-                        {hydrateAllProgress.totalSuccess} successful
+                        {hydrateAllProgress.totalComplete} complete
+                      </span>
+                      <span className="text-yellow-600">
+                        <AlertTriangle className="h-4 w-4 inline mr-1" />
+                        {hydrateAllProgress.totalPartial} partial
                       </span>
                       <span className="text-red-600">
                         <AlertCircle className="h-4 w-4 inline mr-1" />
@@ -940,37 +952,46 @@ export default function HydrateLabelData() {
               <CardContent>
                 <ScrollArea className="h-[300px]">
                   <div className="space-y-1">
-                    {allResults.map((result, index) => (
-                      <div 
-                        key={index}
-                        className={`p-2 rounded-lg flex items-center justify-between text-sm ${
-                          result.success ? "bg-green-50 dark:bg-green-950" : "bg-red-50 dark:bg-red-950"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          {result.success ? (
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <AlertCircle className="h-4 w-4 text-red-600" />
-                          )}
-                          <span>{result.generic_name}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {result.status && (
+                    {allResults.map((result, index) => {
+                      const bgColor = result.status === "complete" ? "bg-green-50 dark:bg-green-950" :
+                                      result.status === "partial" || result.status === "no_data" ? "bg-yellow-50 dark:bg-yellow-950" :
+                                      "bg-red-50 dark:bg-red-950";
+                      const Icon = result.status === "complete" ? CheckCircle :
+                                   result.status === "partial" || result.status === "no_data" ? AlertTriangle :
+                                   AlertCircle;
+                      const iconColor = result.status === "complete" ? "text-green-600" :
+                                        result.status === "partial" || result.status === "no_data" ? "text-yellow-600" :
+                                        "text-red-600";
+
+                      return (
+                        <div 
+                          key={index}
+                          className={`p-2 rounded-lg flex items-center justify-between text-sm ${bgColor}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icon className={`h-4 w-4 ${iconColor}`} />
+                            <span>{result.generic_name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
                             <Badge variant={
-                              result.status === "halal" ? "default" :
-                              result.status === "haram" ? "destructive" :
-                              "secondary"
+                              result.status === "complete" ? "default" :
+                              result.status === "partial" || result.status === "no_data" ? "secondary" :
+                              "destructive"
                             } className="text-xs">
                               {result.status}
                             </Badge>
-                          )}
-                          {result.error && (
-                            <span className="text-xs text-red-600 truncate max-w-[150px]">{result.error}</span>
-                          )}
+                            {result.status_detail && (
+                              <span className="text-xs text-muted-foreground truncate max-w-[200px]" title={result.status_detail}>
+                                {result.status_detail}
+                              </span>
+                            )}
+                            {result.error && (
+                              <span className="text-xs text-red-600 truncate max-w-[150px]">{result.error}</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </ScrollArea>
               </CardContent>
@@ -1038,35 +1059,46 @@ export default function HydrateLabelData() {
 
                       <ScrollArea className="h-[200px] border rounded-lg">
                         <div className="p-2 space-y-2">
-                          {scheduledJobResult.results.map((result, index) => (
-                            <div 
-                              key={index}
-                              className={`p-2 rounded-lg flex items-center justify-between text-sm ${
-                                result.success ? "bg-green-50 dark:bg-green-950" : "bg-red-50 dark:bg-red-950"
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                {result.success ? (
-                                  <CheckCircle className="h-4 w-4 text-green-600" />
-                                ) : (
-                                  <AlertCircle className="h-4 w-4 text-red-600" />
-                                )}
-                                <span>{result.generic_name}</span>
+                          {scheduledJobResult.results.map((result, index) => {
+                            const bgColor = result.status === "complete" ? "bg-green-50 dark:bg-green-950" :
+                                            result.status === "partial" || result.status === "no_data" ? "bg-yellow-50 dark:bg-yellow-950" :
+                                            "bg-red-50 dark:bg-red-950";
+                            const Icon = result.status === "complete" ? CheckCircle :
+                                         result.status === "partial" || result.status === "no_data" ? AlertTriangle :
+                                         AlertCircle;
+                            const iconColor = result.status === "complete" ? "text-green-600" :
+                                              result.status === "partial" || result.status === "no_data" ? "text-yellow-600" :
+                                              "text-red-600";
+
+                            return (
+                              <div 
+                                key={index}
+                                className={`p-2 rounded-lg flex items-center justify-between text-sm ${bgColor}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Icon className={`h-4 w-4 ${iconColor}`} />
+                                  <span>{result.generic_name}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant={
+                                    result.status === "complete" ? "default" :
+                                    result.status === "partial" || result.status === "no_data" ? "secondary" :
+                                    "destructive"
+                                  } className="text-xs">
+                                    {result.status}
+                                  </Badge>
+                                  {result.status_detail && (
+                                    <span className="text-xs text-muted-foreground truncate max-w-[150px]" title={result.status_detail}>
+                                      {result.status_detail}
+                                    </span>
+                                  )}
+                                  {result.error && (
+                                    <span className="text-xs text-red-600">{result.error}</span>
+                                  )}
+                                </div>
                               </div>
-                              {result.status && (
-                                <Badge variant={
-                                  result.status === "halal" ? "default" :
-                                  result.status === "haram" ? "destructive" :
-                                  "secondary"
-                                } className="text-xs">
-                                  {result.status}
-                                </Badge>
-                              )}
-                              {result.error && (
-                                <span className="text-xs text-red-600">{result.error}</span>
-                              )}
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </ScrollArea>
                     </div>
