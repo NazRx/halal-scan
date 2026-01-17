@@ -1519,18 +1519,30 @@ Deno.serve(async (req) => {
 
       const confidenceLevel = bestConfidence >= 80 ? "high" : bestConfidence >= 50 ? "medium" : "low";
       
+      // Determine hydrate_status based on data completeness
+      // Only set spl_last_fetched_at for TERMINAL states (complete)
+      // Partial hydrations leave spl_last_fetched_at NULL so they stay in queue
+      const isComplete = allInactiveIngredients.length > 0;
+      
+      const updatePayload: Record<string, unknown> = {
+        ndc: firstNdc || null,
+        dailymed_set_id: firstSetId || null,
+        active_ingredients: allActiveIngredients,
+        inactive_ingredients: allInactiveIngredients,
+        confidence_level: confidenceLevel,
+        status_reason: bestReason,
+        default_status: bestStatus,
+      };
+      
+      // CRITICAL: Only set spl_last_fetched_at for complete hydrations
+      // This ensures partial hydrations stay in the queue for retry
+      if (isComplete) {
+        updatePayload.spl_last_fetched_at = new Date().toISOString();
+      }
+      
       const { error: updateError } = await supabase
         .from("rx_meds")
-        .update({
-          ndc: firstNdc || null,
-          dailymed_set_id: firstSetId || null,
-          active_ingredients: allActiveIngredients,
-          inactive_ingredients: allInactiveIngredients,
-          confidence_level: confidenceLevel,
-          status_reason: bestReason,
-          default_status: bestStatus,
-          spl_last_fetched_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq("id", med_id);
 
       if (updateError) {
@@ -1546,17 +1558,16 @@ Deno.serve(async (req) => {
         logs.push({
           step: "update_db",
           status: "success",
-          message: `Updated rx_meds with ${variantResults.length} variants hydrated`,
+          message: `Updated rx_meds with ${variantResults.length} variants hydrated${isComplete ? " (terminal)" : " (partial - stays in queue)"}`,
         });
         result.success = true;
         
-        // Determine hydrate_status based on data completeness
-        if (allInactiveIngredients.length > 0) {
+        if (isComplete) {
           result.hydrate_status = "complete";
           result.hydrate_status_detail = `${variantResults.length} variants with ${allInactiveIngredients.length} inactive ingredients`;
         } else {
           result.hydrate_status = "partial";
-          result.hydrate_status_detail = "Variants created but no inactive ingredient data found";
+          result.hydrate_status_detail = "Variants created but no inactive ingredient data found - stays in queue";
         }
       }
       
