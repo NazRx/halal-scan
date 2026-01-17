@@ -393,7 +393,7 @@ export default function HydrateLabelData() {
       return;
     }
 
-    const batchSize = 75;
+    const batchSize = 50; // Match edge function limit
     const estimatedBatches = Math.ceil(initialCount / batchSize);
 
     setIsHydratingAll(true);
@@ -412,6 +412,7 @@ export default function HydrateLabelData() {
     });
 
     let batchNumber = 0;
+    let currentOffset = 0; // Track offset for pagination
     let totalProcessed = 0;
     let totalSuccess = 0;
     let totalFailed = 0;
@@ -422,7 +423,10 @@ export default function HydrateLabelData() {
       
       try {
         const { data, error } = await supabase.functions.invoke("scheduled-hydrate", {
-          body: { batch_size: batchSize },
+          body: { 
+            limit: batchSize,
+            offset: currentOffset, // Pass offset for pagination
+          },
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
@@ -433,7 +437,11 @@ export default function HydrateLabelData() {
           break;
         }
 
-        const jobResult = data as ScheduledJobResult;
+        const jobResult = data as ScheduledJobResult & {
+          processed?: number;
+          next_offset?: number;
+          done?: boolean;
+        };
         
         // Update totals
         const batchSuccess = jobResult.results.filter(r => r.success).length;
@@ -442,9 +450,14 @@ export default function HydrateLabelData() {
         totalSuccess += batchSuccess;
         totalFailed += batchFailed;
         
+        // Update offset for next batch
+        currentOffset = jobResult.next_offset ?? (currentOffset + batchSize);
+        
         // Accumulate all results
         allBatchResults.push(...jobResult.results);
         setAllResults([...allBatchResults]);
+
+        const isDone = jobResult.done === true;
 
         setHydrateAllProgress({
           totalMeds: initialCount,
@@ -452,14 +465,14 @@ export default function HydrateLabelData() {
           totalSuccess,
           totalFailed,
           batchesCompleted: batchNumber,
-          estimatedBatchesTotal: Math.ceil((jobResult.remaining_count || 0) / batchSize) + batchNumber,
+          estimatedBatchesTotal: isDone ? batchNumber : Math.ceil((initialCount - totalProcessed) / batchSize) + batchNumber,
           currentBatchResults: jobResult.results,
-          isComplete: (jobResult.remaining_count || 0) === 0,
+          isComplete: isDone,
           startTime: hydrateAllProgress?.startTime || Date.now(),
         });
 
-        // Check if complete
-        if ((jobResult.remaining_count || 0) === 0) {
+        // Check if complete (done === true means we processed fewer than limit)
+        if (isDone) {
           toast.success(`All medications hydrated! ${totalSuccess} success, ${totalFailed} failed`);
           break;
         }
