@@ -485,33 +485,81 @@ async function seedDrug(
       return { drugName: drugId, manufacturersAdded: 0, ingredientsLinked: 0, error: 'Drug not found' };
     }
 
-    console.log(`Seeding manufacturers for: ${drug.generic_name}`);
+    console.log(`\n=== Seeding manufacturers for: ${drug.generic_name} ===`);
 
     // Call the fetch-drug-manufacturers function with auth header
     const fetchUrl = `${supabaseUrl}/functions/v1/fetch-drug-manufacturers`;
-    const response = await fetch(fetchUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': authHeader
-      },
-      body: JSON.stringify({ genericName: drug.generic_name, limit: 10 })
-    });
+    
+    let response: Response;
+    try {
+      response = await fetch(fetchUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authHeader
+        },
+        body: JSON.stringify({ genericName: drug.generic_name, limit: 10 })
+      });
+    } catch (fetchError) {
+      console.error(`Network error fetching manufacturers for ${drug.generic_name}:`, fetchError);
+      return { 
+        drugName: drug.generic_name, 
+        manufacturersAdded: 0, 
+        ingredientsLinked: 0, 
+        error: 'Network error calling fetch-drug-manufacturers' 
+      };
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error response from fetch-drug-manufacturers: ${response.status} - ${errorText}`);
+      return { 
+        drugName: drug.generic_name, 
+        manufacturersAdded: 0, 
+        ingredientsLinked: 0, 
+        error: `API error: ${response.status}` 
+      };
+    }
 
     const manufacturerData = await response.json();
 
-    if (!manufacturerData.manufacturers || manufacturerData.manufacturers.length === 0) {
-      console.log(`No manufacturers found for ${drug.generic_name}`);
-      return { drugName: drug.generic_name, manufacturersAdded: 0, ingredientsLinked: 0, error: 'No FDA data found' };
+    // Log query info for debugging
+    if (manufacturerData.queryInfo) {
+      console.log(`[QUERY INFO] Normalized: "${manufacturerData.normalizedName}"`);
+      for (const qi of manufacturerData.queryInfo) {
+        console.log(`  Variant "${qi.variant}": ${qi.totalResults || 0} results`);
+      }
     }
 
-    console.log(`Found ${manufacturerData.manufacturers.length} manufacturers for ${drug.generic_name}`);
+    if (!manufacturerData.manufacturers || manufacturerData.manufacturers.length === 0) {
+      console.log(`[NO DATA] No manufacturers found for ${drug.generic_name}`);
+      
+      // Mark as needing manual mapping but don't fail the batch
+      if (manufacturerData.needsManualMapping) {
+        console.log(`  -> Marked as needs_manual_mapping`);
+      }
+      
+      return { 
+        drugName: drug.generic_name, 
+        manufacturersAdded: 0, 
+        ingredientsLinked: 0, 
+        error: 'No FDA data found - needs manual mapping'
+      };
+    }
+
+    console.log(`[FOUND] ${manufacturerData.manufacturers.length} manufacturers for ${drug.generic_name}`);
 
     let added = 0;
     let totalIngredientsLinked = 0;
 
     for (const mfr of manufacturerData.manufacturers as ManufacturerData[]) {
       try {
+        // Skip placeholder entries
+        if (mfr.labelerCode === 'VACCINE' && mfr.labelerName === 'Multiple manufacturers (vaccine)') {
+          console.log(`  Skipping vaccine placeholder for ${drug.generic_name}`);
+          continue;
+        }
+        
         // Check if this manufacturer variant already exists
         const { data: existing } = await supabase
           .from('rx_variants')
@@ -521,19 +569,29 @@ async function seedDrug(
           .limit(1);
 
         if (existing && existing.length > 0) {
-          console.log(`Variant already exists for ${mfr.labelerName}`);
+          console.log(`  Variant already exists for ${mfr.labelerName}`);
           continue;
         }
 
         // Fetch inactive ingredients from DailyMed if requested
         let splResult: SPLParseResult | null = null;
-        if (includeIngredients && mfr.ndcCodes.length > 0) {
-          console.log(`Fetching DailyMed SPL for ${mfr.labelerName}...`);
+        if (includeIngredients && mfr.ndcCodes && mfr.ndcCodes.length > 0) {
+          console.log(`  Fetching DailyMed SPL for ${mfr.labelerName}...`);
           splResult = await fetchInactiveIngredients(mfr.ndcCodes);
           
           if (splResult.success) {
-            console.log(`Found ${splResult.inactiveIngredients.length} inactive ingredients for ${mfr.labelerName}`);
+            console.log(`  Found ${splResult.inactiveIngredients.length} inactive ingredients`);
           }
+        }
+
+        // Determine data source based on marketing category
+        let dataSource = 'openfda';
+        if (mfr.marketingCategory === 'NDA') {
+          dataSource = 'openFDA-NDA';
+        } else if (mfr.marketingCategory === 'ANDA') {
+          dataSource = 'openFDA-ANDA';
+        } else if (mfr.marketingCategory === 'BLA') {
+          dataSource = 'openFDA-BLA';
         }
 
         // Insert the variant
@@ -545,22 +603,22 @@ async function seedDrug(
             labeler_code: mfr.labelerCode,
             dosage_form: mfr.dosageForm || drug.dosage_forms?.[0] || null,
             strength_text: mfr.strength,
-            ndc_list: mfr.ndcCodes,
+            ndc_list: mfr.ndcCodes || [],
             is_brand: mfr.isBrand || false,
             marketing_category: mfr.marketingCategory || null,
-            data_source: mfr.isBrand ? 'openFDA-NDA' : 'openFDA-ANDA',
+            data_source: dataSource,
             spl_set_id: splResult?.setId || null,
           })
           .select('id')
           .single();
 
         if (variantError) {
-          console.error(`Error inserting variant for ${mfr.labelerName}:`, variantError);
+          console.error(`  Error inserting variant for ${mfr.labelerName}:`, variantError);
           continue;
         }
 
         added++;
-        console.log(`Added variant for ${mfr.labelerName}`);
+        console.log(`  Added variant for ${mfr.labelerName} (${dataSource})`);
 
         // Link inactive ingredients if found
         if (splResult?.success && splResult.inactiveIngredients.length > 0 && variant) {
@@ -571,7 +629,7 @@ async function seedDrug(
             splResult.setId
           );
           totalIngredientsLinked += linkedCount;
-          console.log(`Linked ${linkedCount} ingredients to ${mfr.labelerName}`);
+          console.log(`  Linked ${linkedCount} ingredients to ${mfr.labelerName}`);
         }
 
         // Create initial verdict for this variant
@@ -590,18 +648,23 @@ async function seedDrug(
         await new Promise(resolve => setTimeout(resolve, 300));
 
       } catch (mfrErr) {
-        console.error(`Error processing manufacturer ${mfr.labelerName}:`, mfrErr);
+        console.error(`  Error processing manufacturer ${mfr.labelerName}:`, mfrErr);
+        // Continue with next manufacturer, don't fail the whole drug
       }
     }
+
+    console.log(`=== Completed ${drug.generic_name}: ${added} manufacturers, ${totalIngredientsLinked} ingredients ===\n`);
 
     return {
       drugName: drug.generic_name,
       manufacturersAdded: added,
-      ingredientsLinked: totalIngredientsLinked
+      ingredientsLinked: totalIngredientsLinked,
+      error: added === 0 ? 'No manufacturers added (may need manual mapping)' : undefined
     };
 
   } catch (error) {
     console.error(`Error seeding drug ${drugId}:`, error);
+    // Return error but don't throw - let batch continue
     return { 
       drugName: drugId, 
       manufacturersAdded: 0, 
