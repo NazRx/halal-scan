@@ -22,31 +22,32 @@ function ReasonIcon({ severity }: { severity: VerdictReason['severity'] }) {
 }
 
 export function VerdictSummary({ verdict, showManufacturerWarning = false, productType = 'otc' }: VerdictSummaryProps) {
+  // Updated status labels per engine rules
   const statusConfig = {
     halal: {
       icon: CheckCircle,
-      title: '✅ Halal (Permissible)',
+      title: '✅ Likely Halal',
       bgClass: 'bg-status-halal/10 border-status-halal/30',
       iconClass: 'text-status-halal',
       tooltip: 'Based on available ingredient data, no flagged ingredients were detected. Manufacturer excipients may still vary.',
     },
     questionable: {
       icon: AlertTriangle,
-      title: '⚠️ Mashbooh (Questionable)',
+      title: '⚠️ Uncertain',
       bgClass: 'bg-status-questionable/10 border-status-questionable/30',
       iconClass: 'text-status-questionable',
-      tooltip: 'Contains ingredients that are often animal-derived or not fully disclosed (e.g., gelatin, glycerin, magnesium stearate).',
+      tooltip: 'Contains ingredients that are often animal-derived or sourcing is unclear. More verification needed.',
     },
     not_halal: {
       icon: XCircle,
-      title: '🚫 Prohibited (Not Halal)',
+      title: '🚫 Not Halal',
       bgClass: 'bg-status-not-halal/10 border-status-not-halal/30',
       iconClass: 'text-status-not-halal',
-      tooltip: 'Contains a clearly prohibited ingredient (e.g., explicitly porcine-derived ingredient). If medically necessary and no alternative exists, necessity may apply.',
+      tooltip: 'Contains a clearly prohibited ingredient (e.g., explicitly porcine-derived). If medically necessary and no alternative exists, necessity (darura) may apply.',
     },
     unknown: {
       icon: HelpCircle,
-      title: '❓ Unknown (Needs Verification)',
+      title: '❓ Unknown',
       bgClass: 'bg-muted border-border',
       iconClass: 'text-muted-foreground',
       tooltip: 'Not enough ingredient data was available to confirm. Check manufacturer/NDC or consult your pharmacist.',

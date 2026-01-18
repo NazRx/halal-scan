@@ -43,7 +43,7 @@ const statusIcons = {
 const statusEmojis: Record<UIStatus, string> = {
   halal: '✅',
   questionable: '⚠️',
-  'not-halal': '🚫',
+  'not-halal': '❌',
   unknown: '❓',
 };
 
