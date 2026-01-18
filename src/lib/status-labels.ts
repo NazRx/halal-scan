@@ -2,27 +2,27 @@
 
 export type UIStatus = 'halal' | 'questionable' | 'not-halal' | 'unknown';
 
-// User-facing labels with emojis
+// User-facing labels with emojis - Updated per engine rules
 export const STATUS_LABELS: Record<UIStatus, string> = {
-  halal: '✅ Halal (Permissible)',
-  questionable: '⚠️ Mashbooh (Questionable)',
-  'not-halal': '🚫 Prohibited (Not Halal)',
-  unknown: '❓ Unknown (Needs Verification)',
+  halal: '✅ Likely Halal',
+  questionable: '⚠️ Uncertain',
+  'not-halal': '🚫 Not Halal',
+  unknown: '❓ Unknown',
 };
 
 // Short labels for compact displays
 export const STATUS_LABELS_SHORT: Record<UIStatus, string> = {
-  halal: 'Halal (Permissible)',
-  questionable: 'Mashbooh (Questionable)',
-  'not-halal': 'Prohibited (Not Halal)',
-  unknown: 'Unknown (Needs Verification)',
+  halal: 'Likely Halal',
+  questionable: 'Uncertain',
+  'not-halal': 'Not Halal',
+  unknown: 'Unknown',
 };
 
 // Tooltips explaining each status
 export const STATUS_TOOLTIPS: Record<UIStatus, string> = {
   halal: 'Based on available ingredient data, no flagged ingredients were detected. Manufacturer excipients may still vary.',
-  questionable: 'Contains ingredients that are often animal-derived or not fully disclosed (e.g., gelatin, glycerin, magnesium stearate).',
-  'not-halal': 'Contains a clearly prohibited ingredient (e.g., explicitly porcine-derived ingredient). If medically necessary and no alternative exists, necessity may apply.',
+  questionable: 'Contains ingredients that are often animal-derived or sourcing is unclear. More verification needed.',
+  'not-halal': 'Contains a clearly prohibited ingredient (e.g., explicitly porcine-derived). If medically necessary and no alternative exists, necessity (darura) may apply.',
   unknown: 'Not enough ingredient data was available to confirm. Check manufacturer/NDC or consult your pharmacist.',
 };
 
@@ -30,14 +30,14 @@ export const STATUS_TOOLTIPS: Record<UIStatus, string> = {
 export type ConfidenceLevel = 'low' | 'medium' | 'high';
 
 export function getConfidenceLevel(confidence: number): ConfidenceLevel {
-  if (confidence >= 70) return 'high';
-  if (confidence >= 40) return 'medium';
+  if (confidence >= 80) return 'high';
+  if (confidence >= 50) return 'medium';
   return 'low';
 }
 
 export const CONFIDENCE_LABELS: Record<ConfidenceLevel, string> = {
   low: 'Low Confidence',
-  medium: 'Medium Confidence',
+  medium: 'Moderate Confidence',
   high: 'High Confidence',
 };
 
@@ -50,7 +50,7 @@ export const CONFIDENCE_COLORS: Record<ConfidenceLevel, string> = {
 // Map internal engine status to UI status
 export function toUiStatus(status: string): UIStatus {
   if (status === 'not_halal' || status === 'haram') return 'not-halal';
-  if (status === 'mushbooh') return 'questionable';
+  if (status === 'mushbooh' || status === 'questionable') return 'questionable';
   if (status === 'halal') return 'halal';
   return 'unknown';
 }

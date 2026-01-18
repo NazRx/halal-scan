@@ -18,13 +18,15 @@ export function VerdictDisplay({
   productType,
   showManufacturerWarning = true,
 }: VerdictDisplayProps) {
+  const uiStatus = toUiStatus(verdict.status);
+  
   return (
     <div className="space-y-6">
       {/* Status & Confidence Header */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex items-center gap-4">
           <StatusBadge 
-            status={toUiStatus(verdict.status)} 
+            status={uiStatus} 
             size="lg" 
             showLabel 
             animate={verdict.status === 'halal'}
@@ -36,7 +38,13 @@ export function VerdictDisplay({
             </p>
           </div>
         </div>
-        <ConfidenceMeter value={verdict.confidence} size="lg" showLabel />
+        {/* Pass status to ConfidenceMeter for proper color logic */}
+        <ConfidenceMeter 
+          value={verdict.confidence} 
+          size="lg" 
+          showLabel 
+          status={uiStatus}
+        />
       </div>
 
       {/* Why This Status Summary */}

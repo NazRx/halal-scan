@@ -17,13 +17,18 @@ interface IngredientBreakdownProps {
   showRole?: boolean; // Show active/inactive role for Rx
 }
 
+// Per engine rules: Highlight ONLY disqualifying ingredients with red ❌
+// Other ingredients remain neutral regardless of confidence
 function StatusIcon({ status }: { status: IngredientVerdict['status'] }) {
   switch (status) {
     case 'halal':
-      return <CheckCircle className="h-4 w-4 text-status-halal" />;
+      // Neutral for non-disqualifying ingredients
+      return <CheckCircle className="h-4 w-4 text-muted-foreground" />;
     case 'questionable':
-      return <AlertTriangle className="h-4 w-4 text-status-questionable" />;
+      // Neutral warning indicator
+      return <AlertTriangle className="h-4 w-4 text-muted-foreground" />;
     case 'not_halal':
+      // RED ❌ ONLY for disqualifying ingredients
       return <XCircle className="h-4 w-4 text-status-not-halal" />;
     case 'unknown':
     default:
@@ -31,10 +36,11 @@ function StatusIcon({ status }: { status: IngredientVerdict['status'] }) {
   }
 }
 
-function StatusBadge({ status }: { status: IngredientVerdict['status'] }) {
+function IngredientStatusBadge({ status }: { status: IngredientVerdict['status'] }) {
+  // Per engine rules: Only disqualifying ingredients get prominent styling
   const variants = {
-    halal: 'bg-status-halal/15 text-status-halal border-status-halal/30',
-    questionable: 'bg-status-questionable/15 text-status-questionable border-status-questionable/30',
+    halal: 'bg-muted text-muted-foreground border-border',
+    questionable: 'bg-muted text-muted-foreground border-border',
     not_halal: 'bg-status-not-halal/15 text-status-not-halal border-status-not-halal/30',
     unknown: 'bg-muted text-muted-foreground border-border',
   };
@@ -42,7 +48,7 @@ function StatusBadge({ status }: { status: IngredientVerdict['status'] }) {
   const labels = {
     halal: 'OK',
     questionable: 'Check',
-    not_halal: 'Issue',
+    not_halal: '❌ Issue',
     unknown: '?',
   };
 
@@ -120,7 +126,7 @@ export function IngredientBreakdown({ ingredients, showRole = false }: Ingredien
                 <TableCell>
                   <div className="flex items-center">
                     <span className="font-medium">{ingredient.ingredientName}</span>
-                    <StatusBadge status={ingredient.status} />
+                    <IngredientStatusBadge status={ingredient.status} />
                   </div>
                 </TableCell>
                 {showRole && (
