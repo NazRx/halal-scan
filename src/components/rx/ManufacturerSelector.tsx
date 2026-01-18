@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -7,14 +8,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, Camera, FileQuestion, Info, Bookmark } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Building2, Camera, FileQuestion, Info, Bookmark, ArrowUpDown, Check, AlertCircle, X, HelpCircle, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { ManufacturerSortMode } from "@/pages/RxMedication";
 
 interface Manufacturer {
   id: string;
   name: string;
   dosageForm?: string;
   strength?: string;
+  status?: 'halal' | 'questionable' | 'not-halal' | 'unknown';
+  confidence?: number;
 }
 
 interface ManufacturerSelectorProps {
@@ -25,7 +30,19 @@ interface ManufacturerSelectorProps {
   onRequestReview?: () => void;
   className?: string;
   savedVariantIds?: Set<string>;
+  sortMode?: ManufacturerSortMode;
+  onSortModeChange?: (mode: ManufacturerSortMode) => void;
+  hideUnknown?: boolean;
+  onHideUnknownChange?: (hide: boolean) => void;
+  totalCount?: number;
 }
+
+const statusConfig = {
+  halal: { icon: Check, color: 'text-emerald-600', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
+  questionable: { icon: AlertCircle, color: 'text-amber-600', bg: 'bg-amber-100 dark:bg-amber-900/30' },
+  'not-halal': { icon: X, color: 'text-red-600', bg: 'bg-red-100 dark:bg-red-900/30' },
+  unknown: { icon: HelpCircle, color: 'text-muted-foreground', bg: 'bg-muted' },
+};
 
 export function ManufacturerSelector({
   manufacturers,
@@ -35,8 +52,15 @@ export function ManufacturerSelector({
   onRequestReview,
   className,
   savedVariantIds = new Set(),
+  sortMode = 'confidence',
+  onSortModeChange,
+  hideUnknown = false,
+  onHideUnknownChange,
+  totalCount,
 }: ManufacturerSelectorProps) {
   const selected = manufacturers.find((m) => m.id === selectedManufacturer);
+  const showSortControls = manufacturers.length > 1 && onSortModeChange;
+  const hiddenCount = totalCount !== undefined ? totalCount - manufacturers.length : 0;
 
   return (
     <Card className={cn("p-4", className)}>
@@ -52,6 +76,66 @@ export function ManufacturerSelector({
         </div>
       </div>
 
+      {/* Sort & Filter Controls */}
+      {showSortControls && (
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b">
+          {/* Sort Toggle */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Sort:</span>
+            <div className="flex rounded-lg border overflow-hidden">
+              <button
+                onClick={() => onSortModeChange?.('confidence')}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5",
+                  sortMode === 'confidence'
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background hover:bg-muted"
+                )}
+              >
+                <Sparkles className="h-3 w-3" />
+                Confidence
+              </button>
+              <button
+                onClick={() => onSortModeChange?.('alphabetical')}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5",
+                  sortMode === 'alphabetical'
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background hover:bg-muted"
+                )}
+              >
+                <ArrowUpDown className="h-3 w-3" />
+                A-Z
+              </button>
+            </div>
+          </div>
+
+          {/* Hide Unknown Filter */}
+          {onHideUnknownChange && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={hideUnknown}
+                onCheckedChange={(checked) => onHideUnknownChange?.(checked === true)}
+              />
+              <span className="text-xs text-muted-foreground">Hide Unknown</span>
+            </label>
+          )}
+        </div>
+      )}
+
+      {/* Sort Indicator */}
+      {sortMode === 'confidence' && manufacturers.length > 1 && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+          <Sparkles className="h-3 w-3 text-primary" />
+          <span>Sorted by confidence (highest first)</span>
+          {hiddenCount > 0 && (
+            <Badge variant="outline" className="text-xs">
+              {hiddenCount} hidden
+            </Badge>
+          )}
+        </div>
+      )}
+
       <Select
         value={selectedManufacturer || "not-specified"}
         onValueChange={(value) => onSelect(value === "not-specified" ? null : value)}
@@ -63,26 +147,65 @@ export function ManufacturerSelector({
           <SelectItem value="not-specified">
             <span className="text-muted-foreground">Not specified</span>
           </SelectItem>
-          {manufacturers.map((mfr) => (
-            <SelectItem key={mfr.id} value={mfr.id}>
-              <span className="flex items-center gap-2">
-                {mfr.name}
-                {savedVariantIds.has(mfr.id) && (
-                  <Bookmark className="h-3 w-3 text-primary fill-primary" />
-                )}
-              </span>
-            </SelectItem>
-          ))}
+          {manufacturers.map((mfr) => {
+            const status = mfr.status || 'unknown';
+            const config = statusConfig[status];
+            const StatusIcon = config.icon;
+            
+            return (
+              <SelectItem key={mfr.id} value={mfr.id}>
+                <span className="flex items-center gap-2">
+                  {/* Status indicator */}
+                  <span className={cn("p-0.5 rounded", config.bg)}>
+                    <StatusIcon className={cn("h-3 w-3", config.color)} />
+                  </span>
+                  
+                  {/* Manufacturer name */}
+                  <span className="flex-1">{mfr.name}</span>
+                  
+                  {/* Confidence badge (if available) */}
+                  {mfr.confidence !== undefined && mfr.confidence > 0 && (
+                    <Badge variant="outline" className="text-xs ml-1">
+                      {mfr.confidence}%
+                    </Badge>
+                  )}
+                  
+                  {/* Saved indicator */}
+                  {savedVariantIds.has(mfr.id) && (
+                    <Bookmark className="h-3 w-3 text-primary fill-primary" />
+                  )}
+                </span>
+              </SelectItem>
+            );
+          })}
         </SelectContent>
       </Select>
 
       {/* Selected manufacturer details */}
       {selected && (
         <div className="mt-3 p-3 rounded-lg bg-muted/50 text-sm">
-          <p className="font-medium">{selected.name}</p>
+          <div className="flex items-center gap-2 mb-1">
+            {selected.status && (
+              <>
+                {(() => {
+                  const config = statusConfig[selected.status];
+                  const StatusIcon = config.icon;
+                  return (
+                    <span className={cn("p-1 rounded", config.bg)}>
+                      <StatusIcon className={cn("h-4 w-4", config.color)} />
+                    </span>
+                  );
+                })()}
+              </>
+            )}
+            <p className="font-medium">{selected.name}</p>
+          </div>
           <p className="text-muted-foreground">
             {selected.dosageForm && `${selected.dosageForm}`}
             {selected.strength && ` • ${selected.strength}`}
+            {selected.confidence !== undefined && selected.confidence > 0 && (
+              <span className="ml-2 text-xs">({selected.confidence}% confidence)</span>
+            )}
           </p>
         </div>
       )}
