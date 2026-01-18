@@ -460,7 +460,8 @@ export default function HydrateLabelData() {
     let totalNoData = 0;
     let totalFailed = 0;
     let consecutiveZeroProcessed = 0; // Track stuck detection
-    const allBatchResults: ScheduledHydrateResult[] = [];
+    // Use a Map keyed by med_id to deduplicate results
+    const resultsMap = new Map<string, ScheduledHydrateResult>();
 
     while (!shouldStopHydrateAllRef.current && isMountedRef.current) {
       batchNumber++;
@@ -509,10 +510,14 @@ export default function HydrateLabelData() {
           totalNoData += batchNoData;
           totalFailed += batchFailed;
           
-          // Accumulate all results for UI display
-          allBatchResults.push(...jobResult.results);
+          // Deduplicate by med_id - keep most recent result per med
+          for (const r of jobResult.results) {
+            resultsMap.set(r.med_id, r);
+          }
+          
+          // Update UI with deduplicated results
           if (isMountedRef.current) {
-            setAllResults([...allBatchResults]);
+            setAllResults(Array.from(resultsMap.values()));
           }
         }
         

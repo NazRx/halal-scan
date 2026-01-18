@@ -431,9 +431,11 @@ export type Database = {
           fda_indications: string | null
           fda_warnings: string[] | null
           generic_name: string
+          hydrate_attempts: number
           id: string
           inactive_ingredients: string[] | null
           inactive_raw_text: string | null
+          last_hydrate_error: string | null
           ndc: string | null
           notes: string | null
           route: string | null
@@ -457,9 +459,11 @@ export type Database = {
           fda_indications?: string | null
           fda_warnings?: string[] | null
           generic_name: string
+          hydrate_attempts?: number
           id?: string
           inactive_ingredients?: string[] | null
           inactive_raw_text?: string | null
+          last_hydrate_error?: string | null
           ndc?: string | null
           notes?: string | null
           route?: string | null
@@ -483,9 +487,11 @@ export type Database = {
           fda_indications?: string | null
           fda_warnings?: string[] | null
           generic_name?: string
+          hydrate_attempts?: number
           id?: string
           inactive_ingredients?: string[] | null
           inactive_raw_text?: string | null
+          last_hydrate_error?: string | null
           ndc?: string | null
           notes?: string | null
           route?: string | null

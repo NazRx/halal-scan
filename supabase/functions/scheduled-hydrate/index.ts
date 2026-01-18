@@ -62,24 +62,29 @@ Deno.serve(async (req) => {
     logs.push(`✓ Starting batch hydration (limit=${limit})`);
 
     // Count total unhydrated BEFORE we start
-    // A med is "unhydrated" if spl_last_fetched_at IS NULL
-    // (This means it has never reached a terminal state: complete or no_data)
-    // Partial hydrations intentionally do NOT set spl_last_fetched_at, so they stay in queue
+    // A med is "unhydrated" if:
+    // 1. spl_last_fetched_at IS NULL (never reached terminal state)
+    // 2. AND hydrate_attempts < 2 (not yet exhausted retries for no-data cases)
+    // This prevents infinite loops for meds that repeatedly return "no inactive ingredients"
     const { count: totalBefore, error: countError } = await supabase
       .from("rx_meds")
       .select("id", { count: "exact", head: true })
-      .is("spl_last_fetched_at", null);
+      .is("spl_last_fetched_at", null)
+      .lt("hydrate_attempts", 2);
 
     if (countError) throw countError;
 
     logs.push(`📊 Total unhydrated medications before: ${totalBefore ?? 0}`);
 
-    // Pull up to N meds that are NOT hydrated yet (spl_last_fetched_at IS NULL)
-    // These are meds that have never reached a terminal state (complete or no_data)
+    // Pull up to N meds that are eligible for hydration:
+    // - spl_last_fetched_at IS NULL (not yet terminal)
+    // - hydrate_attempts < 2 (still has retries left)
     const { data: meds, error: medsError } = await supabase
       .from("rx_meds")
-      .select("id, generic_name")
+      .select("id, generic_name, hydrate_attempts")
       .is("spl_last_fetched_at", null)
+      .lt("hydrate_attempts", 2)
+      .order("hydrate_attempts", { ascending: true }) // Prioritize meds with 0 attempts
       .order("generic_name", { ascending: true })
       .limit(limit);
 
@@ -110,13 +115,15 @@ Deno.serve(async (req) => {
       status: "complete" | "partial" | "no_data" | "error";
       status_detail?: string;
       error?: string;
+      attempt_number?: number;
     }> = [];
     let processed = 0;
     let terminalCount = 0; // Meds that reached terminal state (complete or no_data)
 
     for (let i = 0; i < meds.length; i++) {
       const med = meds[i];
-      logs.push(`→ (${i + 1}/${meds.length}) Hydrating: ${med.generic_name}`);
+      const attemptNumber = (med.hydrate_attempts || 0) + 1;
+      logs.push(`→ (${i + 1}/${meds.length}) Hydrating: ${med.generic_name} (attempt #${attemptNumber})`);
 
       // Runtime guard: stop before edge runtime kills us
       const elapsed = Date.now() - startedAt;
@@ -144,6 +151,7 @@ Deno.serve(async (req) => {
             success: false,
             status: "error",
             error: error.message,
+            attempt_number: attemptNumber,
           });
           logs.push(`✗ Error: ${med.generic_name} - ${error.message}`);
         } else {
@@ -162,12 +170,13 @@ Deno.serve(async (req) => {
             success: isSuccess,
             status: hydrateStatus,
             status_detail: data?.hydrate_status_detail || data?.status_reason,
+            attempt_number: attemptNumber,
           });
           
           const icon = hydrateStatus === "complete" ? "✓" : 
                        hydrateStatus === "partial" ? "◐" : 
                        hydrateStatus === "no_data" ? "○" : "✗";
-          logs.push(`${icon} ${med.generic_name} (${hydrateStatus})`);
+          logs.push(`${icon} ${med.generic_name} (${hydrateStatus}, attempt #${attemptNumber})`);
         }
       } catch (e) {
         processed++;
@@ -177,6 +186,7 @@ Deno.serve(async (req) => {
           success: false,
           status: "error",
           error: e instanceof Error ? e.message : String(e),
+          attempt_number: attemptNumber,
         });
         logs.push(`✗ Exception: ${med.generic_name}`);
       }
@@ -193,7 +203,7 @@ Deno.serve(async (req) => {
 
     // Calculate remaining_after: 
     // Only terminal states (complete, no_data) remove meds from queue
-    // Partial and error stay in queue for retry
+    // Partial and error stay in queue for retry (unless attempts >= 2)
     const remainingAfter = Math.max(0, (totalBefore ?? 0) - terminalCount);
     const hasMore = remainingAfter > 0;
     const elapsedMs = Date.now() - startedAt;

@@ -1389,11 +1389,15 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Get current attempt count and increment
+    const currentAttempts = (med.hydrate_attempts || 0) + 1;
+    const MAX_ATTEMPTS = 2;
+
     logs.push({
       step: "fetch_med",
       status: "success",
-      message: `Found medication: ${med.generic_name}`,
-      data: { generic_name: med.generic_name, brand_names: med.brand_names, dosage_forms: med.dosage_forms },
+      message: `Found medication: ${med.generic_name} (attempt #${currentAttempts})`,
+      data: { generic_name: med.generic_name, brand_names: med.brand_names, dosage_forms: med.dosage_forms, attempt: currentAttempts },
     });
 
     // Step 1: Find ALL NDCs from openFDA (up to 10)
@@ -1414,10 +1418,14 @@ Deno.serve(async (req) => {
       result.hydrate_status = "no_data";
       result.hydrate_status_detail = "No NDCs found in openFDA for this medication";
       
-      // Mark as processed so it won't be retried indefinitely
+      // Mark as processed (terminal) so it won't be retried
       await supabase
         .from("rx_meds")
-        .update({ spl_last_fetched_at: new Date().toISOString() })
+        .update({ 
+          spl_last_fetched_at: new Date().toISOString(),
+          hydrate_attempts: currentAttempts,
+          last_hydrate_error: "No NDCs found in openFDA",
+        })
         .eq("id", med_id);
       
       result.logs = logs;
@@ -1478,6 +1486,123 @@ Deno.serve(async (req) => {
       }
     }
 
+    // FALLBACK: If no inactive ingredients found from variants, try DailyMed direct fetch
+    if (allInactiveIngredients.length === 0 && (med.dailymed_set_id || firstSetId)) {
+      const fallbackSetId = med.dailymed_set_id || firstSetId;
+      logs.push({
+        step: "dailymed_fallback",
+        status: "info",
+        message: `No inactive ingredients found from variants - trying DailyMed fallback with set_id: ${fallbackSetId}`,
+      });
+
+      try {
+        // Fetch SPL XML directly
+        const splUrl = `https://dailymed.nlm.nih.gov/dailymed/services/v2/spls/${fallbackSetId}.xml`;
+        const splResponse = await fetch(splUrl);
+        
+        if (splResponse.ok) {
+          const xmlText = await splResponse.text();
+          
+          // Try multiple sections for inactive ingredients
+          const sectionsToSearch = [
+            "inactive ingredient",
+            "description",
+            "how supplied",
+            "dosage forms and strengths",
+            "ingredients",
+            "contains:",
+            "also contains",
+          ];
+          
+          const plainText = xmlText
+            .replace(/<[^>]+>/g, " ")
+            .replace(/&amp;/g, "&")
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/&quot;/g, '"')
+            .replace(/&#\d+;/g, " ")
+            .replace(/&nbsp;/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+
+          const lowerPlain = plainText.toLowerCase();
+          
+          for (const section of sectionsToSearch) {
+            const sectionIdx = lowerPlain.indexOf(section);
+            if (sectionIdx === -1) continue;
+            
+            // Take window after section header
+            const window = plainText.slice(sectionIdx, Math.min(plainText.length, sectionIdx + 800));
+            
+            // Stop at clinical sections
+            const boundaries = ["indications", "warnings", "dosage and administration", "contraindications", "adverse reactions", "clinical pharmacology"];
+            let cut = window.length;
+            const lowerWin = window.toLowerCase();
+            for (const b of boundaries) {
+              const bi = lowerWin.indexOf(b);
+              if (bi > 30 && bi < cut) cut = bi;
+            }
+            
+            const snippet = window.slice(0, cut);
+            
+            // Try to extract ingredients from patterns
+            const patterns = [
+              /inactive ingredient[s]?[:\s]+([^.]+)/i,
+              /contains[:\s]+([^.]+)/i,
+              /also contains[:\s]+([^.]+)/i,
+            ];
+            
+            for (const pattern of patterns) {
+              const match = snippet.match(pattern);
+              if (match && match[1]) {
+                const candidates = match[1].split(/[,;]|\band\b/gi).map(s => s.trim());
+                
+                for (const candidate of candidates) {
+                  const cleaned = candidate
+                    .replace(/^\s*and\s*/i, "")
+                    .replace(/\.$/, "")
+                    .trim();
+                  
+                  // Apply strict filters
+                  if (!cleaned) continue;
+                  if (cleaned.length < 2 || cleaned.length > 40) continue;
+                  if (/\d|%/.test(cleaned)) continue;
+                  if (!/^[a-zA-Z\s-]+$/.test(cleaned)) continue;
+                  if (cleaned.split(/\s+/).length > 4) continue;
+                  
+                  if (!allInactiveIngredients.includes(cleaned)) {
+                    allInactiveIngredients.push(cleaned);
+                  }
+                }
+                
+                if (allInactiveIngredients.length > 0) {
+                  firstInactiveRawText = snippet.slice(0, 500);
+                  break;
+                }
+              }
+            }
+            
+            if (allInactiveIngredients.length > 0) break;
+          }
+          
+          logs.push({
+            step: "dailymed_fallback",
+            status: allInactiveIngredients.length > 0 ? "success" : "warning",
+            message: allInactiveIngredients.length > 0 
+              ? `DailyMed fallback found ${allInactiveIngredients.length} inactive ingredients`
+              : "DailyMed fallback did not find any inactive ingredients",
+            data: allInactiveIngredients.slice(0, 10),
+          });
+        }
+      } catch (fallbackError) {
+        logs.push({
+          step: "dailymed_fallback",
+          status: "error",
+          message: `DailyMed fallback failed: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`,
+        });
+      }
+    }
+
     result.variants_hydrated = variantResults.length;
     result.variants = variantResults;
 
@@ -1520,24 +1645,44 @@ Deno.serve(async (req) => {
       const confidenceLevel = bestConfidence >= 80 ? "high" : bestConfidence >= 50 ? "medium" : "low";
       
       // Determine hydrate_status based on data completeness
-      // Only set spl_last_fetched_at for TERMINAL states (complete)
-      // Partial hydrations leave spl_last_fetched_at NULL so they stay in queue
-      const isComplete = allInactiveIngredients.length > 0;
+      const hasInactiveIngredients = allInactiveIngredients.length > 0;
+      
+      // Determine if this should be terminal:
+      // - If we have inactive ingredients: COMPLETE (terminal)
+      // - If no inactive ingredients AND this is attempt >= MAX_ATTEMPTS: NO_DATA (terminal)
+      // - If no inactive ingredients AND attempts < MAX_ATTEMPTS: PARTIAL (stays in queue)
+      const isTerminal = hasInactiveIngredients || currentAttempts >= MAX_ATTEMPTS;
       
       const updatePayload: Record<string, unknown> = {
         ndc: firstNdc || null,
         dailymed_set_id: firstSetId || null,
         active_ingredients: allActiveIngredients,
         inactive_ingredients: allInactiveIngredients,
+        inactive_raw_text: firstInactiveRawText || null,
         confidence_level: confidenceLevel,
         status_reason: bestReason,
         default_status: bestStatus,
+        hydrate_attempts: currentAttempts,
       };
       
-      // CRITICAL: Only set spl_last_fetched_at for complete hydrations
-      // This ensures partial hydrations stay in the queue for retry
-      if (isComplete) {
+      // Set terminal status details
+      if (hasInactiveIngredients) {
+        // Complete - found inactive ingredients
         updatePayload.spl_last_fetched_at = new Date().toISOString();
+        updatePayload.last_hydrate_error = null;
+        result.hydrate_status = "complete";
+        result.hydrate_status_detail = `${variantResults.length} variants with ${allInactiveIngredients.length} inactive ingredients`;
+      } else if (currentAttempts >= MAX_ATTEMPTS) {
+        // Terminal no_data - exhausted attempts
+        updatePayload.spl_last_fetched_at = new Date().toISOString();
+        updatePayload.last_hydrate_error = "No inactive ingredients found after max attempts";
+        result.hydrate_status = "no_data";
+        result.hydrate_status_detail = `Variants created but no inactive ingredient data found after ${currentAttempts} attempts (terminal)`;
+      } else {
+        // Partial - will retry
+        updatePayload.last_hydrate_error = "No inactive ingredients found - will retry";
+        result.hydrate_status = "partial";
+        result.hydrate_status_detail = `Variants created but no inactive ingredient data found - attempt ${currentAttempts}/${MAX_ATTEMPTS}, stays in queue`;
       }
       
       const { error: updateError } = await supabase
@@ -1558,17 +1703,9 @@ Deno.serve(async (req) => {
         logs.push({
           step: "update_db",
           status: "success",
-          message: `Updated rx_meds with ${variantResults.length} variants hydrated${isComplete ? " (terminal)" : " (partial - stays in queue)"}`,
+          message: `Updated rx_meds with ${variantResults.length} variants hydrated${isTerminal ? " (terminal)" : ` (partial - attempt ${currentAttempts}/${MAX_ATTEMPTS})`}`,
         });
         result.success = true;
-        
-        if (isComplete) {
-          result.hydrate_status = "complete";
-          result.hydrate_status_detail = `${variantResults.length} variants with ${allInactiveIngredients.length} inactive ingredients`;
-        } else {
-          result.hydrate_status = "partial";
-          result.hydrate_status_detail = "Variants created but no inactive ingredient data found - stays in queue";
-        }
       }
       
       result.confidence_level = confidenceLevel;
@@ -1584,6 +1721,8 @@ Deno.serve(async (req) => {
       data: {
         variants_hydrated: variantResults.length,
         variant_ids: result.variant_ids,
+        attempt: currentAttempts,
+        hydrate_status: result.hydrate_status,
       },
     });
 
