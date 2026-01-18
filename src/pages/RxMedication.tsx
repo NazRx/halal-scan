@@ -35,7 +35,20 @@ interface Manufacturer {
   classificationRationale?: string;
   isBrand?: boolean;
   isPromoted?: boolean;
+  // For smart sorting
+  inactiveFoundCount: number;
+  riskUnknownCount: number;
 }
+
+export type ManufacturerSortMode = 'confidence' | 'alphabetical';
+
+// Status rank for sorting: lower is better
+const STATUS_RANK: Record<'halal' | 'questionable' | 'not-halal' | 'unknown', number> = {
+  halal: 1,
+  questionable: 3,
+  unknown: 4,
+  'not-halal': 5,
+};
 
 interface MedicationData {
   id: string;
@@ -83,6 +96,8 @@ const RxMedication = () => {
   const [selectedManufacturerId, setSelectedManufacturerId] = useState<string | null>(null);
   const [showCompare, setShowCompare] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [sortMode, setSortMode] = useState<ManufacturerSortMode>('confidence');
+  const [hideUnknown, setHideUnknown] = useState(false);
 
   useEffect(() => {
     const fetchMedication = async () => {
@@ -146,6 +161,10 @@ const RxMedication = () => {
               notes: vi.notes || undefined,
             }));
 
+          // Count ingredients for smart sorting
+          const inactiveFoundCount = ingredients.length;
+          const riskUnknownCount = ingredients.filter(i => i.status === 'unknown').length;
+
           return {
             id: variant.id,
             name: variant.manufacturer || 'Unknown Manufacturer',
@@ -158,11 +177,17 @@ const RxMedication = () => {
             classificationRationale: verdict?.classification_rationale || undefined,
             isBrand: variant.is_brand || false,
             isPromoted: variant.is_promoted || false,
+            inactiveFoundCount,
+            riskUnknownCount,
           };
         });
 
         // FIX #5: Fallback manufacturer from rx_meds when no variants exist
         if (manufacturers.length === 0 && rxMed.inactive_ingredients && rxMed.inactive_ingredients.length > 0) {
+          const fallbackIngredients = (rxMed.inactive_ingredients || []).map((ing: string) => ({
+            name: ing,
+            status: 'unknown' as const,
+          }));
           manufacturers.push({
             id: `hydrated-${rxMed.id}`,
             name: 'General (Hydrated)',
@@ -171,13 +196,12 @@ const RxMedication = () => {
             strength: 'Various',
             status: mapStatus(rxMed.default_status || null),
             confidence: rxMed.confidence_level === 'high' ? 85 : rxMed.confidence_level === 'medium' ? 60 : 30,
-            inactiveIngredients: (rxMed.inactive_ingredients || []).map((ing: string) => ({
-              name: ing,
-              status: 'unknown' as const,
-            })),
+            inactiveIngredients: fallbackIngredients,
             classificationRationale: rxMed.status_reason || undefined,
             isBrand: false,
             isPromoted: false,
+            inactiveFoundCount: fallbackIngredients.length,
+            riskUnknownCount: fallbackIngredients.filter(i => i.status === 'unknown').length,
           });
         }
 
@@ -248,33 +272,58 @@ const RxMedication = () => {
   const displayStatus = selectedManufacturer?.status || medication?.status || 'unknown';
   const displayConfidence = selectedManufacturer?.confidence || medication?.confidence || 0;
 
-  // Sort manufacturers: halal first for premium users, then promoted, then alphabetical
+  // Smart sort manufacturers with multiple criteria
   const sortedManufacturers = useMemo(() => {
     if (!medication?.manufacturers) return [];
     
-    const mfrs = [...medication.manufacturers];
+    let mfrs = [...medication.manufacturers];
     
-    if (isPro) {
-      // Premium: halal first, then promoted, then by status priority
-      const statusPriority = { halal: 0, questionable: 1, unknown: 2, 'not-halal': 3 };
+    // Apply "hide unknown" filter if enabled
+    if (hideUnknown) {
+      mfrs = mfrs.filter(m => m.status !== 'unknown');
+    }
+    
+    if (sortMode === 'alphabetical') {
+      // Alphabetical sorting
+      mfrs.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      // Smart confidence-based sorting (for all users, enhanced for Pro)
       mfrs.sort((a, b) => {
-        // Promoted first
-        if (a.isPromoted && !b.isPromoted) return -1;
-        if (!a.isPromoted && b.isPromoted) return 1;
-        // Then by status
-        const aPriority = statusPriority[a.status] ?? 2;
-        const bPriority = statusPriority[b.status] ?? 2;
-        if (aPriority !== bPriority) return aPriority - bPriority;
-        // Finally alphabetical
+        // 1. Promoted first (Pro feature)
+        if (isPro) {
+          if (a.isPromoted && !b.isPromoted) return -1;
+          if (!a.isPromoted && b.isPromoted) return 1;
+        }
+        
+        // 2. By confidence score descending
+        if (a.confidence !== b.confidence) {
+          return b.confidence - a.confidence;
+        }
+        
+        // 3. By status rank ascending (halal=1, questionable=3, unknown=4, not-halal=5)
+        const aRank = STATUS_RANK[a.status] ?? 4;
+        const bRank = STATUS_RANK[b.status] ?? 4;
+        if (aRank !== bRank) {
+          return aRank - bRank;
+        }
+        
+        // 4. By inactive ingredient count descending (more data = better)
+        if (a.inactiveFoundCount !== b.inactiveFoundCount) {
+          return b.inactiveFoundCount - a.inactiveFoundCount;
+        }
+        
+        // 5. By risk unknown count ascending (fewer unknowns = better)
+        if (a.riskUnknownCount !== b.riskUnknownCount) {
+          return a.riskUnknownCount - b.riskUnknownCount;
+        }
+        
+        // 6. Finally alphabetical by manufacturer name
         return a.name.localeCompare(b.name);
       });
-    } else {
-      // Free: alphabetical only
-      mfrs.sort((a, b) => a.name.localeCompare(b.name));
     }
     
     return mfrs;
-  }, [medication?.manufacturers, isPro]);
+  }, [medication?.manufacturers, isPro, sortMode, hideUnknown]);
 
   const handleUploadPhoto = () => {
     toast.info("Photo upload coming soon", {
@@ -431,13 +480,15 @@ const RxMedication = () => {
             <LastVerifiedBadge date={medication.lastVerifiedDate} />
           </Card>
 
-          {/* Manufacturer Selector Card - with halal-first sorting for Pro */}
+          {/* Manufacturer Selector Card - with smart sorting */}
           <ManufacturerSelector
             manufacturers={sortedManufacturers.map((m) => ({
               id: m.id,
               name: m.name,
               dosageForm: m.dosageForm,
               strength: m.strength,
+              status: m.status,
+              confidence: m.confidence,
             }))}
             selectedManufacturer={selectedManufacturerId}
             onSelect={handleManufacturerSelect}
@@ -445,15 +496,12 @@ const RxMedication = () => {
             onRequestReview={handleRequestReview}
             className="mb-6"
             savedVariantIds={savedVariantIds}
+            sortMode={sortMode}
+            onSortModeChange={setSortMode}
+            hideUnknown={hideUnknown}
+            onHideUnknownChange={setHideUnknown}
+            totalCount={medication.manufacturers.length}
           />
-
-          {/* Halal-First Sorting Indicator for Pro users */}
-          {isPro && medication.manufacturers.length > 1 && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4 px-1">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span>Halal options shown first</span>
-            </div>
-          )}
 
           {/* Quick Actions */}
           <div className="flex gap-2 mb-6">
