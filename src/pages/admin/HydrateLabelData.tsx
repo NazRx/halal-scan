@@ -255,6 +255,9 @@ export default function HydrateLabelData() {
 
     const medIdsArray = Array.from(selectedMedIds);
     const results: BatchResult[] = [];
+    let successfulCount = 0;
+    let partialCount = 0;
+    let failedCount = 0;
 
     for (let i = 0; i < medIdsArray.length; i++) {
       if (shouldStopBatch) {
@@ -279,23 +282,40 @@ export default function HydrateLabelData() {
           },
         });
 
+        // Determine outcome based on status, not just success boolean
+        // partial/needs_verification = partial (not failed)
+        // error or invoke error = failed
+        // complete = success
+        const status = data?.status as string | undefined;
+        const isError = !!error || status === "error";
+        const isPartial = !isError && (status === "partial" || status === "needs_verification");
+        const isSuccess = !isError && !isPartial && data?.success;
+
         const batchResult: BatchResult = {
           med_id: medId,
           med_name: medName,
-          success: !error && data?.success,
+          success: isSuccess,
           ndc: data?.ndc,
-          status: data?.status,
-          error: error?.message || (!data?.success ? "Hydration incomplete" : undefined),
+          status: status,
+          error: error?.message || (isError ? "Hydration error" : undefined),
         };
 
         results.push(batchResult);
         setBatchResults([...results]);
 
+        if (isSuccess) {
+          successfulCount++;
+        } else if (isPartial) {
+          partialCount++;
+        } else {
+          failedCount++;
+        }
+
         setBatchProgress(prev => prev ? {
           ...prev,
           completed: i + 1,
-          successful: prev.successful + (batchResult.success ? 1 : 0),
-          failed: prev.failed + (batchResult.success ? 0 : 1),
+          successful: successfulCount,
+          failed: failedCount,
         } : null);
 
       } catch (err) {
@@ -307,11 +327,12 @@ export default function HydrateLabelData() {
         };
         results.push(batchResult);
         setBatchResults([...results]);
+        failedCount++;
 
         setBatchProgress(prev => prev ? {
           ...prev,
           completed: i + 1,
-          failed: prev.failed + 1,
+          failed: failedCount,
         } : null);
       }
 
@@ -324,15 +345,12 @@ export default function HydrateLabelData() {
     setIsBatchHydrating(false);
     queryClient.invalidateQueries({ queryKey: ["rx-meds-list"] });
     
-    const successCount = results.filter(r => r.success).length;
-    const failCount = results.filter(r => !r.success).length;
-    
-    if (failCount === 0) {
-      toast.success(`Batch complete: ${successCount} medications hydrated successfully`);
-    } else if (successCount === 0) {
-      toast.error(`Batch failed: All ${failCount} medications failed`);
+    if (failedCount === 0 && partialCount === 0) {
+      toast.success(`Batch complete: ${successfulCount} medications hydrated successfully`);
+    } else if (successfulCount === 0 && partialCount === 0) {
+      toast.error(`Batch failed: All ${failedCount} medications failed`);
     } else {
-      toast.warning(`Batch complete: ${successCount} successful, ${failCount} failed`);
+      toast.warning(`Batch complete: ${successfulCount} successful, ${partialCount} partial, ${failedCount} failed`);
     }
   }, [selectedMedIds, meds, shouldStopBatch, queryClient]);
 
@@ -411,6 +429,12 @@ export default function HydrateLabelData() {
 
     const batchSize = 50; // Match edge function limit
     const estimatedBatches = Math.ceil(initialCount / batchSize);
+    
+    // Stable startTime stored in a local variable (not dependent on state)
+    const startTime = Date.now();
+    
+    // Track if component is still mounted / not stopped
+    const isMountedRef = { current: true };
 
     setIsHydratingAll(true);
     shouldStopHydrateAllRef.current = false;
@@ -426,7 +450,7 @@ export default function HydrateLabelData() {
       estimatedBatchesTotal: estimatedBatches,
       currentBatchResults: [],
       isComplete: false,
-      startTime: Date.now(),
+      startTime,
     });
 
     let batchNumber = 0;
@@ -435,9 +459,10 @@ export default function HydrateLabelData() {
     let totalPartial = 0;
     let totalNoData = 0;
     let totalFailed = 0;
+    let consecutiveZeroProcessed = 0; // Track stuck detection
     const allBatchResults: ScheduledHydrateResult[] = [];
 
-    while (!shouldStopHydrateAllRef.current) {
+    while (!shouldStopHydrateAllRef.current && isMountedRef.current) {
       batchNumber++;
       
       try {
@@ -457,54 +482,69 @@ export default function HydrateLabelData() {
 
         const jobResult = data as ScheduledJobResult;
         
-        // Guard: if no meds were processed, we're done or something is wrong
-        if (!jobResult.results || jobResult.results.length === 0) {
-          toast.success(`All medications hydrated! ${totalComplete} complete, ${totalPartial} partial, ${totalNoData} no_data, ${totalFailed} failed`);
-          break;
-        }
-        
-        // Update totals based on status
-        const batchComplete = jobResult.results.filter(r => r.status === "complete").length;
-        const batchPartial = jobResult.results.filter(r => r.status === "partial").length;
-        const batchNoData = jobResult.results.filter(r => r.status === "no_data").length;
-        const batchFailed = jobResult.results.filter(r => r.status === "error").length;
-        totalProcessed += jobResult.results.length;
-        totalComplete += batchComplete;
-        totalPartial += batchPartial;
-        totalNoData += batchNoData;
-        totalFailed += batchFailed;
-        
-        // Accumulate all results
-        allBatchResults.push(...jobResult.results);
-        setAllResults([...allBatchResults]);
-
-        // Use has_more and remaining_after from the response
+        // Use queue stats from the response for accuracy
+        const processedCount = jobResult.processed ?? jobResult.results?.length ?? 0;
         const hasMore = jobResult.has_more === true;
         const remainingAfter = jobResult.remaining_after ?? 0;
+        
+        // STUCK DETECTION: if processed === 0 but has_more === true for 2 consecutive batches
+        if (processedCount === 0 && hasMore) {
+          consecutiveZeroProcessed++;
+          if (consecutiveZeroProcessed >= 2) {
+            toast.error("Hydrate All stuck: 0 processed but queue still not empty. Check unhydrated selector / terminal status updates.");
+            break;
+          }
+        } else {
+          consecutiveZeroProcessed = 0; // Reset on successful processing
+        }
+        
+        // Update totals based on results if available
+        if (jobResult.results && jobResult.results.length > 0) {
+          const batchComplete = jobResult.results.filter(r => r.status === "complete").length;
+          const batchPartial = jobResult.results.filter(r => r.status === "partial").length;
+          const batchNoData = jobResult.results.filter(r => r.status === "no_data").length;
+          const batchFailed = jobResult.results.filter(r => r.status === "error").length;
+          totalComplete += batchComplete;
+          totalPartial += batchPartial;
+          totalNoData += batchNoData;
+          totalFailed += batchFailed;
+          
+          // Accumulate all results for UI display
+          allBatchResults.push(...jobResult.results);
+          if (isMountedRef.current) {
+            setAllResults([...allBatchResults]);
+          }
+        }
+        
+        // Use processed count from queue stats (more accurate)
+        totalProcessed += processedCount;
 
-        setHydrateAllProgress({
-          totalMeds: initialCount,
-          totalProcessed,
-          totalComplete,
-          totalPartial,
-          totalNoData,
-          totalFailed,
-          batchesCompleted: batchNumber,
-          estimatedBatchesTotal: hasMore ? Math.ceil(remainingAfter / batchSize) + batchNumber : batchNumber,
-          currentBatchResults: jobResult.results,
-          isComplete: !hasMore,
-          startTime: hydrateAllProgress?.startTime || Date.now(),
-          lastBatchStats: {
-            totalBefore: jobResult.total_before ?? 0,
-            processed: jobResult.processed ?? 0,
-            terminalCount: jobResult.terminal_count ?? 0,
-            remainingAfter: remainingAfter,
-            elapsedMs: jobResult.elapsed_ms ?? 0,
-          },
-        });
+        // Update progress state only if still mounted
+        if (isMountedRef.current) {
+          setHydrateAllProgress({
+            totalMeds: initialCount,
+            totalProcessed,
+            totalComplete,
+            totalPartial,
+            totalNoData,
+            totalFailed,
+            batchesCompleted: batchNumber,
+            estimatedBatchesTotal: hasMore ? Math.ceil(remainingAfter / batchSize) + batchNumber : batchNumber,
+            currentBatchResults: jobResult.results || [],
+            isComplete: !hasMore,
+            startTime,
+            lastBatchStats: {
+              totalBefore: jobResult.total_before ?? 0,
+              processed: processedCount,
+              terminalCount: jobResult.terminal_count ?? 0,
+              remainingAfter: remainingAfter,
+              elapsedMs: jobResult.elapsed_ms ?? 0,
+            },
+          });
+        }
 
-        // Check if complete based on has_more flag
-        if (!hasMore) {
+        // COMPLETION: only stop when has_more === false OR remaining_after === 0
+        if (!hasMore || remainingAfter === 0) {
           toast.success(`All medications hydrated! ${totalComplete} complete, ${totalPartial} partial, ${totalNoData} no_data, ${totalFailed} failed`);
           break;
         }
@@ -523,7 +563,12 @@ export default function HydrateLabelData() {
       toast.info(`Hydration stopped after ${batchNumber} batches. ${totalProcessed} medications processed.`);
     }
 
-    setHydrateAllProgress(prev => prev ? { ...prev, isComplete: true } : null);
+    // Mark as unmounted to prevent future state updates
+    isMountedRef.current = false;
+
+    if (isMountedRef.current !== false) {
+      setHydrateAllProgress(prev => prev ? { ...prev, isComplete: true } : null);
+    }
     setIsHydratingAll(false);
     queryClient.invalidateQueries({ queryKey: ["rx-meds-list"] });
   };
