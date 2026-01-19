@@ -32,7 +32,10 @@ interface SPLParseResult {
 
 interface SeedResult {
   drugName: string;
-  manufacturersAdded: number;
+  manufacturerTargetLimit: number;
+  manufacturersBefore: number;
+  manufacturersAddedThisRun: number;
+  manufacturersAfter: number;
   ingredientsLinked: number;
   error?: string;
 }
@@ -112,9 +115,9 @@ function parseSPLXML(xmlText: string): InactiveIngredient[] {
   return ingredients;
 }
 
-async function fetchInactiveIngredients(ndcCodes: string[]): Promise<SPLParseResult> {
-  // Try each NDC until we find one with SPL data
-  for (const ndc of ndcCodes.slice(0, 5)) { // Limit to first 5 NDCs to avoid rate limits
+async function fetchInactiveIngredients(ndcCodes: string[], maxLookups: number = 3): Promise<SPLParseResult> {
+  // Try each NDC until we find one with SPL data (limit lookups for batch operations)
+  for (const ndc of ndcCodes.slice(0, maxLookups)) {
     try {
       const splRef = await fetchSPLByNDC(ndc);
       
@@ -149,6 +152,21 @@ async function fetchInactiveIngredients(ndcCodes: string[]): Promise<SPLParseRes
     inactiveIngredients: [],
     error: 'No SPL data found for any NDC',
   };
+}
+
+// ============ TIERED SEEDING HELPERS ============
+function getManufacturerLimitForRank(rank: number | null): number {
+  if (rank !== null && rank <= 300) return 10;
+  return 5;
+}
+
+function getTierForRank(rank: number | null): 'top300' | 'next700' {
+  if (rank !== null && rank <= 300) return 'top300';
+  return 'next700';
+}
+
+function normalizeManufacturerName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
 serve(async (req) => {
@@ -211,7 +229,15 @@ serve(async (req) => {
     console.log(`Admin verified: ${userId}`);
     // ============ END AUTH CHECKS ============
 
-    const { action = 'seed', drugId, batchSize = 10, offset = 0, includeIngredients = true } = await req.json();
+    const body = await req.json();
+    const { 
+      action = 'seed', 
+      drugId, 
+      batchSize = 10, 
+      offset = 0, 
+      includeIngredients = false,  // Default OFF for batch operations
+      targetLimit  // Optional: override tiered limit
+    } = body;
 
     // Action: list - Get all drugs with their variant counts
     if (action === 'list') {
@@ -220,20 +246,33 @@ serve(async (req) => {
         .select(`
           id,
           generic_name,
-          rx_variants(id, manufacturer, data_source, spl_set_id)
+          popularity_rank,
+          rx_variants(id, manufacturer, data_source, spl_set_id, seed_status)
         `)
+        .order('popularity_rank', { ascending: true, nullsFirst: false })
         .order('generic_name');
 
       if (error) throw error;
 
-      const summary = drugs?.map(drug => ({
-        id: drug.id,
-        genericName: drug.generic_name,
-        totalVariants: drug.rx_variants?.length || 0,
-        fdaVariants: drug.rx_variants?.filter((v: any) => v.data_source === 'openfda').length || 0,
-        withIngredients: drug.rx_variants?.filter((v: any) => v.spl_set_id).length || 0,
-        manualVariants: drug.rx_variants?.filter((v: any) => v.data_source === 'manual').length || 0,
-      }));
+      const summary = drugs?.map(drug => {
+        const limit = getManufacturerLimitForRank(drug.popularity_rank);
+        const openFdaVariants = drug.rx_variants?.filter((v: any) => 
+          v.data_source?.startsWith('openfda') || v.data_source?.startsWith('openFDA')
+        ).length || 0;
+        
+        return {
+          id: drug.id,
+          genericName: drug.generic_name,
+          popularityRank: drug.popularity_rank,
+          tier: getTierForRank(drug.popularity_rank),
+          targetLimit: limit,
+          totalVariants: drug.rx_variants?.length || 0,
+          fdaVariants: openFdaVariants,
+          withIngredients: drug.rx_variants?.filter((v: any) => v.spl_set_id).length || 0,
+          manualVariants: drug.rx_variants?.filter((v: any) => v.data_source === 'manual').length || 0,
+          needsMoreVariants: openFdaVariants < limit,
+        };
+      });
 
       return new Response(
         JSON.stringify({ drugs: summary, total: summary?.length || 0 }),
@@ -241,20 +280,28 @@ serve(async (req) => {
       );
     }
 
-    // Action: seed-one - Seed a single drug
+    // Action: seed-one - Seed a single drug with optional target limit
     if (action === 'seed-one' && drugId) {
-      const result = await seedDrug(supabase, supabaseUrl, drugId, includeIngredients, authHeader);
+      const result = await seedDrug(
+        supabase, 
+        supabaseUrl, 
+        drugId, 
+        includeIngredients !== false,  // Default true for single drug
+        authHeader,
+        targetLimit
+      );
       return new Response(
         JSON.stringify(result),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Action: seed-batch - Seed a batch of drugs
+    // Action: seed-batch - Seed a batch of drugs (legacy, uses tiered limits now)
     if (action === 'seed-batch') {
       const { data: drugs, error } = await supabase
         .from('rx_meds')
-        .select('id, generic_name')
+        .select('id, generic_name, popularity_rank')
+        .order('popularity_rank', { ascending: true, nullsFirst: false })
         .order('generic_name')
         .range(offset, offset + batchSize - 1);
 
@@ -270,26 +317,39 @@ serve(async (req) => {
       const results: SeedResult[] = [];
       
       for (const drug of drugs) {
-        const { data: existingVariants } = await supabase
+        const limit = getManufacturerLimitForRank(drug.popularity_rank);
+        
+        // Count existing openfda variants
+        const { count: existingCount } = await supabase
           .from('rx_variants')
-          .select('id')
+          .select('id', { count: 'exact', head: true })
           .eq('rx_med_id', drug.id)
-          .eq('data_source', 'openfda')
-          .limit(1);
+          .or('data_source.ilike.openfda%,data_source.ilike.openFDA%');
 
-        if (existingVariants && existingVariants.length > 0) {
+        if (existingCount !== null && existingCount >= limit) {
           results.push({
             drugName: drug.generic_name,
-            manufacturersAdded: 0,
+            manufacturerTargetLimit: limit,
+            manufacturersBefore: existingCount,
+            manufacturersAddedThisRun: 0,
+            manufacturersAfter: existingCount,
             ingredientsLinked: 0,
-            error: 'Already seeded'
+            error: 'Already at target'
           });
           continue;
         }
 
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        const result = await seedDrug(supabase, supabaseUrl, drug.id, includeIngredients, authHeader);
+        // Disable ingredients for batch to avoid rate limits
+        const result = await seedDrug(
+          supabase, 
+          supabaseUrl, 
+          drug.id, 
+          false,  // No ingredients in batch
+          authHeader,
+          limit
+        );
         results.push(result);
       }
 
@@ -303,13 +363,164 @@ serve(async (req) => {
       );
     }
 
+    // Action: seed-tiered-batch - NEW: Tiered seeding with deterministic order
+    if (action === 'seed-tiered-batch') {
+      const { data: drugs, error } = await supabase
+        .from('rx_meds')
+        .select('id, generic_name, popularity_rank')
+        .order('popularity_rank', { ascending: true, nullsFirst: false })
+        .order('generic_name')
+        .range(offset, offset + batchSize - 1);
+
+      if (error) throw error;
+
+      if (!drugs || drugs.length === 0) {
+        return new Response(
+          JSON.stringify({ 
+            message: 'No more drugs to seed', 
+            completed: true,
+            nextOffset: offset,
+            processed: 0
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const results: SeedResult[] = [];
+      let totalAdded = 0;
+      let skipped = 0;
+      
+      for (let i = 0; i < drugs.length; i++) {
+        const drug = drugs[i];
+        // Use popularity_rank if available, otherwise derive from offset+index
+        const effectiveRank = drug.popularity_rank ?? (offset + i + 1);
+        const limit = getManufacturerLimitForRank(effectiveRank);
+        const tier = getTierForRank(effectiveRank);
+        
+        // Count existing openfda variants
+        const { count: existingCount } = await supabase
+          .from('rx_variants')
+          .select('id', { count: 'exact', head: true })
+          .eq('rx_med_id', drug.id)
+          .or('data_source.ilike.openfda%,data_source.ilike.openFDA%');
+
+        const currentCount = existingCount ?? 0;
+
+        if (currentCount >= limit) {
+          console.log(`[SKIP] ${drug.generic_name}: already at target (${currentCount}/${limit})`);
+          skipped++;
+          results.push({
+            drugName: drug.generic_name,
+            manufacturerTargetLimit: limit,
+            manufacturersBefore: currentCount,
+            manufacturersAddedThisRun: 0,
+            manufacturersAfter: currentCount,
+            ingredientsLinked: 0,
+            error: 'Already at target'
+          });
+          continue;
+        }
+
+        console.log(`\n[TIERED BATCH] ${drug.generic_name} (rank: ${effectiveRank}, tier: ${tier}, target: ${limit}, current: ${currentCount})`);
+
+        // Delay between drugs
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
+        // Seed with tiered limit, no ingredients
+        const result = await seedDrug(
+          supabase, 
+          supabaseUrl, 
+          drug.id, 
+          false,  // No ingredients in tiered batch
+          authHeader,
+          limit - currentCount  // Only fetch what's needed to reach target
+        );
+        
+        results.push(result);
+        totalAdded += result.manufacturersAddedThisRun;
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          results,
+          nextOffset: offset + batchSize,
+          processed: results.length,
+          totalAdded,
+          skipped,
+          summary: {
+            top300: results.filter(r => r.manufacturerTargetLimit === 10).length,
+            next700: results.filter(r => r.manufacturerTargetLimit === 5).length,
+          }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Action: seed-missing-to-target - Ensure a specific drug reaches its target
+    if (action === 'seed-missing-to-target' && drugId) {
+      const { data: drug, error: drugError } = await supabase
+        .from('rx_meds')
+        .select('id, generic_name, popularity_rank')
+        .eq('id', drugId)
+        .single();
+
+      if (drugError || !drug) {
+        return new Response(
+          JSON.stringify({ error: 'Drug not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const effectiveTarget = targetLimit ?? getManufacturerLimitForRank(drug.popularity_rank);
+
+      // Count existing openfda variants
+      const { count: existingCount } = await supabase
+        .from('rx_variants')
+        .select('id', { count: 'exact', head: true })
+        .eq('rx_med_id', drug.id)
+        .or('data_source.ilike.openfda%,data_source.ilike.openFDA%');
+
+      const currentCount = existingCount ?? 0;
+
+      if (currentCount >= effectiveTarget) {
+        return new Response(
+          JSON.stringify({
+            drugName: drug.generic_name,
+            manufacturerTargetLimit: effectiveTarget,
+            manufacturersBefore: currentCount,
+            manufacturersAddedThisRun: 0,
+            manufacturersAfter: currentCount,
+            ingredientsLinked: 0,
+            message: 'Already at or above target'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const result = await seedDrug(
+        supabase, 
+        supabaseUrl, 
+        drug.id, 
+        includeIngredients,
+        authHeader,
+        effectiveTarget - currentCount  // Only fetch what's needed
+      );
+
+      return new Response(
+        JSON.stringify(result),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Action: fetch-ingredients - Fetch ingredients for existing variants without SPL data
     if (action === 'fetch-ingredients') {
       const { data: variants, error } = await supabase
         .from('rx_variants')
         .select('id, manufacturer, ndc_list, rx_med_id')
         .is('spl_set_id', null)
-        .eq('data_source', 'openfda')
+        .or('data_source.ilike.openfda%,data_source.ilike.openFDA%')
         .limit(batchSize);
 
       if (error) throw error;
@@ -320,7 +531,7 @@ serve(async (req) => {
 
         await new Promise(resolve => setTimeout(resolve, 300));
 
-        const splResult = await fetchInactiveIngredients(variant.ndc_list);
+        const splResult = await fetchInactiveIngredients(variant.ndc_list, 5);
         
         if (splResult.success && splResult.inactiveIngredients.length > 0) {
           const linkedCount = await linkIngredientsToVariant(
@@ -355,9 +566,11 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         usage: {
-          'list': 'Get all drugs with variant counts',
-          'seed-one': 'Seed a single drug (requires drugId, optional includeIngredients)',
-          'seed-batch': 'Seed a batch of drugs (optional: batchSize, offset, includeIngredients)',
+          'list': 'Get all drugs with variant counts and tier info',
+          'seed-one': 'Seed a single drug (requires drugId, optional: includeIngredients, targetLimit)',
+          'seed-batch': 'Seed a batch of drugs with tiered limits (optional: batchSize, offset)',
+          'seed-tiered-batch': 'NEW: Seed with deterministic tiered limits (batchSize, offset)',
+          'seed-missing-to-target': 'Ensure drug reaches target (requires drugId, optional: targetLimit)',
           'fetch-ingredients': 'Fetch ingredients for variants missing SPL data (optional: batchSize)'
         }
       }),
@@ -471,21 +684,44 @@ async function seedDrug(
   supabase: any, 
   supabaseUrl: string,
   drugId: string,
-  includeIngredients: boolean = true,
-  authHeader: string
+  includeIngredients: boolean = false,
+  authHeader: string,
+  manufacturerLimit?: number
 ): Promise<SeedResult> {
   try {
     const { data: drug, error: drugError } = await supabase
       .from('rx_meds')
-      .select('id, generic_name, dosage_forms')
+      .select('id, generic_name, dosage_forms, popularity_rank')
       .eq('id', drugId)
       .single();
 
     if (drugError || !drug) {
-      return { drugName: drugId, manufacturersAdded: 0, ingredientsLinked: 0, error: 'Drug not found' };
+      return { 
+        drugName: drugId, 
+        manufacturerTargetLimit: 0,
+        manufacturersBefore: 0,
+        manufacturersAddedThisRun: 0,
+        manufacturersAfter: 0,
+        ingredientsLinked: 0, 
+        error: 'Drug not found' 
+      };
     }
 
+    // Determine manufacturer limit from rank or override
+    const effectiveLimit = manufacturerLimit ?? getManufacturerLimitForRank(drug.popularity_rank);
+    const tier = getTierForRank(drug.popularity_rank);
+
     console.log(`\n=== Seeding manufacturers for: ${drug.generic_name} ===`);
+    console.log(`  Rank: ${drug.popularity_rank}, Tier: ${tier}, Target: ${effectiveLimit}`);
+
+    // Count existing variants BEFORE seeding
+    const { count: beforeCount } = await supabase
+      .from('rx_variants')
+      .select('id', { count: 'exact', head: true })
+      .eq('rx_med_id', drug.id)
+      .or('data_source.ilike.openfda%,data_source.ilike.openFDA%');
+
+    const manufacturersBefore = beforeCount ?? 0;
 
     // Call the fetch-drug-manufacturers function with auth header
     const fetchUrl = `${supabaseUrl}/functions/v1/fetch-drug-manufacturers`;
@@ -498,13 +734,20 @@ async function seedDrug(
           'Content-Type': 'application/json',
           'Authorization': authHeader
         },
-        body: JSON.stringify({ genericName: drug.generic_name, limit: 10 })
+        body: JSON.stringify({ 
+          genericName: drug.generic_name, 
+          limit: effectiveLimit,
+          tier: tier
+        })
       });
     } catch (fetchError) {
       console.error(`Network error fetching manufacturers for ${drug.generic_name}:`, fetchError);
       return { 
-        drugName: drug.generic_name, 
-        manufacturersAdded: 0, 
+        drugName: drug.generic_name,
+        manufacturerTargetLimit: effectiveLimit,
+        manufacturersBefore,
+        manufacturersAddedThisRun: 0,
+        manufacturersAfter: manufacturersBefore,
         ingredientsLinked: 0, 
         error: 'Network error calling fetch-drug-manufacturers' 
       };
@@ -514,8 +757,11 @@ async function seedDrug(
       const errorText = await response.text();
       console.error(`Error response from fetch-drug-manufacturers: ${response.status} - ${errorText}`);
       return { 
-        drugName: drug.generic_name, 
-        manufacturersAdded: 0, 
+        drugName: drug.generic_name,
+        manufacturerTargetLimit: effectiveLimit,
+        manufacturersBefore,
+        manufacturersAddedThisRun: 0,
+        manufacturersAfter: manufacturersBefore,
         ingredientsLinked: 0, 
         error: `API error: ${response.status}` 
       };
@@ -525,7 +771,7 @@ async function seedDrug(
 
     // Log query info for debugging
     if (manufacturerData.queryInfo) {
-      console.log(`[QUERY INFO] Normalized: "${manufacturerData.normalizedName}"`);
+      console.log(`[QUERY INFO] Normalized: "${manufacturerData.normalizedName}", Applied Limit: ${manufacturerData.appliedLimit}`);
       for (const qi of manufacturerData.queryInfo) {
         console.log(`  Variant "${qi.variant}": ${qi.totalResults || 0} results`);
       }
@@ -534,14 +780,17 @@ async function seedDrug(
     if (!manufacturerData.manufacturers || manufacturerData.manufacturers.length === 0) {
       console.log(`[NO DATA] No manufacturers found for ${drug.generic_name}`);
       
-      // Mark as needing manual mapping but don't fail the batch
+      // Mark variant status if applicable
       if (manufacturerData.needsManualMapping) {
         console.log(`  -> Marked as needs_manual_mapping`);
       }
       
       return { 
-        drugName: drug.generic_name, 
-        manufacturersAdded: 0, 
+        drugName: drug.generic_name,
+        manufacturerTargetLimit: effectiveLimit,
+        manufacturersBefore,
+        manufacturersAddedThisRun: 0,
+        manufacturersAfter: manufacturersBefore,
         ingredientsLinked: 0, 
         error: 'No FDA data found - needs manual mapping'
       };
@@ -550,29 +799,23 @@ async function seedDrug(
     console.log(`[FOUND] ${manufacturerData.manufacturers.length} manufacturers for ${drug.generic_name}`);
 
     // Build a lookup of existing variants for robust (case/spacing) dedupe
-    const normalizeManufacturerName = (name: string) =>
-      name
-        .trim()
-        .replace(/\s+/g, ' ')
-        .toLowerCase();
-
     const { data: existingVariants, error: existingVariantsError } = await supabase
       .from('rx_variants')
-      .select('id, manufacturer, ndc_list, spl_set_id')
+      .select('id, manufacturer, ndc_list, spl_set_id, dosage_form, strength_text, labeler_code, marketing_category')
       .eq('rx_med_id', drug.id);
 
     if (existingVariantsError) {
       console.error(`Error fetching existing variants for ${drug.generic_name}:`, existingVariantsError);
     }
 
-    const existingByKey = new Map<string, { id: string; manufacturer: string; ndc_list: string[] | null; spl_set_id: string | null }>();
+    const existingByKey = new Map<string, any>();
     for (const v of existingVariants || []) {
       if (!v?.manufacturer) continue;
       existingByKey.set(normalizeManufacturerName(v.manufacturer), v);
     }
 
     const seenThisRun = new Set<string>();
-
+    let addedThisRun = 0;
     let totalIngredientsLinked = 0;
 
     for (const mfr of manufacturerData.manufacturers as ManufacturerData[]) {
@@ -595,31 +838,50 @@ async function seedDrug(
         const existingVariant = existingByKey.get(mfrKey);
 
         if (existingVariant) {
-          // Treat existing variant as success (do not skip the drug linkage)
-          console.log(`  Variant already exists for ${existingVariant.manufacturer}`);
+          // Treat existing variant as success - merge NDC list and fill missing fields
+          console.log(`  Variant already exists for ${existingVariant.manufacturer} - merging data`);
 
-          // Opportunistically merge NDC list if new NDCs were found (no schema changes)
+          const updates: any = {};
+
+          // Merge NDC list if new NDCs were found
           const incomingNdcList = Array.isArray(mfr.ndcCodes) ? mfr.ndcCodes : [];
           if (incomingNdcList.length > 0) {
             const merged = [...new Set([...(existingVariant.ndc_list || []), ...incomingNdcList])];
             if (merged.length !== (existingVariant.ndc_list || []).length) {
-              await supabase
-                .from('rx_variants')
-                .update({ ndc_list: merged })
-                .eq('id', existingVariant.id);
+              updates.ndc_list = merged;
             }
           }
 
-          // If we found SPL ingredients this run, we could link them, but we only do that
-          // when we inserted a new variant to avoid unexpected extra work.
+          // Fill missing fields from incoming data
+          if (!existingVariant.dosage_form && mfr.dosageForm) {
+            updates.dosage_form = mfr.dosageForm;
+          }
+          if (!existingVariant.strength_text && mfr.strength) {
+            updates.strength_text = mfr.strength;
+          }
+          if (!existingVariant.labeler_code && mfr.labelerCode) {
+            updates.labeler_code = mfr.labelerCode;
+          }
+          if (!existingVariant.marketing_category && mfr.marketingCategory) {
+            updates.marketing_category = mfr.marketingCategory;
+          }
+
+          if (Object.keys(updates).length > 0) {
+            await supabase
+              .from('rx_variants')
+              .update(updates)
+              .eq('id', existingVariant.id);
+            console.log(`    Updated existing variant with: ${Object.keys(updates).join(', ')}`);
+          }
+
           continue;
         }
 
-        // Fetch inactive ingredients from DailyMed if requested
+        // Fetch inactive ingredients from DailyMed if requested (limit lookups for batch)
         let splResult: SPLParseResult | null = null;
         if (includeIngredients && mfr.ndcCodes && mfr.ndcCodes.length > 0) {
           console.log(`  Fetching DailyMed SPL for ${rawManufacturerName}...`);
-          splResult = await fetchInactiveIngredients(mfr.ndcCodes);
+          splResult = await fetchInactiveIngredients(mfr.ndcCodes, 3);
 
           if (splResult.success) {
             console.log(`  Found ${splResult.inactiveIngredients.length} inactive ingredients`);
@@ -650,15 +912,23 @@ async function seedDrug(
             marketing_category: mfr.marketingCategory || null,
             data_source: dataSource,
             spl_set_id: splResult?.setId || null,
+            seed_status: 'complete',
+            seed_attempts: 1,
           })
           .select('id')
           .single();
 
         if (variantError) {
+          // Check if it's a unique constraint violation (duplicate)
+          if (variantError.code === '23505') {
+            console.log(`  Duplicate variant detected for ${rawManufacturerName} - skipping`);
+            continue;
+          }
           console.error(`  Error inserting variant for ${rawManufacturerName}:`, variantError);
           continue;
         }
 
+        addedThisRun++;
         console.log(`  Added variant for ${rawManufacturerName} (${dataSource})`);
 
         // Link inactive ingredients if found
@@ -685,8 +955,8 @@ async function seedDrug(
             });
         }
 
-        // Small delay to avoid rate limits
-        await new Promise(resolve => setTimeout(resolve, 300));
+        // Small delay to avoid rate limits (reduced for batch efficiency)
+        await new Promise(resolve => setTimeout(resolve, 250));
 
       } catch (mfrErr) {
         console.error(`  Error processing manufacturer ${mfr.labelerName}:`, mfrErr);
@@ -694,11 +964,14 @@ async function seedDrug(
       }
     }
 
-    // Completed counts should reflect actual DB state (not only inserts this run)
-    const { count: manufacturerCount } = await supabase
+    // Completed counts should reflect actual DB state
+    const { count: afterCount } = await supabase
       .from('rx_variants')
       .select('id', { count: 'exact', head: true })
-      .eq('rx_med_id', drug.id);
+      .eq('rx_med_id', drug.id)
+      .or('data_source.ilike.openfda%,data_source.ilike.openFDA%');
+
+    const manufacturersAfter = afterCount ?? 0;
 
     const { data: variantIds } = await supabase
       .from('rx_variants')
@@ -716,21 +989,27 @@ async function seedDrug(
       ingredientCount = count || 0;
     }
 
-    console.log(`=== Completed ${drug.generic_name}: ${manufacturerCount || 0} manufacturers, ${ingredientCount} ingredients ===\n`);
+    console.log(`=== Completed ${drug.generic_name}: ${manufacturersAfter} manufacturers (added ${addedThisRun}), ${ingredientCount} ingredients ===\n`);
 
     return {
       drugName: drug.generic_name,
-      manufacturersAdded: manufacturerCount || 0,
+      manufacturerTargetLimit: effectiveLimit,
+      manufacturersBefore,
+      manufacturersAddedThisRun: addedThisRun,
+      manufacturersAfter,
       ingredientsLinked: ingredientCount,
-      error: (manufacturerCount || 0) === 0 ? 'No manufacturers found (may need manual mapping)' : undefined
+      error: manufacturersAfter === 0 ? 'No manufacturers found (may need manual mapping)' : undefined
     };
 
   } catch (error) {
     console.error(`Error seeding drug ${drugId}:`, error);
     // Return error but don't throw - let batch continue
     return { 
-      drugName: drugId, 
-      manufacturersAdded: 0, 
+      drugName: drugId,
+      manufacturerTargetLimit: 0,
+      manufacturersBefore: 0,
+      manufacturersAddedThisRun: 0,
+      manufacturersAfter: 0,
       ingredientsLinked: 0, 
       error: error instanceof Error ? error.message : 'Unknown error' 
     };

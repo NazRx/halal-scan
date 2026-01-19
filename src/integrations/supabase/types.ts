@@ -438,6 +438,7 @@ export type Database = {
           last_hydrate_error: string | null
           ndc: string | null
           notes: string | null
+          popularity_rank: number | null
           route: string | null
           rx_otc: string | null
           spl_last_fetched_at: string | null
@@ -466,6 +467,7 @@ export type Database = {
           last_hydrate_error?: string | null
           ndc?: string | null
           notes?: string | null
+          popularity_rank?: number | null
           route?: string | null
           rx_otc?: string | null
           spl_last_fetched_at?: string | null
@@ -494,6 +496,7 @@ export type Database = {
           last_hydrate_error?: string | null
           ndc?: string | null
           notes?: string | null
+          popularity_rank?: number | null
           route?: string | null
           rx_otc?: string | null
           spl_last_fetched_at?: string | null
@@ -565,6 +568,7 @@ export type Database = {
           is_promoted: boolean | null
           labeler_code: string | null
           manufacturer: string | null
+          manufacturer_normalized: string | null
           marketing_category: string | null
           ndc_list: string[] | null
           notes: string | null
@@ -572,6 +576,10 @@ export type Database = {
           recall_info: Json | null
           rx_med_id: string
           rxcui: string | null
+          seed_attempts: number | null
+          seed_last_error: string | null
+          seed_next_retry_at: string | null
+          seed_status: string | null
           spl_set_id: string | null
           strength_text: string | null
           updated_at: string
@@ -586,6 +594,7 @@ export type Database = {
           is_promoted?: boolean | null
           labeler_code?: string | null
           manufacturer?: string | null
+          manufacturer_normalized?: string | null
           marketing_category?: string | null
           ndc_list?: string[] | null
           notes?: string | null
@@ -593,6 +602,10 @@ export type Database = {
           recall_info?: Json | null
           rx_med_id: string
           rxcui?: string | null
+          seed_attempts?: number | null
+          seed_last_error?: string | null
+          seed_next_retry_at?: string | null
+          seed_status?: string | null
           spl_set_id?: string | null
           strength_text?: string | null
           updated_at?: string
@@ -607,6 +620,7 @@ export type Database = {
           is_promoted?: boolean | null
           labeler_code?: string | null
           manufacturer?: string | null
+          manufacturer_normalized?: string | null
           marketing_category?: string | null
           ndc_list?: string[] | null
           notes?: string | null
@@ -614,6 +628,10 @@ export type Database = {
           recall_info?: Json | null
           rx_med_id?: string
           rxcui?: string | null
+          seed_attempts?: number | null
+          seed_last_error?: string | null
+          seed_next_retry_at?: string | null
+          seed_status?: string | null
           spl_set_id?: string | null
           strength_text?: string | null
           updated_at?: string
