@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Play, Pause, RefreshCw, CheckCircle, XCircle, Loader2, Pill, AlertTriangle, FileText, Link2 } from 'lucide-react';
+import { ArrowLeft, Play, Pause, RefreshCw, CheckCircle, XCircle, Loader2, Pill, AlertTriangle, FileText, Link2, Plus, Database } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface DrugSummary {
@@ -18,6 +18,17 @@ interface DrugSummary {
   fdaVariants: number;
   withIngredients: number;
   manualVariants: number;
+  popularityRank?: number | null;
+  tier?: 'top300' | 'next700';
+}
+
+interface ExpandResult {
+  fetched: number;
+  existing: number;
+  inserted: number;
+  skipped: number;
+  sampleInserted: string[];
+  errors: string[];
 }
 
 interface SeedResult {
@@ -52,6 +63,8 @@ export default function SeedData() {
   const [fdaStats, setFdaStats] = useState<FDAEnrichmentStats>({ labelsChecked: 0, recallsChecked: 0, rxnormLinked: 0, recallsFound: 0 });
   const [includeIngredients, setIncludeIngredients] = useState(true);
   const [activeTab, setActiveTab] = useState('manufacturers');
+  const [isExpandingList, setIsExpandingList] = useState(false);
+  const [expandResult, setExpandResult] = useState<ExpandResult | null>(null);
 
   const addLog = (message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
     setLogs(prev => [...prev, { timestamp: new Date(), message, type }]);
@@ -224,6 +237,38 @@ export default function SeedData() {
     }
   };
 
+  const expandToTop1000 = async () => {
+    setIsExpandingList(true);
+    setExpandResult(null);
+    addLog('Fetching top 1000 generic drugs from openFDA...', 'info');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('seed-top-1000-rx-meds', {
+        body: {}
+      });
+
+      if (error) throw error;
+
+      setExpandResult(data);
+      addLog(`Fetched ${data.fetched} drugs from FDA`, 'info');
+      addLog(`Existing: ${data.existing}, Inserted: ${data.inserted}, Skipped: ${data.skipped}`, 'success');
+      
+      if (data.inserted > 0) {
+        addLog(`Sample inserted: ${data.sampleInserted.slice(0, 5).join(', ')}...`, 'info');
+      }
+      
+      if (data.errors?.length > 0) {
+        data.errors.forEach((err: string) => addLog(err, 'error'));
+      }
+
+      fetchDrugList(); // Refresh the list
+    } catch (err: any) {
+      addLog(`Error expanding drug list: ${err.message}`, 'error');
+    } finally {
+      setIsExpandingList(false);
+    }
+  };
+
   const seedSingleDrug = async (drugId: string, drugName: string) => {
     setCurrentDrug(drugName);
     addLog(`Seeding ${drugName}...`, 'info');
@@ -364,6 +409,8 @@ export default function SeedData() {
   const needsSeeding = drugs.filter(d => d.fdaVariants === 0).length;
   const alreadySeeded = drugs.filter(d => d.fdaVariants > 0).length;
   const withIngredients = drugs.filter(d => d.withIngredients > 0).length;
+  const top300Count = drugs.filter(d => d.popularityRank && d.popularityRank <= 300).length;
+  const next700Count = drugs.filter(d => !d.popularityRank || d.popularityRank > 300).length;
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -384,11 +431,23 @@ export default function SeedData() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Total Drugs</CardDescription>
               <CardTitle className="text-3xl">{drugs.length}</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Top 300 (10 mfrs)</CardDescription>
+              <CardTitle className="text-3xl text-purple-500">{top300Count}</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Next 700 (5 mfrs)</CardDescription>
+              <CardTitle className="text-3xl text-indigo-500">{next700Count}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
@@ -451,13 +510,27 @@ export default function SeedData() {
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                  <Button onClick={fetchDrugList} disabled={isLoading || isSeeding}>
+                  <Button onClick={fetchDrugList} disabled={isLoading || isSeeding || isExpandingList}>
                     {isLoading ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     ) : (
                       <RefreshCw className="h-4 w-4 mr-2" />
                     )}
                     Load Drug List
+                  </Button>
+
+                  <Button 
+                    onClick={expandToTop1000} 
+                    disabled={isLoading || isSeeding || isExpandingList}
+                    variant="outline"
+                    className="border-purple-500 text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950"
+                  >
+                    {isExpandingList ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Database className="h-4 w-4 mr-2" />
+                    )}
+                    Expand to Top 1000 Drugs
                   </Button>
 
                   {drugs.length > 0 && (
@@ -486,8 +559,15 @@ export default function SeedData() {
                   )}
                 </div>
 
+                {expandResult && (
+                  <div className="p-3 rounded-lg bg-muted text-sm">
+                    <p className="font-medium mb-1">Expansion Result:</p>
+                    <p>Fetched: {expandResult.fetched} | Existing: {expandResult.existing} | Inserted: {expandResult.inserted} | Skipped: {expandResult.skipped}</p>
+                  </div>
+                )}
+
                 <p className="text-sm text-muted-foreground">
-                  Fetches top 10 manufacturers per drug from openFDA NDC endpoint + inactive ingredients from DailyMed SPL.
+                  Fetches tiered manufacturers: Top 300 drugs → 10 manufacturers, Next 700 → 5 manufacturers. Data from openFDA NDC + DailyMed SPL.
                 </p>
               </TabsContent>
 
