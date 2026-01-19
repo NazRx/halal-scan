@@ -241,6 +241,11 @@ async function fetchWithRetry(
   return { ok: false, status: 0, data: null, errorType: 'max_retries_exceeded' };
 }
 
+// Normalize manufacturer name for deduplication
+function normalizeManufacturerName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
 // ============ FDA QUERY FUNCTIONS ============
 async function queryFDAbyGenericName(
   genericName: string,
@@ -311,9 +316,6 @@ async function collectManufacturersFromCount(
   limit: number,
   searchByBrand: boolean = false
 ): Promise<void> {
-  const normalizeManufacturerName = (name: string) =>
-    name.trim().replace(/\s+/g, ' ').toLowerCase();
-
   for (const labeler of countResults.slice(0, limit)) {
     const labelerTerm = (labeler.term || '').trim();
     if (!labelerTerm) continue;
@@ -429,7 +431,8 @@ serve(async (req) => {
     console.log(`Authenticated user: ${claimsData.claims.sub}`);
     // ============ END AUTH CHECK ============
 
-    const { genericName, limit = 10 } = await req.json();
+    const body = await req.json();
+    const { genericName, limit = 10, tier } = body;
 
     if (!genericName) {
       return new Response(
@@ -438,9 +441,18 @@ serve(async (req) => {
       );
     }
 
+    // Determine effective limit based on tier if provided
+    let effectiveLimit = limit;
+    if (tier === 'top300') {
+      effectiveLimit = Math.min(limit, 10);
+    } else if (tier === 'next700') {
+      effectiveLimit = Math.min(limit, 5);
+    }
+
     const rawName = genericName;
     console.log(`\n========================================`);
     console.log(`[RAW NAME] ${rawName}`);
+    console.log(`[LIMIT] ${effectiveLimit} (tier: ${tier || 'custom'})`);
     
     // ============ NORMALIZATION ============
     const isVacc = isVaccine(rawName);
@@ -469,15 +481,14 @@ serve(async (req) => {
     // Try each query variant
     for (const variant of queryVariants) {
       // For combo drugs, always try each ingredient variant and merge manufacturers
-      if (!isCombo && allManufacturers.length >= limit) break;
+      if (!isCombo && allManufacturers.length >= effectiveLimit) break;
 
       console.log(`\n--- Trying variant: "${variant}" ---`);
-      const { manufacturers, queryInfo } = await queryFDAbyGenericName(variant, limit);
+      const { manufacturers, queryInfo } = await queryFDAbyGenericName(variant, effectiveLimit);
 
       allQueryInfo.push({ variant, ...queryInfo });
 
       // Merge manufacturers (dedupe by normalized labeler name)
-      const normalizeManufacturerName = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
       for (const mfr of manufacturers) {
         const key = normalizeManufacturerName(mfr.labelerName);
         if (!allManufacturers.some(m => normalizeManufacturerName(m.labelerName) === key)) {
@@ -512,22 +523,27 @@ serve(async (req) => {
       return b.productCount - a.productCount;
     });
 
-    const resultCount = allManufacturers.length;
-    console.log(`\n[RESULT] Found ${resultCount} manufacturers for "${rawName}"`);
-    console.log(`  - Brands: ${allManufacturers.filter(m => m.isBrand).length}`);
-    console.log(`  - Generics: ${allManufacturers.filter(m => !m.isBrand).length}`);
+    // Slice to effective limit after sorting
+    const slicedManufacturers = allManufacturers.slice(0, effectiveLimit);
+
+    const resultCount = slicedManufacturers.length;
+    console.log(`\n[RESULT] Found ${allManufacturers.length} manufacturers, returning ${resultCount} (limit: ${effectiveLimit})`);
+    console.log(`  - Brands: ${slicedManufacturers.filter(m => m.isBrand).length}`);
+    console.log(`  - Generics: ${slicedManufacturers.filter(m => !m.isBrand).length}`);
     console.log(`========================================\n`);
 
     return new Response(
       JSON.stringify({ 
         genericName: rawName,
         normalizedName: normalized,
-        manufacturers: allManufacturers,
-        brandCount: allManufacturers.filter(m => m.isBrand).length,
-        genericCount: allManufacturers.filter(m => !m.isBrand).length,
-        totalFound: resultCount,
+        manufacturers: slicedManufacturers,
+        brandCount: slicedManufacturers.filter(m => m.isBrand).length,
+        genericCount: slicedManufacturers.filter(m => !m.isBrand).length,
+        totalFound: allManufacturers.length,
+        appliedLimit: effectiveLimit,
+        tier: tier || 'custom',
         queryInfo: allQueryInfo,
-        needsManualMapping: resultCount === 0 || (isVacc && allManufacturers[0]?.labelerCode === 'VACCINE')
+        needsManualMapping: resultCount === 0 || (isVacc && slicedManufacturers[0]?.labelerCode === 'VACCINE')
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
