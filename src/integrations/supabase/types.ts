@@ -441,6 +441,7 @@ export type Database = {
           popularity_rank: number | null
           route: string | null
           rx_otc: string | null
+          source: string | null
           spl_last_fetched_at: string | null
           status_reason: string | null
           updated_at: string
@@ -470,6 +471,7 @@ export type Database = {
           popularity_rank?: number | null
           route?: string | null
           rx_otc?: string | null
+          source?: string | null
           spl_last_fetched_at?: string | null
           status_reason?: string | null
           updated_at?: string
@@ -499,6 +501,7 @@ export type Database = {
           popularity_rank?: number | null
           route?: string | null
           rx_otc?: string | null
+          source?: string | null
           spl_last_fetched_at?: string | null
           status_reason?: string | null
           updated_at?: string
