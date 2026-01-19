@@ -79,23 +79,29 @@ function normalizeDrugName(rawName: string): string {
 // Generate query variants for combo drugs
 function generateQueryVariants(normalized: string): string[] {
   const variants: string[] = [normalized];
-  
-  // If contains "/", try with space and "AND"
+
+  // If contains "/", try multiple strategies
   if (normalized.includes('/')) {
     variants.push(normalized.replace(/\//g, ' '));
-    // Also try each component separately
-    const components = normalized.split('/').map(c => c.trim()).filter(c => c.length > 0);
-    if (components.length > 1) {
+    variants.push(normalized.replace(/\//g, ' and '));
+
+    // Always try each component separately and merge manufacturers
+    const components = normalized
+      .split('/')
+      .map(c => c.trim())
+      .filter(c => c.length > 0);
+
+    if (components.length > 0) {
       variants.push(...components);
     }
   }
-  
+
   // If contains "-", try with space
   if (normalized.includes('-')) {
     variants.push(normalized.replace(/-/g, ' '));
   }
-  
-  return [...new Set(variants)];
+
+  return [...new Set(variants.map(v => v.replace(/\s+/g, ' ').trim()).filter(Boolean))];
 }
 
 // Special handling for vaccines
@@ -139,13 +145,48 @@ function normalizeVaccineName(rawName: string): string {
 
 function isVaccine(name: string): boolean {
   const lower = name.toLowerCase();
-  return lower.includes('vaccine') || 
+  return lower.includes('vaccine') ||
          lower.includes('immunization') ||
          lower.includes('covid-19') ||
          lower.includes('influenza') ||
          lower.includes('mmr') ||
          lower.includes('tdap') ||
          lower.includes('dtap');
+}
+
+function getSpecialSynonymVariants(rawName: string): string[] {
+  const lower = rawName.toLowerCase();
+
+  // High-miss synonym mapping (try these before manual mapping)
+  if (lower.includes('entresto')) return ['sacubitril valsartan'];
+
+  if (lower.includes('erenumab')) return ['aimovig', 'erenumab-aooe'];
+
+  if (lower.includes('amphetamine') && lower.includes('dextroamphetamine')) {
+    return ['mixed salts', 'amphetamine aspartate', 'dextroamphetamine saccharate'];
+  }
+
+  if (lower.includes('ethinyl') && lower.includes('levonorgestrel')) {
+    return ['levonorgestrel and ethinyl estradiol'];
+  }
+
+  if (lower.includes('insulin') && (lower.includes('nph') || lower.includes('isophane'))) {
+    return ['insulin isophane', 'nph insulin', 'humulin n', 'novolin n'];
+  }
+
+  if (lower.includes('insulin') && lower.includes('regular')) {
+    return ['insulin human', 'regular insulin', 'humulin r', 'novolin r'];
+  }
+
+  if (lower.includes('prep') && (lower.includes('emtricitabine') || lower.includes('tenofovir') || lower.includes('hiv'))) {
+    return [
+      'emtricitabine tenofovir disoproxil fumarate',
+      'truvada',
+      'descovy',
+    ];
+  }
+
+  return [];
 }
 
 // ============ RATE LIMITING & RETRY ============
@@ -270,36 +311,43 @@ async function collectManufacturersFromCount(
   limit: number,
   searchByBrand: boolean = false
 ): Promise<void> {
+  const normalizeManufacturerName = (name: string) =>
+    name.trim().replace(/\s+/g, ' ').toLowerCase();
+
   for (const labeler of countResults.slice(0, limit)) {
-    // Skip if already have this manufacturer
-    if (manufacturers.some(m => m.labelerName === labeler.term)) {
+    const labelerTerm = (labeler.term || '').trim();
+    if (!labelerTerm) continue;
+
+    // Skip if already have this manufacturer (case/space-insensitive)
+    if (manufacturers.some(m => normalizeManufacturerName(m.labelerName) === normalizeManufacturerName(labelerTerm))) {
       continue;
     }
-    
+
     // Throttle requests
     await new Promise(resolve => setTimeout(resolve, 150));
-    
+
     try {
       const searchField = searchByBrand ? 'brand_name' : 'generic_name';
-      const productUrl = `https://api.fda.gov/drug/ndc.json?search=${searchField}:"${encodeURIComponent(genericName)}"+AND+labeler_name:"${encodeURIComponent(labeler.term)}"&limit=20`;
-      
+      const search = `${searchField}:"${genericName}" AND labeler_name:"${labelerTerm}"`;
+      const productUrl = `https://api.fda.gov/drug/ndc.json?search=${encodeURIComponent(search)}&limit=20`;
+
       const productResult = await fetchWithRetry(productUrl);
-      
+
       if (productResult.ok && productResult.data.results?.length > 0) {
         const products = productResult.data.results;
         const firstProduct = products[0];
-        
-        // Extract labeler name with fallbacks
-        const labelerName = firstProduct.labeler_name || 
-                           firstProduct.openfda?.labeler_name?.[0] || 
-                           firstProduct.openfda?.manufacturer_name?.[0] ||
-                           labeler.term;
-        
+
+        // Prefer labeler_name from NDC results; fallback to openfda.* fields
+        const labelerName = firstProduct.labeler_name ||
+          firstProduct.openfda?.labeler_name?.[0] ||
+          firstProduct.openfda?.manufacturer_name?.[0] ||
+          labelerTerm;
+
         const firstNdc = firstProduct.product_ndc || '';
         const labelerCode = firstNdc.split('-')[0] || '';
         const marketingCategory = firstProduct.marketing_category || 'UNKNOWN';
         const isBrand = marketingCategory === 'NDA' || marketingCategory === 'BLA';
-        
+
         // Collect NDC codes
         const ndcCodes: string[] = [];
         products.forEach((product: any) => {
@@ -308,7 +356,7 @@ async function collectManufacturersFromCount(
             if (pkg.package_ndc) ndcCodes.push(pkg.package_ndc);
           });
         });
-        
+
         manufacturers.push({
           labelerName,
           labelerCode,
@@ -320,11 +368,25 @@ async function collectManufacturersFromCount(
           strength: firstProduct.active_ingredients?.[0]?.strength || null,
           productCount: labeler.count
         });
-        
+
         console.log(`[FOUND] ${labelerName}: ${ndcCodes.length} NDCs, ${isBrand ? 'BRAND' : 'GENERIC'}`);
+      } else {
+        // IMPORTANT: If the count endpoint had results but product fetch yields none,
+        // still return the labeler term as a manufacturer so we don't end up with an empty list.
+        manufacturers.push({
+          labelerName: labelerTerm,
+          labelerCode: '',
+          isBrand: false,
+          marketingCategory: 'UNKNOWN',
+          ndcCodes: [],
+          dosageForm: null,
+          strength: null,
+          productCount: labeler.count
+        });
+        console.log(`[FOUND] ${labelerTerm}: 0 NDCs (fallback from count)`);
       }
     } catch (err) {
-      console.error(`Error fetching products for ${labeler.term}:`, err);
+      console.error(`Error fetching products for ${labelerTerm}:`, err);
     }
   }
 }
@@ -393,28 +455,36 @@ serve(async (req) => {
     }
     
     // Generate query variants
-    const queryVariants = generateQueryVariants(normalized);
+    const queryVariants = [...new Set([
+      ...generateQueryVariants(normalized),
+      ...getSpecialSynonymVariants(rawName),
+    ])];
     console.log(`[QUERY VARIANTS] ${JSON.stringify(queryVariants)}`);
-    
+
+    const isCombo = normalized.includes('/');
+
     let allManufacturers: ManufacturerResult[] = [];
     let allQueryInfo: any[] = [];
-    
+
     // Try each query variant
     for (const variant of queryVariants) {
-      if (allManufacturers.length >= limit) break;
-      
+      // For combo drugs, always try each ingredient variant and merge manufacturers
+      if (!isCombo && allManufacturers.length >= limit) break;
+
       console.log(`\n--- Trying variant: "${variant}" ---`);
       const { manufacturers, queryInfo } = await queryFDAbyGenericName(variant, limit);
-      
+
       allQueryInfo.push({ variant, ...queryInfo });
-      
-      // Merge manufacturers (dedupe by labeler name)
+
+      // Merge manufacturers (dedupe by normalized labeler name)
+      const normalizeManufacturerName = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
       for (const mfr of manufacturers) {
-        if (!allManufacturers.some(m => m.labelerName === mfr.labelerName)) {
+        const key = normalizeManufacturerName(mfr.labelerName);
+        if (!allManufacturers.some(m => normalizeManufacturerName(m.labelerName) === key)) {
           allManufacturers.push(mfr);
         }
       }
-      
+
       if (manufacturers.length > 0) {
         console.log(`[SUCCESS] Found ${manufacturers.length} manufacturers for variant "${variant}"`);
       }

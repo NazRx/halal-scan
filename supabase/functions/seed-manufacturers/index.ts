@@ -549,36 +549,78 @@ async function seedDrug(
 
     console.log(`[FOUND] ${manufacturerData.manufacturers.length} manufacturers for ${drug.generic_name}`);
 
-    let added = 0;
+    // Build a lookup of existing variants for robust (case/spacing) dedupe
+    const normalizeManufacturerName = (name: string) =>
+      name
+        .trim()
+        .replace(/\s+/g, ' ')
+        .toLowerCase();
+
+    const { data: existingVariants, error: existingVariantsError } = await supabase
+      .from('rx_variants')
+      .select('id, manufacturer, ndc_list, spl_set_id')
+      .eq('rx_med_id', drug.id);
+
+    if (existingVariantsError) {
+      console.error(`Error fetching existing variants for ${drug.generic_name}:`, existingVariantsError);
+    }
+
+    const existingByKey = new Map<string, { id: string; manufacturer: string; ndc_list: string[] | null; spl_set_id: string | null }>();
+    for (const v of existingVariants || []) {
+      if (!v?.manufacturer) continue;
+      existingByKey.set(normalizeManufacturerName(v.manufacturer), v);
+    }
+
+    const seenThisRun = new Set<string>();
+
     let totalIngredientsLinked = 0;
 
     for (const mfr of manufacturerData.manufacturers as ManufacturerData[]) {
       try {
-        // Skip placeholder entries
+        // Skip placeholder entries (we still allow the drug to complete)
         if (mfr.labelerCode === 'VACCINE' && mfr.labelerName === 'Multiple manufacturers (vaccine)') {
           console.log(`  Skipping vaccine placeholder for ${drug.generic_name}`);
           continue;
         }
-        
-        // Check if this manufacturer variant already exists
-        const { data: existing } = await supabase
-          .from('rx_variants')
-          .select('id')
-          .eq('rx_med_id', drug.id)
-          .eq('manufacturer', mfr.labelerName)
-          .limit(1);
 
-        if (existing && existing.length > 0) {
-          console.log(`  Variant already exists for ${mfr.labelerName}`);
+        const rawManufacturerName = (mfr.labelerName || '').trim();
+        if (!rawManufacturerName) continue;
+
+        const mfrKey = normalizeManufacturerName(rawManufacturerName);
+
+        // Dedupe within this run (handles Hikma vs HIKMA vs extra spaces)
+        if (seenThisRun.has(mfrKey)) continue;
+        seenThisRun.add(mfrKey);
+
+        const existingVariant = existingByKey.get(mfrKey);
+
+        if (existingVariant) {
+          // Treat existing variant as success (do not skip the drug linkage)
+          console.log(`  Variant already exists for ${existingVariant.manufacturer}`);
+
+          // Opportunistically merge NDC list if new NDCs were found (no schema changes)
+          const incomingNdcList = Array.isArray(mfr.ndcCodes) ? mfr.ndcCodes : [];
+          if (incomingNdcList.length > 0) {
+            const merged = [...new Set([...(existingVariant.ndc_list || []), ...incomingNdcList])];
+            if (merged.length !== (existingVariant.ndc_list || []).length) {
+              await supabase
+                .from('rx_variants')
+                .update({ ndc_list: merged })
+                .eq('id', existingVariant.id);
+            }
+          }
+
+          // If we found SPL ingredients this run, we could link them, but we only do that
+          // when we inserted a new variant to avoid unexpected extra work.
           continue;
         }
 
         // Fetch inactive ingredients from DailyMed if requested
         let splResult: SPLParseResult | null = null;
         if (includeIngredients && mfr.ndcCodes && mfr.ndcCodes.length > 0) {
-          console.log(`  Fetching DailyMed SPL for ${mfr.labelerName}...`);
+          console.log(`  Fetching DailyMed SPL for ${rawManufacturerName}...`);
           splResult = await fetchInactiveIngredients(mfr.ndcCodes);
-          
+
           if (splResult.success) {
             console.log(`  Found ${splResult.inactiveIngredients.length} inactive ingredients`);
           }
@@ -594,12 +636,12 @@ async function seedDrug(
           dataSource = 'openFDA-BLA';
         }
 
-        // Insert the variant
+        // Insert the variant (manufacturer options live on rx_variants in this app)
         const { data: variant, error: variantError } = await supabase
           .from('rx_variants')
           .insert({
             rx_med_id: drug.id,
-            manufacturer: mfr.labelerName,
+            manufacturer: rawManufacturerName,
             labeler_code: mfr.labelerCode,
             dosage_form: mfr.dosageForm || drug.dosage_forms?.[0] || null,
             strength_text: mfr.strength,
@@ -613,12 +655,11 @@ async function seedDrug(
           .single();
 
         if (variantError) {
-          console.error(`  Error inserting variant for ${mfr.labelerName}:`, variantError);
+          console.error(`  Error inserting variant for ${rawManufacturerName}:`, variantError);
           continue;
         }
 
-        added++;
-        console.log(`  Added variant for ${mfr.labelerName} (${dataSource})`);
+        console.log(`  Added variant for ${rawManufacturerName} (${dataSource})`);
 
         // Link inactive ingredients if found
         if (splResult?.success && splResult.inactiveIngredients.length > 0 && variant) {
@@ -629,7 +670,7 @@ async function seedDrug(
             splResult.setId
           );
           totalIngredientsLinked += linkedCount;
-          console.log(`  Linked ${linkedCount} ingredients to ${mfr.labelerName}`);
+          console.log(`  Linked ${linkedCount} ingredients to ${rawManufacturerName}`);
         }
 
         // Create initial verdict for this variant
@@ -653,13 +694,35 @@ async function seedDrug(
       }
     }
 
-    console.log(`=== Completed ${drug.generic_name}: ${added} manufacturers, ${totalIngredientsLinked} ingredients ===\n`);
+    // Completed counts should reflect actual DB state (not only inserts this run)
+    const { count: manufacturerCount } = await supabase
+      .from('rx_variants')
+      .select('id', { count: 'exact', head: true })
+      .eq('rx_med_id', drug.id);
+
+    const { data: variantIds } = await supabase
+      .from('rx_variants')
+      .select('id')
+      .eq('rx_med_id', drug.id);
+
+    const ids = (variantIds || []).map((v: any) => v.id).filter(Boolean);
+
+    let ingredientCount = 0;
+    if (ids.length > 0) {
+      const { count } = await supabase
+        .from('rx_variant_ingredients')
+        .select('id', { count: 'exact', head: true })
+        .in('variant_id', ids);
+      ingredientCount = count || 0;
+    }
+
+    console.log(`=== Completed ${drug.generic_name}: ${manufacturerCount || 0} manufacturers, ${ingredientCount} ingredients ===\n`);
 
     return {
       drugName: drug.generic_name,
-      manufacturersAdded: added,
-      ingredientsLinked: totalIngredientsLinked,
-      error: added === 0 ? 'No manufacturers added (may need manual mapping)' : undefined
+      manufacturersAdded: manufacturerCount || 0,
+      ingredientsLinked: ingredientCount,
+      error: (manufacturerCount || 0) === 0 ? 'No manufacturers found (may need manual mapping)' : undefined
     };
 
   } catch (error) {
