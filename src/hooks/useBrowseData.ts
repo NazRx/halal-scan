@@ -99,13 +99,19 @@ export function useRxBrowseData(
       setError(null);
 
       try {
-        // Fetch all Rx meds with their variants and default_status
+        // For alpha-brand mode, handle separately with brand-focused query
+        if (mode === 'alpha-brand') {
+          await fetchBrandMode();
+          return;
+        }
+
+        // Build base query with server-side pagination
         let query = supabase
           .from('rx_meds')
-          .select('id, generic_name, brand_names, drug_class, category, dosage_forms, default_status');
+          .select('id, generic_name, brand_names, drug_class, category, dosage_forms, default_status', { count: 'exact' });
 
-        // Apply letter filter for alpha modes
-        if (letter && (mode === 'alpha-generic')) {
+        // Apply letter filter for alpha-generic mode
+        if (letter && mode === 'alpha-generic') {
           query = query.ilike('generic_name', `${letter}%`);
         }
 
@@ -114,19 +120,34 @@ export function useRxBrowseData(
           query = query.eq('drug_class', selectedDrugClass);
         }
 
-        const { data: rxMeds, error: rxError } = await query.order('generic_name');
+        // Apply status filter at database level when possible
+        if (statusFilter !== 'all' && statusFilter !== 'questionable') {
+          // Direct status mapping for simple cases
+          const dbStatus = statusFilter === 'halal' ? 'halal' 
+            : statusFilter === 'not-halal' ? 'haram'
+            : statusFilter === 'unknown' ? 'needs_verification'
+            : null;
+          if (dbStatus) {
+            query = query.eq('default_status', dbStatus);
+          }
+        }
+
+        // Server-side pagination
+        const { data: rxMeds, count, error: rxError } = await query
+          .order('generic_name')
+          .range(page * pageSize, (page + 1) * pageSize - 1);
 
         if (rxError) throw rxError;
 
         if (!rxMeds || rxMeds.length === 0) {
           setData([]);
           setBrandIndex([]);
-          setTotalCount(0);
+          setTotalCount(count || 0);
           setIsLoading(false);
           return;
         }
 
-        // Get all variants for these meds
+        // Get variants only for current page's meds (max 25 IDs - safe URL length)
         const medIds = rxMeds.map(m => m.id);
         const { data: variants, error: variantsError } = await supabase
           .from('rx_variants')
@@ -135,7 +156,7 @@ export function useRxBrowseData(
 
         if (variantsError) throw variantsError;
 
-        // Get verdicts for all variants
+        // Get verdicts for current page's variants
         const variantIds = (variants || []).map(v => v.id);
         let verdicts: Record<string, string[]> = {};
 
@@ -146,7 +167,6 @@ export function useRxBrowseData(
             .in('variant_id', variantIds);
 
           if (!verdictError && verdictData) {
-            // Group verdicts by med ID
             const variantToMed = new Map((variants || []).map(v => [v.id, v.rx_med_id]));
             verdictData.forEach(v => {
               const medId = variantToMed.get(v.variant_id);
@@ -164,8 +184,8 @@ export function useRxBrowseData(
           variantCounts[v.rx_med_id] = (variantCounts[v.rx_med_id] || 0) + 1;
         });
 
-        // Build browse items
-        let items: RxBrowseItem[] = rxMeds.map(med => {
+        // Build browse items for current page
+        const items: RxBrowseItem[] = rxMeds.map(med => {
           const medVerdicts = verdicts[med.id] || [];
           let status: RxBrowseItem['status'] = 'unknown';
           
@@ -178,7 +198,6 @@ export function useRxBrowseData(
             }
           }
           
-          // Fallback to default_status from rx_meds if no variant verdicts or all are unknown
           if (status === 'unknown' && med.default_status) {
             status = mapStatus(med.default_status);
           }
@@ -194,9 +213,33 @@ export function useRxBrowseData(
           };
         });
 
-        // Build brand index for alpha-brand mode
+        setData(items);
+        setTotalCount(count || 0);
+        setBrandIndex([]);
+      } catch (err) {
+        console.error('Browse data error:', err);
+        setError('Failed to load data');
+        setData([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const fetchBrandMode = async () => {
+      try {
+        // For brand mode, fetch meds that have brand names
+        let query = supabase
+          .from('rx_meds')
+          .select('id, generic_name, brand_names', { count: 'exact' })
+          .not('brand_names', 'eq', '{}');
+
+        const { data: medsWithBrands, error: brandsError } = await query.order('generic_name');
+
+        if (brandsError) throw brandsError;
+
+        // Build brand index from fetched meds
         const brands: BrandIndex[] = [];
-        rxMeds.forEach(med => {
+        (medsWithBrands || []).forEach(med => {
           (med.brand_names || []).forEach(brand => {
             if (brand) {
               brands.push({
@@ -209,48 +252,25 @@ export function useRxBrowseData(
         });
         brands.sort((a, b) => a.brand.localeCompare(b.brand));
 
-        // Filter by letter for brand mode
-        if (mode === 'alpha-brand' && letter) {
-          const filteredBrands = brands.filter(b => 
+        // Filter by letter
+        let filteredBrands = brands;
+        if (letter) {
+          filteredBrands = brands.filter(b => 
             b.brand.toUpperCase().startsWith(letter)
           );
-          setBrandIndex(filteredBrands);
-        } else {
-          setBrandIndex(brands);
         }
 
-        // Apply status filter
-        if (statusFilter !== 'all') {
-          items = items.filter(item => {
-            if (statusFilter === 'halal') return item.status === 'halal';
-            if (statusFilter === 'questionable') return item.status === 'questionable' || item.status === 'varies';
-            if (statusFilter === 'not-halal') return item.status === 'not-halal';
-            if (statusFilter === 'unknown') return item.status === 'unknown';
-            return true;
-          });
-        }
-
-        // Apply form filter (check if any variant has this form)
-        if (formFilter && formFilter !== 'all') {
-          const medsWithForm = new Set(
-            (variants || [])
-              .filter(v => v.dosage_form?.toLowerCase() === formFilter.toLowerCase())
-              .map(v => v.rx_med_id)
-          );
-          items = items.filter(item => medsWithForm.has(item.id));
-        }
-
-        setTotalCount(items.length);
-
-        // Paginate
+        // Paginate the brand index
         const start = page * pageSize;
-        const paginatedItems = items.slice(start, start + pageSize);
+        const paginatedBrands = filteredBrands.slice(start, start + pageSize);
 
-        setData(paginatedItems);
-      } catch (err) {
-        console.error('Browse data error:', err);
-        setError('Failed to load data');
+        setBrandIndex(paginatedBrands);
+        setTotalCount(filteredBrands.length);
         setData([]);
+      } catch (err) {
+        console.error('Brand mode error:', err);
+        setError('Failed to load data');
+        setBrandIndex([]);
       } finally {
         setIsLoading(false);
       }
