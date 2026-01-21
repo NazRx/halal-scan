@@ -1,118 +1,101 @@
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { Scan, Search, Shield, Zap } from "lucide-react";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { Shield, Zap, Search } from "lucide-react";
+import { HeroSearchInput } from "./HeroSearchInput";
+import { GradientOrb } from "./GradientOrb";
 
 export function HeroSection() {
   return (
-    <section className="relative overflow-hidden py-20 md:py-32">
-      {/* Background gradient */}
-      <div className="absolute inset-0 gradient-hero opacity-5" />
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
-      
-      <div className="container relative px-4">
+    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden py-20 md:py-32">
+      {/* Animated gradient orbs */}
+      <GradientOrb 
+        color="primary" 
+        size="xl" 
+        className="-top-20 -right-20 md:right-20" 
+        delay={0} 
+      />
+      <GradientOrb 
+        color="accent" 
+        size="lg" 
+        className="-bottom-10 -left-10 md:left-20" 
+        delay={0.5} 
+      />
+      <GradientOrb 
+        color="secondary" 
+        size="md" 
+        className="top-1/3 left-1/4 hidden md:block" 
+        delay={1} 
+      />
+
+      {/* Subtle grid pattern overlay */}
+      <div 
+        className="absolute inset-0 opacity-[0.02]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }}
+      />
+
+      <div className="container relative px-4 z-10">
         <div className="max-w-4xl mx-auto text-center">
+          {/* Trust Badge */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.5 }}
+            className="flex justify-center mb-8"
           >
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 rounded-full border bg-background/50 backdrop-blur px-4 py-1.5 text-sm mb-6">
-              <Shield className="h-4 w-4 text-primary" />
-              <span>Trusted by 10,000+ Muslims worldwide</span>
-            </div>
-
-            {/* Headline */}
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6">
-              Know Your Medications.{" "}
-              <span className="text-primary">Stay Halal.</span>
-            </h1>
-
-            {/* Subheadline */}
-            <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Instantly check if your OTC products and prescription medications contain halal ingredients. 
-              Scan barcodes, search by name, and get detailed ingredient breakdowns.
-            </p>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
-              <Link to="/app">
-                <Button size="lg" className="gradient-hero text-primary-foreground hover:opacity-90 text-lg px-8 py-6 rounded-xl shadow-glow">
-                  <Scan className="h-5 w-5 mr-2" />
-                  Start Scanning Free
-                </Button>
-              </Link>
-              <Link to="/pricing">
-                <Button size="lg" variant="outline" className="text-lg px-8 py-6 rounded-xl">
-                  View Pricing
-                </Button>
-              </Link>
-            </div>
-
-            {/* Quick Stats */}
-            <div className="flex flex-wrap items-center justify-center gap-8 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-primary" />
-                <span><strong>50,000+</strong> Products</span>
+            <div className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-card/30 backdrop-blur-xl px-4 py-2 text-sm">
+              <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/20">
+                <Shield className="h-3 w-3 text-primary" />
               </div>
-              <div className="flex items-center gap-2">
-                <Search className="h-4 w-4 text-primary" />
-                <span><strong>10,000+</strong> Rx Meds</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-primary" />
-                <span><strong>Scholar</strong> Reviewed</span>
-              </div>
+              <span className="text-muted-foreground">Trusted by <span className="text-foreground font-medium">10,000+</span> Muslims worldwide</span>
             </div>
           </motion.div>
 
-          {/* Demo Preview */}
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
+          {/* Main Headline */}
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="mt-16"
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-6"
           >
-            <div className="relative mx-auto max-w-md">
-              {/* Phone mockup */}
-              <div className="rounded-3xl border-4 border-foreground/10 bg-card p-4 shadow-2xl">
-                <div className="rounded-2xl bg-muted/50 p-6 space-y-4">
-                  {/* Status badge preview */}
-                  <div className="flex justify-center">
-                    <StatusBadge status="halal" size="xl" animate />
-                  </div>
-                  
-                  {/* Product info */}
-                  <div className="text-center space-y-1">
-                    <h3 className="font-semibold text-lg">Tylenol Extra Strength</h3>
-                    <p className="text-sm text-muted-foreground">500mg Acetaminophen</p>
-                  </div>
+            Know Your Meds.
+            <br />
+            <span className="bg-gradient-to-r from-primary via-primary to-accent bg-clip-text text-transparent">
+              Stay Halal.
+            </span>
+          </motion.h1>
 
-                  {/* Confidence */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">Confidence</span>
-                      <span className="font-medium text-status-halal">95%</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full w-[95%] rounded-full bg-status-halal" />
-                    </div>
-                  </div>
+          {/* Subheadline */}
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-lg md:text-xl text-muted-foreground mb-10 max-w-xl mx-auto"
+          >
+            Instantly verify halal status of medications. Scan barcodes or search by name.
+          </motion.p>
 
-                  {/* Quick ingredients */}
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    <span className="text-xs px-2 py-1 rounded-full bg-status-halal-bg text-status-halal">✓ Acetaminophen</span>
-                    <span className="text-xs px-2 py-1 rounded-full bg-status-halal-bg text-status-halal">✓ Cellulose</span>
-                    <span className="text-xs px-2 py-1 rounded-full bg-status-halal-bg text-status-halal">✓ Starch</span>
-                  </div>
-                </div>
-              </div>
+          {/* Interactive Search Input */}
+          <HeroSearchInput />
 
-              {/* Decorative elements */}
-              <div className="absolute -top-6 -right-6 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
-              <div className="absolute -bottom-6 -left-6 h-32 w-32 rounded-full bg-accent/10 blur-2xl" />
+          {/* Social Proof Stats */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+            className="flex flex-wrap items-center justify-center gap-6 md:gap-10 mt-12 pt-12 border-t border-border/30"
+          >
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Zap className="h-4 w-4 text-primary" />
+              <span className="text-sm"><span className="text-foreground font-semibold">50,000+</span> Products</span>
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Search className="h-4 w-4 text-primary" />
+              <span className="text-sm"><span className="text-foreground font-semibold">10,000+</span> Rx Meds</span>
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Shield className="h-4 w-4 text-primary" />
+              <span className="text-sm"><span className="text-foreground font-semibold">Scholar</span> Reviewed</span>
             </div>
           </motion.div>
         </div>
