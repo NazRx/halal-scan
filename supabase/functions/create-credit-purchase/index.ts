@@ -7,11 +7,31 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Ramadan date detection (server-side)
+function isRamadan(): boolean {
+  const RAMADAN_DATES = [
+    { start: new Date('2025-02-28'), end: new Date('2025-03-29') },
+    { start: new Date('2026-02-17'), end: new Date('2026-03-18') },
+    { start: new Date('2027-02-07'), end: new Date('2027-03-08') },
+  ];
+  
+  const today = new Date();
+  for (const period of RAMADAN_DATES) {
+    if (today >= period.start && today <= period.end) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Scan credit pack configurations
-// These will be created as Stripe products/prices on first use
 const CREDIT_PACKS: Record<number, { price: number; description: string }> = {
+  // Normal packs
   25: { price: 299, description: '25 Rx Scan Credits' },
   100: { price: 699, description: '100 Rx Scan Credits' },
+  // Ramadan packs
+  50: { price: 299, description: '50 Rx Scan Credits (Ramadan Pack)' },
+  200: { price: 699, description: '200 Rx Scan Credits (Family Pack)' },
 };
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
@@ -40,7 +60,8 @@ serve(async (req) => {
     }
 
     const pack = CREDIT_PACKS[credits];
-    logStep("Credit pack selected", { credits, price: pack.price });
+    const ramadanActive = isRamadan();
+    logStep("Credit pack selected", { credits, price: pack.price, ramadanActive });
 
     const authHeader = req.headers.get("Authorization")!;
     const token = authHeader.replace("Bearer ", "");
@@ -86,6 +107,7 @@ serve(async (req) => {
         user_id: user.id,
         credits: credits.toString(),
         type: 'scan_credits',
+        is_ramadan: ramadanActive ? 'true' : 'false',
       },
     });
 

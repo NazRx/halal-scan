@@ -7,11 +7,34 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Ramadan date detection (server-side)
+function isRamadan(): boolean {
+  const RAMADAN_DATES = [
+    { start: new Date('2025-02-28'), end: new Date('2025-03-29') },
+    { start: new Date('2026-02-17'), end: new Date('2026-03-18') },
+    { start: new Date('2027-02-07'), end: new Date('2027-03-08') },
+  ];
+  
+  const today = new Date();
+  for (const period of RAMADAN_DATES) {
+    if (today >= period.start && today <= period.end) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Price IDs for subscription plans
 const PRICE_IDS = {
+  // Normal pricing
   pro_monthly: "price_1RlS6oKmYDfGMDbI9cO2K0nk",    // HalalRx Pro - $4.99/month
   pro_yearly: "price_1Rq6HuKmYDfGMDbIWJH3Ykza",     // HalalRx Pro Yearly - $39/year
   clinic: "price_1RlS3HKmYDfGMDbIaUbQLqY3",         // HalalRx Clinic - $49/month
+  
+  // Ramadan pricing (to be created in Stripe dashboard)
+  // Using normal prices as fallback until Ramadan-specific prices are created
+  ramadan_pro_monthly: "price_1RlS6oKmYDfGMDbI9cO2K0nk", // Should be $2.99/month
+  ramadan_pro_yearly: "price_1Rq6HuKmYDfGMDbIWJH3Ykza",  // Should be $29/year
 };
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
@@ -32,19 +55,25 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    // Get plan and billing period from request body
-    const { plan = 'pro', yearly = false } = await req.json().catch(() => ({}));
+    // Get plan, billing period, and Ramadan flag from request body
+    const { plan = 'pro', yearly = false, isRamadanOffer = false } = await req.json().catch(() => ({}));
+    
+    const ramadanActive = isRamadan();
+    logStep("Ramadan check", { ramadanActive, isRamadanOffer });
     
     let priceId: string;
     if (plan === 'clinic') {
       priceId = PRICE_IDS.clinic;
+    } else if (ramadanActive && isRamadanOffer) {
+      // Use Ramadan-specific pricing
+      priceId = yearly ? PRICE_IDS.ramadan_pro_yearly : PRICE_IDS.ramadan_pro_monthly;
     } else if (yearly) {
       priceId = PRICE_IDS.pro_yearly;
     } else {
       priceId = PRICE_IDS.pro_monthly;
     }
     
-    logStep("Plan selected", { plan, yearly, priceId });
+    logStep("Plan selected", { plan, yearly, isRamadanOffer, priceId });
 
     const authHeader = req.headers.get("Authorization")!;
     const token = authHeader.replace("Bearer ", "");
@@ -81,6 +110,9 @@ serve(async (req) => {
       cancel_url: `${origin}/pricing?subscription=canceled`,
       subscription_data: {
         trial_period_days: 7,
+        metadata: {
+          is_ramadan_offer: ramadanActive && isRamadanOffer ? 'true' : 'false',
+        },
       },
       allow_promotion_codes: true,
     });
