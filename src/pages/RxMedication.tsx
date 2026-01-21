@@ -295,9 +295,11 @@ const RxMedication = () => {
           if (!a.isPromoted && b.isPromoted) return 1;
         }
         
-        // 2. By confidence score descending
-        if (a.confidence !== b.confidence) {
-          return b.confidence - a.confidence;
+        // 2. By confidence score descending (null-safe)
+        const aConf = a.confidence ?? 0;
+        const bConf = b.confidence ?? 0;
+        if (aConf !== bConf) {
+          return bConf - aConf;
         }
         
         // 3. By status rank ascending (halal=1, questionable=3, unknown=4, not-halal=5)
