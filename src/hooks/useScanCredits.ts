@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
-
-const FREE_RX_SCAN_LIMIT = 10;
+import { useRamadan } from '@/hooks/useRamadan';
 
 interface ScanCreditsState {
   rxScansUsed: number;
@@ -15,6 +14,11 @@ interface ScanCreditsState {
 export function useScanCredits() {
   const { user } = useAuth();
   const { isPro } = useSubscription();
+  const { pricing, isRamadan, isFirstWeek } = useRamadan();
+  
+  // Use Ramadan limit (20) during Ramadan, otherwise normal (10)
+  const FREE_RX_SCAN_LIMIT = pricing.FREE_RX_SCAN_LIMIT;
+  
   const [state, setState] = useState<ScanCreditsState>({
     rxScansUsed: 0,
     purchasedCredits: 0,
@@ -129,5 +133,7 @@ export function useScanCredits() {
     addCredits,
     refresh: fetchCredits,
     FREE_RX_SCAN_LIMIT,
+    isRamadan,
+    isFirstWeekNoAds: isRamadan && isFirstWeek,
   };
 }

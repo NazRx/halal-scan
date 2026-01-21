@@ -4,125 +4,147 @@ import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { Check, Shield, Sparkles, Users, Loader2, CreditCard } from "lucide-react";
+import { Check, Shield, Sparkles, Users, Loader2, CreditCard, Moon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useScanCredits } from "@/hooks/useScanCredits";
+import { useRamadan } from "@/hooks/useRamadan";
 import { toast } from "sonner";
-
-const plans = [
-  {
-    id: "free",
-    name: "Explore",
-    subtitle: "Free",
-    price: "$0",
-    period: "forever",
-    description: "Try it safely. No commitment.",
-    features: [
-      "Unlimited OTC scans",
-      "10 lifetime Rx scans",
-      "Clear halal status (Halal / Not Halal / Unclear)",
-      "Ingredient list (basic)",
-      "Community explanations",
-    ],
-    limits: [
-      "No manufacturer comparison",
-      "No exports",
-      "Ads appear after scan #5",
-    ],
-    cta: "Start Free",
-    popular: false,
-    icon: Shield,
-    color: "text-emerald-600",
-    bgColor: "bg-emerald-50",
-  },
-  {
-    id: "pro",
-    name: "Protect",
-    subtitle: "Pro",
-    price: "$4.99",
-    yearlyPrice: "$39",
-    period: "per month",
-    yearlyPeriod: "per year",
-    yearlySavings: "Save 35%",
-    description: "For Muslims who rely on medications and want certainty.",
-    features: [
-      "Everything in Free, plus:",
-      "Unlimited OTC + Rx scans",
-      "Manufacturer-level comparison",
-      "Ingredient rulings with sources",
-      "Confidence score with explanation",
-      "Export & share reports (PDF)",
-      "No ads",
-      "Priority support",
-    ],
-    limits: [],
-    cta: "Start Free Trial",
-    popular: true,
-    icon: Sparkles,
-    color: "text-primary",
-    bgColor: "bg-primary/10",
-    trialDays: 7,
-  },
-  {
-    id: "clinic",
-    name: "Professional",
-    subtitle: "Clinic",
-    price: "From $49",
-    period: "per month",
-    description: "For pharmacists, clinics, and healthcare teams.",
-    features: [
-      "Everything in Protect, plus:",
-      "Multi-user access",
-      "Bulk lookups",
-      "Exportable patient-friendly reports",
-      "Optional API access",
-      "Custom branding (Pro tier)",
-      "Dedicated support",
-    ],
-    limits: [],
-    compliance: "HIPAA-aware workflows — no patient identifiers stored.",
-    cta: "Request Access",
-    popular: false,
-    icon: Users,
-    color: "text-blue-600",
-    bgColor: "bg-blue-50",
-  },
-];
-
-const scanPacks = [
-  { credits: 25, price: "$2.99" },
-  { credits: 100, price: "$6.99" },
-];
-
-const faqs = [
-  {
-    question: "Can I cancel anytime?",
-    answer: "Yes, you can cancel your subscription at any time. You'll continue to have access until the end of your billing period.",
-  },
-  {
-    question: "Is there a free trial?",
-    answer: "Yes! Protect plan includes a 7-day free trial. No credit card required to start.",
-  },
-  {
-    question: "What are scan credits?",
-    answer: "Scan credits let you check Rx medications without a subscription. Credits never expire and can be used anytime.",
-  },
-  {
-    question: "How is halal status determined?",
-    answer: "Our pharmacist team reviews each ingredient against established Islamic rulings. We respect the principle of necessity (darura) and provide clear confidence levels.",
-  },
-];
 
 const Pricing = () => {
   const navigate = useNavigate();
   const { isAuthenticated, session } = useAuth();
   const { tier, isPro, isClinic } = useSubscription();
   const { freeScansRemaining, purchasedCredits, FREE_RX_SCAN_LIMIT } = useScanCredits();
+  const { isRamadan, pricing, dayOfRamadan } = useRamadan();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+
+  // Dynamic plans based on Ramadan status
+  const plans = [
+    {
+      id: "free",
+      name: isRamadan ? "Explore+" : "Explore",
+      subtitle: isRamadan ? "Ramadan Boost" : "Free",
+      price: "$0",
+      period: "forever",
+      description: isRamadan 
+        ? "A month of clarity and intention." 
+        : "Try it safely. No commitment.",
+      features: [
+        "Unlimited OTC scans",
+        `${FREE_RX_SCAN_LIMIT} lifetime Rx scans`,
+        "Clear halal status (Halal / Not Halal / Unclear)",
+        "Ingredient list (basic)",
+        "Community explanations",
+        ...(isRamadan ? ["No ads for first 7 days"] : []),
+      ],
+      limits: isRamadan ? [
+        "No manufacturer comparison",
+        "No exports",
+      ] : [
+        "No manufacturer comparison",
+        "No exports",
+        "Ads appear after scan #5",
+      ],
+      cta: "Start Free",
+      popular: false,
+      icon: isRamadan ? Moon : Shield,
+      color: isRamadan ? "text-amber-600" : "text-emerald-600",
+      bgColor: isRamadan ? "bg-amber-50" : "bg-emerald-50",
+    },
+    {
+      id: "pro",
+      name: isRamadan ? "Ramadan Protect" : "Protect",
+      subtitle: "Pro",
+      price: isRamadan ? "$2.99" : "$4.99",
+      yearlyPrice: isRamadan ? "$29" : "$39",
+      period: "per month",
+      yearlyPeriod: "per year",
+      yearlySavings: isRamadan ? "Save 50%" : "Save 35%",
+      description: isRamadan 
+        ? "One month free of doubt."
+        : "For Muslims who rely on medications and want certainty.",
+      features: [
+        "Everything in Free, plus:",
+        "Unlimited OTC + Rx scans",
+        "Manufacturer-level comparison",
+        "Ingredient rulings with sources",
+        "Confidence score with explanation",
+        "Export & share reports (PDF)",
+        "No ads",
+        "Priority support",
+      ],
+      limits: [],
+      cta: isRamadan ? "Ramadan Offer — Start for $2.99" : "Start Free Trial",
+      popular: true,
+      icon: Sparkles,
+      color: "text-primary",
+      bgColor: "bg-primary/10",
+      trialDays: 7,
+    },
+    {
+      id: "clinic",
+      name: "Professional",
+      subtitle: "Clinic",
+      price: "From $49",
+      period: "per month",
+      description: "For pharmacists, clinics, and healthcare teams.",
+      features: [
+        "Everything in Protect, plus:",
+        "Multi-user access",
+        "Bulk lookups",
+        "Exportable patient-friendly reports",
+        "Optional API access",
+        "Custom branding (Pro tier)",
+        "Dedicated support",
+        ...(isRamadan ? ["Ramadan Health Awareness badge", "Priority onboarding"] : []),
+      ],
+      limits: [],
+      compliance: "HIPAA-aware workflows — no patient identifiers stored.",
+      cta: "Request Access",
+      popular: false,
+      icon: Users,
+      color: "text-blue-600",
+      bgColor: "bg-blue-50",
+    },
+  ];
+
+  // Dynamic scan packs based on Ramadan
+  const scanPacks = isRamadan 
+    ? [
+        { credits: 50, price: "$2.99", label: "Ramadan Pack" },
+        { credits: 200, price: "$6.99", label: "Family Pack" },
+      ]
+    : [
+        { credits: 25, price: "$2.99" },
+        { credits: 100, price: "$6.99" },
+      ];
+
+  const faqs = [
+    {
+      question: "Can I cancel anytime?",
+      answer: "Yes, you can cancel your subscription at any time. You'll continue to have access until the end of your billing period.",
+    },
+    {
+      question: "Is there a free trial?",
+      answer: "Yes! Protect plan includes a 7-day free trial. No credit card required to start.",
+    },
+    {
+      question: "What are scan credits?",
+      answer: "Scan credits let you check Rx medications without a subscription. Credits never expire and can be used anytime.",
+    },
+    {
+      question: "How is halal status determined?",
+      answer: "Our pharmacist team reviews each ingredient against established Islamic rulings. We respect the principle of necessity (darura) and provide clear confidence levels.",
+    },
+    ...(isRamadan ? [{
+      question: "How long does the Ramadan offer last?",
+      answer: "Ramadan pricing is available throughout the blessed month. Subscribe anytime during Ramadan to lock in the special rates.",
+    }] : []),
+  ];
 
   const handleSubscribe = async (planId: string, yearly = false) => {
     if (!isAuthenticated) {
@@ -148,7 +170,7 @@ const Pricing = () => {
     setLoadingAction(`subscribe-${planId}-${yearly ? 'yearly' : 'monthly'}`);
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { plan: planId, yearly },
+        body: { plan: planId, yearly, isRamadanOffer: isRamadan },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
         },
@@ -211,6 +233,28 @@ const Pricing = () => {
       
       <main className="flex-1 py-16">
         <div className="container px-4">
+          {/* Ramadan Banner */}
+          {isRamadan && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-3xl mx-auto mb-8"
+            >
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-center">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Moon className="h-5 w-5 text-amber-600" />
+                  <span className="font-semibold text-amber-800 dark:text-amber-200">
+                    Ramadan Mubarak
+                  </span>
+                  <Moon className="h-5 w-5 text-amber-600" />
+                </div>
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  Additional Rx scans unlocked to help you make informed, halal-conscious decisions this month.
+                </p>
+              </div>
+            </motion.div>
+          )}
+
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -253,8 +297,12 @@ const Pricing = () => {
                 onClick={() => setBillingPeriod('yearly')}
               >
                 Yearly
-                <span className="text-xs bg-status-halal-bg text-status-halal px-2 py-0.5 rounded-full">
-                  Save 35%
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  isRamadan 
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200'
+                    : 'bg-status-halal-bg text-status-halal'
+                }`}>
+                  {isRamadan ? 'Save 50%' : 'Save 35%'}
                 </span>
               </button>
             </div>
@@ -278,12 +326,18 @@ const Pricing = () => {
                 >
                   <Card className={`p-6 h-full flex flex-col ${
                     plan.popular
-                      ? "border-primary shadow-xl shadow-primary/10 bg-gradient-to-b from-primary/5 to-transparent"
+                      ? isRamadan
+                        ? "border-amber-400 shadow-xl shadow-amber-500/10 bg-gradient-to-b from-amber-50 to-transparent dark:from-amber-950/20"
+                        : "border-primary shadow-xl shadow-primary/10 bg-gradient-to-b from-primary/5 to-transparent"
                       : ""
                   } ${isCurrentPlan ? "ring-2 ring-primary" : ""}`}>
                     {plan.popular && !isCurrentPlan && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full gradient-hero text-primary-foreground text-xs font-medium">
-                        Most Popular
+                      <div className={`absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-medium ${
+                        isRamadan 
+                          ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'
+                          : 'gradient-hero text-primary-foreground'
+                      }`}>
+                        {isRamadan ? '🌙 Ramadan Special' : 'Most Popular'}
                       </div>
                     )}
                     {isCurrentPlan && (
@@ -351,7 +405,9 @@ const Pricing = () => {
                     <Button
                       className={`w-full ${
                         plan.popular
-                          ? "gradient-hero text-primary-foreground hover:opacity-90"
+                          ? isRamadan
+                            ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+                            : "gradient-hero text-primary-foreground hover:opacity-90"
                           : ""
                       }`}
                       variant={plan.popular ? "default" : "outline"}
@@ -365,7 +421,10 @@ const Pricing = () => {
                     
                     {plan.trialDays && !isCurrentPlan && (
                       <p className="text-xs text-center text-muted-foreground mt-2">
-                        🎁 {plan.trialDays}-day free trial — no credit card
+                        {isRamadan 
+                          ? 'Cancel anytime · No guilt · No pressure'
+                          : `🎁 ${plan.trialDays}-day free trial — no credit card`
+                        }
                       </p>
                     )}
                     
@@ -387,13 +446,19 @@ const Pricing = () => {
             viewport={{ once: true }}
             className="max-w-md mx-auto mb-16"
           >
-            <Card className="p-6 bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 border-violet-200 dark:border-violet-800">
+            <Card className={`p-6 ${
+              isRamadan 
+                ? 'bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200 dark:border-amber-800'
+                : 'bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 border-violet-200 dark:border-violet-800'
+            }`}>
               <div className="flex items-center gap-2 mb-4">
-                <div className="p-2 rounded-lg bg-violet-100 dark:bg-violet-900">
-                  <CreditCard className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                <div className={`p-2 rounded-lg ${isRamadan ? 'bg-amber-100 dark:bg-amber-900' : 'bg-violet-100 dark:bg-violet-900'}`}>
+                  <CreditCard className={`h-5 w-5 ${isRamadan ? 'text-amber-600 dark:text-amber-400' : 'text-violet-600 dark:text-violet-400'}`} />
                 </div>
                 <div>
-                  <h3 className="font-bold">One-Time Scan Packs</h3>
+                  <h3 className="font-bold">
+                    {isRamadan ? 'Ramadan Scan Packs' : 'One-Time Scan Packs'}
+                  </h3>
                   <p className="text-sm text-muted-foreground">No subscription required</p>
                 </div>
               </div>
@@ -403,7 +468,11 @@ const Pricing = () => {
                   <Button
                     key={pack.credits}
                     variant="outline"
-                    className="flex flex-col h-auto py-3 bg-background hover:bg-violet-50 dark:hover:bg-violet-950"
+                    className={`flex flex-col h-auto py-3 bg-background ${
+                      isRamadan 
+                        ? 'hover:bg-amber-50 dark:hover:bg-amber-950'
+                        : 'hover:bg-violet-50 dark:hover:bg-violet-950'
+                    }`}
                     onClick={() => handleBuyCredits(pack.credits)}
                     disabled={loadingAction?.startsWith('credits')}
                   >
@@ -412,12 +481,18 @@ const Pricing = () => {
                     )}
                     <span className="font-semibold">{pack.credits} Scans</span>
                     <span className="text-sm text-muted-foreground">{pack.price}</span>
+                    {'label' in pack && (
+                      <span className="text-xs text-amber-600 dark:text-amber-400">{pack.label}</span>
+                    )}
                   </Button>
                 ))}
               </div>
               
               <p className="text-xs text-center text-muted-foreground">
-                Credits never expire • Use anytime
+                {isRamadan 
+                  ? 'No subscription. Use anytime. Even after Ramadan.'
+                  : 'Credits never expire • Use anytime'
+                }
               </p>
             </Card>
           </motion.div>
@@ -432,6 +507,11 @@ const Pricing = () => {
             <p className="text-sm text-muted-foreground">
               Designed by a PharmD · Islamic necessity (darura) respected
             </p>
+            {isRamadan && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                Supporting this app helps maintain an independent, ad-free halal medication database.
+              </p>
+            )}
           </motion.div>
 
           {/* FAQs */}
