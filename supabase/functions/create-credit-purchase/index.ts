@@ -7,16 +7,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Price IDs for subscription plans
-const PRICE_IDS = {
-  pro_monthly: "price_1RlS6oKmYDfGMDbI9cO2K0nk",    // HalalRx Pro - $4.99/month
-  pro_yearly: "price_1Rq6HuKmYDfGMDbIWJH3Ykza",     // HalalRx Pro Yearly - $39/year
-  clinic: "price_1RlS3HKmYDfGMDbIaUbQLqY3",         // HalalRx Clinic - $49/month
+// Scan credit pack configurations
+// These will be created as Stripe products/prices on first use
+const CREDIT_PACKS: Record<number, { price: number; description: string }> = {
+  25: { price: 299, description: '25 Rx Scan Credits' },
+  100: { price: 699, description: '100 Rx Scan Credits' },
 };
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[CREATE-CHECKOUT] ${step}${detailsStr}`);
+  console.log(`[CREATE-CREDIT-PURCHASE] ${step}${detailsStr}`);
 };
 
 serve(async (req) => {
@@ -32,19 +32,15 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    // Get plan and billing period from request body
-    const { plan = 'pro', yearly = false } = await req.json().catch(() => ({}));
+    // Get credits amount from request body
+    const { credits = 25 } = await req.json().catch(() => ({}));
     
-    let priceId: string;
-    if (plan === 'clinic') {
-      priceId = PRICE_IDS.clinic;
-    } else if (yearly) {
-      priceId = PRICE_IDS.pro_yearly;
-    } else {
-      priceId = PRICE_IDS.pro_monthly;
+    if (!CREDIT_PACKS[credits]) {
+      throw new Error(`Invalid credit pack: ${credits}. Available: ${Object.keys(CREDIT_PACKS).join(', ')}`);
     }
-    
-    logStep("Plan selected", { plan, yearly, priceId });
+
+    const pack = CREDIT_PACKS[credits];
+    logStep("Credit pack selected", { credits, price: pack.price });
 
     const authHeader = req.headers.get("Authorization")!;
     const token = authHeader.replace("Bearer ", "");
@@ -65,24 +61,32 @@ serve(async (req) => {
       logStep("Existing customer found", { customerId });
     }
 
-    // Create checkout session
+    // Create checkout session with price_data (one-time payment)
     const origin = req.headers.get("origin") || "http://localhost:3000";
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
       line_items: [
         {
-          price: priceId,
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: pack.description,
+              description: `${credits} Rx scan credits for HalalRx. Credits never expire.`,
+            },
+            unit_amount: pack.price,
+          },
           quantity: 1,
         },
       ],
-      mode: "subscription",
-      success_url: `${origin}/app?subscription=success`,
-      cancel_url: `${origin}/pricing?subscription=canceled`,
-      subscription_data: {
-        trial_period_days: 7,
+      mode: "payment",
+      success_url: `${origin}/app?credits_purchased=${credits}`,
+      cancel_url: `${origin}/pricing?purchase=canceled`,
+      metadata: {
+        user_id: user.id,
+        credits: credits.toString(),
+        type: 'scan_credits',
       },
-      allow_promotion_codes: true,
     });
 
     logStep("Checkout session created", { sessionId: session.id, url: session.url });
@@ -93,7 +97,7 @@ serve(async (req) => {
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR in create-checkout", { message: errorMessage });
+    logStep("ERROR in create-credit-purchase", { message: errorMessage });
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
