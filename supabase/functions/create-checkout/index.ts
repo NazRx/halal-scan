@@ -9,9 +9,8 @@ const corsHeaders = {
 
 // Price IDs for subscription plans
 const PRICE_IDS = {
-  pro_monthly: "price_1RlS6oKmYDfGMDbI9cO2K0nk",    // HalalRx Pro - $4.99/month
-  pro_yearly: "price_1Rq6HuKmYDfGMDbIWJH3Ykza",     // HalalRx Pro Yearly - $39/year
-  clinic: "price_1RlS3HKmYDfGMDbIaUbQLqY3",         // HalalRx Clinic - $49/month
+  pro: "price_1RlS6oKmYDfGMDbI9cO2K0nk",       // HalalRx Pro - $4.99/month
+  clinic: "price_1RlS3HKmYDfGMDbIaUbQLqY3",   // HalalRx Clinic - $29.99/month
 };
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
@@ -32,19 +31,10 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    // Get plan and billing period from request body
-    const { plan = 'pro', yearly = false } = await req.json().catch(() => ({}));
-    
-    let priceId: string;
-    if (plan === 'clinic') {
-      priceId = PRICE_IDS.clinic;
-    } else if (yearly) {
-      priceId = PRICE_IDS.pro_yearly;
-    } else {
-      priceId = PRICE_IDS.pro_monthly;
-    }
-    
-    logStep("Plan selected", { plan, yearly, priceId });
+    // Get plan from request body
+    const { plan = 'pro' } = await req.json().catch(() => ({}));
+    const priceId = PRICE_IDS[plan as keyof typeof PRICE_IDS] || PRICE_IDS.pro;
+    logStep("Plan selected", { plan, priceId });
 
     const authHeader = req.headers.get("Authorization")!;
     const token = authHeader.replace("Bearer ", "");

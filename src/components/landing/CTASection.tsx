@@ -20,16 +20,16 @@ export function CTASection() {
           <div className="relative">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/20 backdrop-blur px-4 py-1.5 text-sm text-primary-foreground mb-6">
               <Shield className="h-4 w-4" />
-              <span>Designed by a PharmD</span>
+              <span>Start your free trial today</span>
             </div>
 
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-primary-foreground mb-6">
-              Know What You're Taking.<br />With Confidence.
+              Ready to Make Informed<br />Medication Choices?
             </h2>
 
             <p className="text-lg text-primary-foreground/80 mb-8 max-w-2xl mx-auto">
               Join thousands of Muslims who trust HalalRx to help them stay halal. 
-              Start free — no credit card required.
+              No credit card required to start.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
