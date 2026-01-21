@@ -33,12 +33,12 @@ export function HeroSearchInput() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
-      navigate(`/rx-search?q=${encodeURIComponent(query.trim())}`);
+      navigate(`/rx/search?q=${encodeURIComponent(query.trim())}`);
     }
   };
 
   const handleScan = () => {
-    navigate("/otc-scan");
+    navigate("/otc/scan");
   };
 
   return (
@@ -92,13 +92,13 @@ export function HeroSearchInput() {
       {/* Quick action pills */}
       <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
         <button
-          onClick={() => navigate("/otc-scan")}
+          onClick={() => navigate("/otc/scan")}
           className="px-4 py-2 rounded-full border bg-card/50 hover:bg-card hover:border-primary/50 text-sm transition-all"
         >
           📦 Scan OTC
         </button>
         <button
-          onClick={() => navigate("/rx-search")}
+          onClick={() => navigate("/rx/search")}
           className="px-4 py-2 rounded-full border bg-card/50 hover:bg-card hover:border-primary/50 text-sm transition-all"
         >
           💊 Search Rx
