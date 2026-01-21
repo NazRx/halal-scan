@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import AppHome from "./pages/AppHome";
 import OTCScan from "./pages/OTCScan";
 import OTCProduct from "./pages/OTCProduct";
+import OtcBrowse from "./pages/OtcBrowse";
 import RxSearch from "./pages/RxSearch";
 import RxMedication from "./pages/RxMedication";
 import Browse from "./pages/Browse";
@@ -44,6 +45,7 @@ const App = () => (
           <Route path="/app" element={<AppHome />} />
           <Route path="/browse" element={<Browse />} />
           <Route path="/otc/scan" element={<OTCScan />} />
+          <Route path="/otc/browse" element={<OtcBrowse />} />
           <Route path="/otc/product/:id" element={<OTCProduct />} />
           <Route path="/rx/search" element={<RxSearch />} />
           <Route path="/rx/med/:id" element={<RxMedication />} />

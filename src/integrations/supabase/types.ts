@@ -270,37 +270,93 @@ export type Database = {
         Row: {
           brand: string | null
           category: string | null
+          combo_ingredients: string[] | null
+          common_uses: string | null
           created_at: string
+          display_name: string | null
+          generic_name: string | null
           id: string
+          is_combo: boolean | null
+          is_vitamin: boolean | null
           manufacturer: string | null
           name: string
           notes: string | null
+          primary_category: string | null
+          search_terms: string[] | null
           upc: string | null
           updated_at: string
         }
         Insert: {
           brand?: string | null
           category?: string | null
+          combo_ingredients?: string[] | null
+          common_uses?: string | null
           created_at?: string
+          display_name?: string | null
+          generic_name?: string | null
           id?: string
+          is_combo?: boolean | null
+          is_vitamin?: boolean | null
           manufacturer?: string | null
           name: string
           notes?: string | null
+          primary_category?: string | null
+          search_terms?: string[] | null
           upc?: string | null
           updated_at?: string
         }
         Update: {
           brand?: string | null
           category?: string | null
+          combo_ingredients?: string[] | null
+          common_uses?: string | null
           created_at?: string
+          display_name?: string | null
+          generic_name?: string | null
           id?: string
+          is_combo?: boolean | null
+          is_vitamin?: boolean | null
           manufacturer?: string | null
           name?: string
           notes?: string | null
+          primary_category?: string | null
+          search_terms?: string[] | null
           upc?: string | null
           updated_at?: string
         }
         Relationships: []
+      }
+      otc_synonyms: {
+        Row: {
+          created_at: string | null
+          id: string
+          otc_product_id: string
+          synonym: string
+          synonym_type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          otc_product_id: string
+          synonym: string
+          synonym_type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          otc_product_id?: string
+          synonym?: string
+          synonym_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "otc_synonyms_otc_product_id_fkey"
+            columns: ["otc_product_id"]
+            isOneToOne: false
+            referencedRelation: "otc_products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       otc_verdicts: {
         Row: {
