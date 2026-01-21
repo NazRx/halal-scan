@@ -5,28 +5,28 @@ const steps = [
   {
     icon: Scan,
     title: "Scan or Search",
-    description: "Scan the barcode of any OTC product or search for prescription medications by name.",
+    description: "Scan any OTC barcode or search Rx by name.",
   },
   {
     icon: Search,
-    title: "Analyze Ingredients",
-    description: "Our database cross-references every ingredient against halal certification standards.",
+    title: "Analyze",
+    description: "Cross-reference against halal standards.",
   },
   {
     icon: CheckCircle,
-    title: "Get Your Verdict",
-    description: "See a clear Halal, Questionable, or Not Halal status with confidence levels.",
+    title: "Get Verdict",
+    description: "Clear Halal, Questionable, or Not Halal status.",
   },
   {
     icon: FileText,
     title: "View Report",
-    description: "Access detailed ingredient breakdowns, sources, and shareable reports.",
+    description: "Detailed breakdown with sources.",
   },
 ];
 
 export function HowItWorksSection() {
   return (
-    <section className="py-20 bg-muted/30">
+    <section className="py-24 relative">
       <div className="container px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -34,42 +34,50 @@ export function HowItWorksSection() {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">How It Works</h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Get instant halal status checks for your medications in just a few seconds.
+          <span className="inline-block px-4 py-1.5 rounded-full text-xs font-medium bg-primary/10 text-primary mb-4">
+            How It Works
+          </span>
+          <h2 className="text-4xl md:text-5xl font-bold mb-4">
+            Simple & Fast
+          </h2>
+          <p className="text-muted-foreground max-w-xl mx-auto text-lg">
+            Get instant halal status checks in just a few seconds.
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {steps.map((step, index) => (
-            <motion.div
-              key={step.title}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
-              className="relative"
-            >
-              {/* Connector line */}
-              {index < steps.length - 1 && (
-                <div className="hidden lg:block absolute top-8 left-1/2 w-full h-0.5 bg-border" />
-              )}
-              
-              <div className="relative bg-card rounded-2xl p-6 border shadow-sm hover:shadow-md transition-shadow">
-                {/* Step number */}
-                <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full gradient-hero flex items-center justify-center text-primary-foreground font-bold text-sm">
-                  {index + 1}
+        {/* Horizontal Timeline */}
+        <div className="relative max-w-4xl mx-auto">
+          {/* Connection Line */}
+          <div className="hidden md:block absolute top-12 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-border to-transparent" />
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-4">
+            {steps.map((step, index) => (
+              <motion.div
+                key={step.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                className="relative flex flex-col items-center text-center"
+              >
+                {/* Step Number + Icon Container */}
+                <div className="relative mb-4">
+                  <div className="w-24 h-24 rounded-2xl bg-card border border-border/50 flex items-center justify-center shadow-lg">
+                    <step.icon className="h-10 w-10 text-primary" />
+                  </div>
+                  {/* Step Number Badge */}
+                  <div className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-bold text-sm shadow-lg">
+                    {index + 1}
+                  </div>
                 </div>
 
-                <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-                  <step.icon className="h-7 w-7 text-primary" />
-                </div>
-
-                <h3 className="font-semibold text-lg mb-2">{step.title}</h3>
-                <p className="text-sm text-muted-foreground">{step.description}</p>
-              </div>
-            </motion.div>
-          ))}
+                <h3 className="font-semibold text-base mb-1">{step.title}</h3>
+                <p className="text-sm text-muted-foreground max-w-[160px]">
+                  {step.description}
+                </p>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
