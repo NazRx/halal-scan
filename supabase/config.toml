@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.scheduled-hydrate]
 verify_jwt = false
+
+[functions.seed-otc-products]
+verify_jwt = false

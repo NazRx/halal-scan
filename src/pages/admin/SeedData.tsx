@@ -8,7 +8,8 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Play, Pause, RefreshCw, CheckCircle, XCircle, Loader2, Pill, AlertTriangle, FileText, Link2, Plus, Database } from 'lucide-react';
+import { ArrowLeft, Play, Pause, RefreshCw, CheckCircle, XCircle, Loader2, Pill, AlertTriangle, FileText, Link2, Plus, Database, Package } from 'lucide-react';
+import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 
 interface DrugSummary {
@@ -51,6 +52,12 @@ interface FDAEnrichmentStats {
   recallsFound: number;
 }
 
+interface OtcSeedResult {
+  productsUpserted: number;
+  synonymsInserted: number;
+  errors: string[];
+}
+
 export default function SeedData() {
   const [drugs, setDrugs] = useState<DrugSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -65,6 +72,8 @@ export default function SeedData() {
   const [activeTab, setActiveTab] = useState('manufacturers');
   const [isExpandingList, setIsExpandingList] = useState(false);
   const [expandResult, setExpandResult] = useState<ExpandResult | null>(null);
+  const [isSeedingOtc, setIsSeedingOtc] = useState(false);
+  const [otcSeedResult, setOtcSeedResult] = useState<OtcSeedResult | null>(null);
 
   const addLog = (message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
     setLogs(prev => [...prev, { timestamp: new Date(), message, type }]);
@@ -406,6 +415,37 @@ export default function SeedData() {
     }
   };
 
+  const seedOtcProducts = async () => {
+    setIsSeedingOtc(true);
+    setOtcSeedResult(null);
+    addLog('Seeding OTC products...', 'info');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('seed-otc-products', {
+        body: {}
+      });
+
+      if (error) throw error;
+
+      setOtcSeedResult(data);
+      addLog(`OTC seeding complete: ${data.productsUpserted} products, ${data.synonymsInserted} synonyms`, 'success');
+      
+      if (data.errors?.length > 0) {
+        data.errors.slice(0, 5).forEach((err: string) => addLog(err, 'error'));
+        if (data.errors.length > 5) {
+          addLog(`...and ${data.errors.length - 5} more errors`, 'warning');
+        }
+      }
+      
+      toast.success(`Seeded ${data.productsUpserted} OTC products with ${data.synonymsInserted} synonyms`);
+    } catch (err: any) {
+      addLog(`OTC seed error: ${err.message}`, 'error');
+      toast.error(`OTC seed failed: ${err.message}`);
+    } finally {
+      setIsSeedingOtc(false);
+    }
+  };
+
   const needsSeeding = drugs.filter(d => d.fdaVariants === 0).length;
   const alreadySeeded = drugs.filter(d => d.fdaVariants > 0).length;
   const withIngredients = drugs.filter(d => d.withIngredients > 0).length;
@@ -486,11 +526,12 @@ export default function SeedData() {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="manufacturers">Manufacturers</TabsTrigger>
                 <TabsTrigger value="labels">Drug Labels</TabsTrigger>
                 <TabsTrigger value="recalls">Recalls</TabsTrigger>
                 <TabsTrigger value="rxnorm">RxNorm</TabsTrigger>
+                <TabsTrigger value="otc">OTC Products</TabsTrigger>
               </TabsList>
 
               {/* Manufacturers Tab */}
@@ -678,6 +719,38 @@ export default function SeedData() {
 
                 <p className="text-sm text-muted-foreground">
                   Links drugs to RxNorm (RxCUI) identifiers from NIH RxNav API for interoperability with other systems.
+                </p>
+              </TabsContent>
+
+              {/* OTC Products Tab */}
+              <TabsContent value="otc" className="space-y-4 mt-4">
+                <div className="flex flex-wrap gap-3">
+                  <Button 
+                    onClick={seedOtcProducts} 
+                    disabled={isSeedingOtc}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {isSeedingOtc ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Package className="h-4 w-4 mr-2" />
+                    )}
+                    Seed OTC Products
+                  </Button>
+                </div>
+
+                {otcSeedResult && (
+                  <div className="p-3 rounded-lg bg-muted text-sm">
+                    <p className="font-medium mb-1">OTC Seed Result:</p>
+                    <p>Products Upserted: {otcSeedResult.productsUpserted} | Synonyms Inserted: {otcSeedResult.synonymsInserted}</p>
+                    {otcSeedResult.errors.length > 0 && (
+                      <p className="text-red-500 mt-1">Errors: {otcSeedResult.errors.length}</p>
+                    )}
+                  </div>
+                )}
+
+                <p className="text-sm text-muted-foreground">
+                  Seeds ~100+ OTC products (pain relievers, allergy meds, GI products) and vitamins/supplements with brand name synonyms for search.
                 </p>
               </TabsContent>
             </Tabs>
