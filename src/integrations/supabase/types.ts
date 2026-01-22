@@ -274,7 +274,7 @@ export type Database = {
           common_uses: string | null
           created_at: string
           display_name: string | null
-          generic_name: string | null
+          generic_name: string
           id: string
           is_combo: boolean | null
           is_vitamin: boolean | null
@@ -293,7 +293,7 @@ export type Database = {
           common_uses?: string | null
           created_at?: string
           display_name?: string | null
-          generic_name?: string | null
+          generic_name: string
           id?: string
           is_combo?: boolean | null
           is_vitamin?: boolean | null
@@ -312,7 +312,7 @@ export type Database = {
           common_uses?: string | null
           created_at?: string
           display_name?: string | null
-          generic_name?: string | null
+          generic_name?: string
           id?: string
           is_combo?: boolean | null
           is_vitamin?: boolean | null
