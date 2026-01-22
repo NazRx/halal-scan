@@ -247,7 +247,8 @@ serve(async (req) => {
 
     // Prepare all product rows with normalized generic_name
     const productRows = OTC_SEED_DATA.map(product => ({
-      display_name: product.display_name,
+      name: (product.display_name || product.generic_name).trim(),
+      display_name: product.display_name.trim(),
       generic_name: normalize(product.generic_name),
       primary_category: product.primary_category,
       common_uses: product.common_uses,
