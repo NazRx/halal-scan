@@ -2,59 +2,77 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { ConfidenceMeter } from "@/components/ui/confidence-meter";
 import { Disclaimer } from "@/components/ui/disclaimer";
-import { LastVerifiedBadge } from "@/components/ui/last-verified-badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
-import { ArrowLeft, ExternalLink, Share2, Bookmark, AlertCircle, Check, X, HelpCircle, FileText } from "lucide-react";
-
-// Mock product data
-const mockProduct = {
-  id: "demo-123",
-  name: "Tylenol Extra Strength",
-  brand: "Tylenol",
-  category: "Pain Relief",
-  dosage: "500mg Caplets",
-  upc: "300450449108",
-  status: "halal" as const,
-  confidence: 95,
-  summary: "All ingredients verified as halal-compliant. No animal-derived ingredients detected.",
-  ingredients: [
-    { name: "Acetaminophen", status: "halal" as const, role: "Active Ingredient", notes: "Synthetic compound" },
-    { name: "Pregelatinized Starch", status: "halal" as const, role: "Binder", notes: "Plant-derived" },
-    { name: "Sodium Starch Glycolate", status: "halal" as const, role: "Disintegrant", notes: "Plant-derived" },
-    { name: "Powdered Cellulose", status: "halal" as const, role: "Filler", notes: "Plant-derived" },
-    { name: "Magnesium Stearate", status: "halal" as const, role: "Lubricant", notes: "Verified plant-sourced" },
-    { name: "Hypromellose", status: "halal" as const, role: "Coating", notes: "Synthetic polymer" },
-    { name: "Titanium Dioxide", status: "halal" as const, role: "Colorant", notes: "Mineral-based" },
-  ],
-  sources: [
-    { name: "Manufacturer Ingredient List", url: "#" },
-    { name: "IFANCA Database", url: "#" },
-    { name: "Community Reports", url: "#" },
-  ],
-  lastUpdated: "December 2024",
-};
-
-const statusIcons = {
-  halal: Check,
-  questionable: AlertCircle,
-  "not-halal": X,
-  unknown: HelpCircle,
-};
+import { ArrowLeft, Share2, Bookmark, AlertCircle, FileText, Clock, Package, Pill } from "lucide-react";
+import { useOtcProduct } from "@/hooks/useOtcProduct";
 
 const OTCProduct = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const product = mockProduct; // In real app, fetch by id
+  const { data: product, isLoading, error } = useOtcProduct(id);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container px-4 py-6">
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <div className="max-w-2xl mx-auto space-y-6">
+            <Card className="p-6">
+              <Skeleton className="h-8 w-3/4 mx-auto mb-4" />
+              <Skeleton className="h-4 w-1/2 mx-auto mb-4" />
+              <Skeleton className="h-20 w-full" />
+            </Card>
+            <Card className="p-6">
+              <Skeleton className="h-6 w-1/3 mb-4" />
+              <Skeleton className="h-32 w-full" />
+            </Card>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container px-4 py-6">
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <Card className="max-w-2xl mx-auto p-8 text-center">
+            <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h1 className="text-xl font-semibold mb-2">Product Not Found</h1>
+            <p className="text-muted-foreground mb-4">
+              We couldn't find this OTC product. It may have been removed or the link is incorrect.
+            </p>
+            <Button onClick={() => navigate("/otc/browse")}>
+              Browse OTC Products
+            </Button>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
+  const displayName = product.display_name || product.name;
+  const subtitle = product.generic_name !== displayName.toLowerCase() 
+    ? product.generic_name 
+    : null;
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
       
       <main className="container px-4 py-6">
-        {/* Back Button */}
         <Button
           variant="ghost"
           size="sm"
@@ -70,30 +88,75 @@ const OTCProduct = () => {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-2xl mx-auto"
         >
-          {/* Scope Disclaimer - Collapsed by default */}
           <Disclaimer variant="card" showOtcNote className="mb-6" defaultExpanded={false} />
 
-          {/* Status Card */}
+          {/* Product Info Card */}
           <Card className="p-6 mb-6 text-center relative overflow-hidden">
-            {/* Decorative background */}
-            <div className="absolute inset-0 bg-gradient-to-b from-status-halal-bg to-transparent opacity-50" />
+            <div className="absolute inset-0 bg-gradient-to-b from-muted/50 to-transparent" />
             
             <div className="relative">
-              <StatusBadge status={product.status} size="xl" animate className="mb-4" />
-              
-              <h1 className="text-2xl font-bold mb-1">{product.name}</h1>
-              <p className="text-muted-foreground mb-4">
-                {product.brand} • {product.dosage}
-              </p>
+              <div className="flex justify-center mb-4">
+                {product.is_vitamin ? (
+                  <div className="p-3 rounded-full bg-primary/10">
+                    <Pill className="h-8 w-8 text-primary" />
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-full bg-muted">
+                    <Package className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
 
-              <ConfidenceMeter value={product.confidence} className="max-w-xs mx-auto mb-4" />
+              <h1 className="text-2xl font-bold mb-1">{displayName}</h1>
+              {subtitle && (
+                <p className="text-muted-foreground mb-2 capitalize">{subtitle}</p>
+              )}
 
-              <p className="text-sm text-muted-foreground mb-4">{product.summary}</p>
-              
-              {/* Last Verified Badge - Premium Feature */}
-              <LastVerifiedBadge date={new Date()} className="justify-center" />
+              <div className="flex flex-wrap gap-2 justify-center mb-4">
+                {product.primary_category && (
+                  <Badge variant="secondary">{product.primary_category}</Badge>
+                )}
+                {product.is_vitamin && (
+                  <Badge variant="outline">Vitamin/Supplement</Badge>
+                )}
+                {product.is_combo && (
+                  <Badge variant="outline">Combination Product</Badge>
+                )}
+              </div>
+
+              {product.common_uses && (
+                <p className="text-sm text-muted-foreground">{product.common_uses}</p>
+              )}
             </div>
           </Card>
+
+          {/* Halal Status - Coming Soon */}
+          <Card className="p-6 mb-6 bg-muted/30 border-dashed">
+            <div className="flex items-center gap-3 text-muted-foreground">
+              <Clock className="h-5 w-5 flex-shrink-0" />
+              <div>
+                <h2 className="font-medium text-foreground">Halal Status Coming Soon</h2>
+                <p className="text-sm">
+                  Manufacturer-specific halal verdicts for OTC products are being added. 
+                  Check back soon for detailed ingredient analysis.
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Combo Ingredients */}
+          {product.is_combo && product.combo_ingredients && product.combo_ingredients.length > 0 && (
+            <Card className="p-6 mb-6">
+              <h2 className="font-semibold text-lg mb-4">Active Ingredients</h2>
+              <div className="flex flex-wrap gap-2">
+                {product.combo_ingredients.map((ingredient) => (
+                  <Badge key={ingredient} variant="outline" className="capitalize">
+                    {ingredient}
+                  </Badge>
+                ))}
+              </div>
+            </Card>
+          )}
 
           {/* Quick Actions */}
           <div className="flex gap-2 mb-6">
@@ -113,70 +176,6 @@ const OTCProduct = () => {
             </Link>
           </div>
 
-          {/* Ingredients Panel */}
-          <Card className="p-6 mb-6">
-            <h2 className="font-semibold text-lg mb-4">Ingredient Breakdown</h2>
-            
-            <div className="space-y-3">
-              {product.ingredients.map((ingredient, index) => {
-                const Icon = statusIcons[ingredient.status];
-                return (
-                  <motion.div
-                    key={ingredient.name}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                  >
-                    <div className={`mt-0.5 p-1 rounded-full ${
-                      ingredient.status === "halal" ? "bg-status-halal-bg text-status-halal" :
-                      ingredient.status === "questionable" ? "bg-status-questionable-bg text-status-questionable" :
-                      ingredient.status === "not-halal" ? "bg-status-not-halal-bg text-status-not-halal" :
-                      "bg-status-unknown-bg text-status-unknown"
-                    }`}>
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{ingredient.name}</span>
-                        <span className="text-xs text-muted-foreground px-2 py-0.5 bg-background rounded-full">
-                          {ingredient.role}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{ingredient.notes}</p>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </Card>
-
-          {/* Sources */}
-          <Card className="p-6 mb-6">
-            <h2 className="font-semibold text-lg mb-4">Sources & References</h2>
-            
-            <ul className="space-y-2 mb-4">
-              {product.sources.map((source) => (
-                <li key={source.name}>
-                  <a
-                    href={source.url}
-                    className="flex items-center gap-2 text-sm text-primary hover:underline"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    {source.name}
-                  </a>
-                </li>
-              ))}
-            </ul>
-
-            <p className="text-xs text-muted-foreground mb-4">
-              Last updated: {product.lastUpdated}
-            </p>
-
-            {/* Collapsed Disclaimer in Sources */}
-            <Disclaimer variant="inline" showOtcNote />
-          </Card>
-
           {/* Report Issue */}
           <Card className="p-4 bg-muted/50">
             <div className="flex items-start gap-3">
@@ -186,9 +185,11 @@ const OTCProduct = () => {
                 <p className="text-sm text-muted-foreground mb-2">
                   Help us improve by reporting inaccurate information.
                 </p>
-                <Button variant="outline" size="sm">
-                  Report an Issue
-                </Button>
+                <Link to={`/report/${id}`}>
+                  <Button variant="outline" size="sm">
+                    Report an Issue
+                  </Button>
+                </Link>
               </div>
             </div>
           </Card>
