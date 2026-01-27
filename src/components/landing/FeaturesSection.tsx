@@ -33,8 +33,8 @@ const features = [
   },
   {
     icon: Shield,
-    title: "Scholar Reviewed",
-    description: "Ingredient classifications reviewed by qualified Islamic scholars and halal certifiers.",
+    title: "PharmD + Scholar Reviewed",
+    description: "Clinically verified by a Doctor of Pharmacy, then reviewed by qualified Islamic scholars.",
     size: "lg" as const,
     gradient: true,
   },
