@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Shield, Zap, Search } from "lucide-react";
+import { Heart, Stethoscope, Zap, Shield } from "lucide-react";
 import { HeroSearchInput } from "./HeroSearchInput";
 import { GradientOrb } from "./GradientOrb";
 
@@ -36,18 +36,24 @@ export function HeroSection() {
 
       <div className="container relative px-4 z-10">
         <div className="max-w-4xl mx-auto text-center">
-          {/* Trust Badge */}
+          {/* Trust Badges */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="flex justify-center mb-8"
+            className="flex flex-col sm:flex-row justify-center items-center gap-3 mb-8"
           >
             <div className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-card/30 backdrop-blur-xl px-4 py-2 text-sm">
               <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/20">
-                <Shield className="h-3 w-3 text-primary" />
+                <Heart className="h-3 w-3 text-primary" />
               </div>
-              <span className="text-muted-foreground">Trusted by <span className="text-foreground font-medium">10,000+</span> Muslims worldwide</span>
+              <span className="text-muted-foreground">Made by <span className="text-foreground font-medium">Muslims</span>, for Muslims</span>
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-card/30 backdrop-blur-xl px-4 py-2 text-sm">
+              <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/20">
+                <Stethoscope className="h-3 w-3 text-primary" />
+              </div>
+              <span className="text-muted-foreground"><span className="text-foreground font-medium">PharmD</span> Reviewed</span>
             </div>
           </motion.div>
 
@@ -90,12 +96,12 @@ export function HeroSection() {
               <span className="text-sm"><span className="text-foreground font-semibold">50,000+</span> Products</span>
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
-              <Search className="h-4 w-4 text-primary" />
-              <span className="text-sm"><span className="text-foreground font-semibold">10,000+</span> Rx Meds</span>
+              <Stethoscope className="h-4 w-4 text-primary" />
+              <span className="text-sm"><span className="text-foreground font-semibold">PharmD</span> Reviewed</span>
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Shield className="h-4 w-4 text-primary" />
-              <span className="text-sm"><span className="text-foreground font-semibold">Scholar</span> Reviewed</span>
+              <span className="text-sm"><span className="text-foreground font-semibold">Scholar</span> Approved</span>
             </div>
           </motion.div>
         </div>

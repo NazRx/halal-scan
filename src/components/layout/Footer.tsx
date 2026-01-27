@@ -14,7 +14,8 @@ export function Footer() {
               <span className="text-xl font-bold">HalalRx</span>
             </Link>
             <p className="text-sm text-muted-foreground">
-              Helping Muslims make informed decisions about medications and supplements.
+              Made by Muslims, for Muslims. Built by a Doctor of Pharmacy who understands 
+              both the clinical and religious considerations. Every ingredient is reviewed with care and expertise.
             </p>
           </div>
 

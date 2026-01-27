@@ -8,6 +8,11 @@ import {
 
 const faqs = [
   {
+    question: "Who is behind HalalRx?",
+    answer:
+      "HalalRx was founded by a Muslim Doctor of Pharmacy (PharmD) who saw firsthand the challenges Muslims face when trying to verify medication ingredients. Our team combines clinical pharmacy expertise with Islamic scholarship to provide accurate, trustworthy guidance. We're Muslims building for Muslims—we understand your needs because we share them.",
+  },
+  {
     question: "How accurate is the halal status determination?",
     answer:
       "Our database is compiled from manufacturer ingredient lists, halal certification bodies, and reviewed by Islamic scholars. We provide confidence levels with each result. However, we always recommend verifying with the manufacturer or a certified halal organization for final confirmation.",
