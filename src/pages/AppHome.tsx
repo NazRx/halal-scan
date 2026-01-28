@@ -29,7 +29,7 @@ const AppHome = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container px-4 py-8">
+      <main className="container px-4 pt-24 pb-8">
         {/* Welcome Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

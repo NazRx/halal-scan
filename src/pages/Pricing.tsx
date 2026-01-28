@@ -231,7 +231,7 @@ const Pricing = () => {
     <div className="min-h-screen flex flex-col">
       <Header />
       
-      <main className="flex-1 py-16">
+      <main className="flex-1 pt-24 pb-16">
         <div className="container px-4">
           {/* Ramadan Banner */}
           {isRamadan && (

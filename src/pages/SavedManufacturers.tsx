@@ -61,7 +61,7 @@ export default function SavedManufacturers() {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container max-w-2xl mx-auto px-4 py-6">
+      <main className="container max-w-2xl mx-auto px-4 pt-24 pb-6">
         <PremiumGate 
           requiredTier="pro" 
           upgradeMessage="Upgrade to Pro to save your favorite manufacturers"
