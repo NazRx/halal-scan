@@ -81,7 +81,7 @@ const SelectManufacturer = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container px-4 py-6 max-w-2xl mx-auto">
+      <main className="container px-4 pt-24 pb-6 max-w-2xl mx-auto">
         {/* Back Button */}
         <Button
           variant="ghost"

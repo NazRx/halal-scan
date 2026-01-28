@@ -54,7 +54,7 @@ const OtcBrowse = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container px-4 py-6">
+      <main className="container px-4 pt-24 pb-6">
         {/* Back Button */}
         <Button
           variant="ghost"

@@ -18,7 +18,7 @@ const OTCProduct = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container px-4 py-6">
+        <main className="container px-4 pt-24 pb-6">
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
@@ -43,7 +43,7 @@ const OTCProduct = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container px-4 py-6">
+        <main className="container px-4 pt-24 pb-6">
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
@@ -72,7 +72,7 @@ const OTCProduct = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container px-4 py-6">
+      <main className="container px-4 pt-24 pb-6">
         <Button
           variant="ghost"
           size="sm"

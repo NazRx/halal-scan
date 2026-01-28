@@ -12,7 +12,7 @@ export default function Feedback() {
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
       
-      <main className="flex-1 container max-w-2xl px-4 py-8">
+      <main className="flex-1 container max-w-2xl px-4 pt-24 pb-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

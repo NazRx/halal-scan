@@ -86,7 +86,7 @@ const Report = () => {
         <Header />
       </div>
       
-      <main className="container px-4 py-6 max-w-2xl mx-auto">
+      <main className="container px-4 pt-24 pb-6 max-w-2xl mx-auto">
         {/* Actions - Hidden on print */}
         <div className="print:hidden flex items-center justify-between mb-6">
           <Button
