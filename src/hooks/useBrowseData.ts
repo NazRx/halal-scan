@@ -81,7 +81,6 @@ function mapStatus(dbStatus: string | null): 'halal' | 'questionable' | 'not-hal
 export function useRxBrowseData(
   mode: RxBrowseMode,
   statusFilter: StatusFilter,
-  formFilter: string,
   selectedDrugClass: string | null,
   letter: string | null,
   page: number,
@@ -277,7 +276,7 @@ export function useRxBrowseData(
     };
 
     fetchData();
-  }, [mode, statusFilter, formFilter, selectedDrugClass, letter, page, pageSize]);
+  }, [mode, statusFilter, selectedDrugClass, letter, page, pageSize]);
 
   return { data, brandIndex, totalCount, isLoading, error };
 }

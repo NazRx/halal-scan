@@ -13,29 +13,22 @@ import { StatusFilter, DRUG_CLASSES, OTC_CATEGORIES } from '@/hooks/useBrowseDat
 interface RxFiltersProps {
   statusFilter: StatusFilter;
   onStatusFilterChange: (value: StatusFilter) => void;
-  formFilter: string;
-  onFormFilterChange: (value: string) => void;
   drugClassFilter: string | null;
   onDrugClassFilterChange: (value: string | null) => void;
-  dosageForms: string[];
   showDrugClass?: boolean;
 }
 
 export function RxFilters({
   statusFilter,
   onStatusFilterChange,
-  formFilter,
-  onFormFilterChange,
   drugClassFilter,
   onDrugClassFilterChange,
-  dosageForms,
   showDrugClass = false,
 }: RxFiltersProps) {
-  const hasActiveFilters = statusFilter !== 'all' || formFilter !== 'all' || drugClassFilter !== null;
+  const hasActiveFilters = statusFilter !== 'all' || drugClassFilter !== null;
 
   const clearFilters = () => {
     onStatusFilterChange('all');
-    onFormFilterChange('all');
     onDrugClassFilterChange(null);
   };
 
@@ -56,20 +49,6 @@ export function RxFilters({
           </SelectContent>
         </Select>
 
-        {/* Form Filter */}
-        <Select value={formFilter} onValueChange={onFormFilterChange}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Dosage Form" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Forms</SelectItem>
-            {dosageForms.map(form => (
-              <SelectItem key={form} value={form.toLowerCase()}>
-                {form}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
 
         {/* Drug Class Filter */}
         {showDrugClass && (
@@ -108,15 +87,6 @@ export function RxFilters({
               <X 
                 className="h-3 w-3 cursor-pointer" 
                 onClick={() => onStatusFilterChange('all')} 
-              />
-            </Badge>
-          )}
-          {formFilter !== 'all' && (
-            <Badge variant="secondary" className="gap-1">
-              Form: {formFilter}
-              <X 
-                className="h-3 w-3 cursor-pointer" 
-                onClick={() => onFormFilterChange('all')} 
               />
             </Badge>
           )}
