@@ -36,7 +36,6 @@ const Browse = () => {
   // Rx state
   const [rxMode, setRxMode] = useState<RxBrowseMode>('alpha-generic');
   const [rxStatusFilter, setRxStatusFilter] = useState<StatusFilter>('all');
-  const [rxFormFilter, setRxFormFilter] = useState('all');
   const [rxDrugClass, setRxDrugClass] = useState<string | null>(null);
   const [rxLetter, setRxLetter] = useState<string | null>(null);
   const [rxPage, setRxPage] = useState(0);
@@ -49,7 +48,7 @@ const Browse = () => {
   const [otcPage, setOtcPage] = useState(0);
   
   // Fetch filter options
-  const { dosageForms, categories } = useFilterOptions();
+  const { categories } = useFilterOptions();
   
   // Fetch data
   const { 
@@ -60,7 +59,6 @@ const Browse = () => {
   } = useRxBrowseData(
     rxMode, 
     rxStatusFilter, 
-    rxFormFilter, 
     rxMode === 'drug-class' ? rxDrugClass : null,
     rxMode !== 'drug-class' ? rxLetter : null,
     rxPage
@@ -190,11 +188,8 @@ const Browse = () => {
               <RxFilters
                 statusFilter={rxStatusFilter}
                 onStatusFilterChange={(v) => { setRxStatusFilter(v); setRxPage(0); }}
-                formFilter={rxFormFilter}
-                onFormFilterChange={(v) => { setRxFormFilter(v); setRxPage(0); }}
                 drugClassFilter={rxMode === 'drug-class' ? rxDrugClass : null}
                 onDrugClassFilterChange={(v) => { setRxDrugClass(v); setRxPage(0); }}
-                dosageForms={dosageForms}
                 showDrugClass={false}
               />
 
