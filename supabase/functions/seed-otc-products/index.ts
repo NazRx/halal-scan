@@ -20,7 +20,165 @@ interface OtcProduct {
 interface SeedResult {
   productsUpserted: number;
   synonymsInserted: number;
+  categoryStats: Record<string, number>;
+  unmappedCategories: string[];
   errors: string[];
+}
+
+// Canonical category keys that match the UI filter values
+type CanonicalCategory = 
+  | 'pain' 
+  | 'allergy' 
+  | 'cold_flu' 
+  | 'cough' 
+  | 'gi' 
+  | 'sleep' 
+  | 'vitamins' 
+  | 'supplements' 
+  | 'skin' 
+  | 'eye_ear' 
+  | 'first_aid' 
+  | 'feminine' 
+  | 'oral_care' 
+  | 'smoking_cessation'
+  | 'other';
+
+/**
+ * Normalize a category label to a canonical category key.
+ * Input: "Pain/Fever", "Skin", "Vitamins & Minerals", etc.
+ * Output: One of the canonical keys (pain, allergy, cold_flu, etc.)
+ */
+function normalizeCategory(label: string | null | undefined): CanonicalCategory {
+  if (!label) return 'other';
+  
+  const lowerLabel = label.toLowerCase().trim();
+  
+  // Pain/Fever
+  if (lowerLabel.includes('pain') || 
+      lowerLabel.includes('fever') || 
+      lowerLabel.includes('ache') ||
+      lowerLabel.includes('nsaid') ||
+      lowerLabel.includes('analgesic')) {
+    return 'pain';
+  }
+  
+  // Allergy
+  if (lowerLabel.includes('allergy') || 
+      lowerLabel.includes('antihist') ||
+      lowerLabel.includes('allergies')) {
+    return 'allergy';
+  }
+  
+  // Cold/Flu (includes sinus/decongestant)
+  if (lowerLabel.includes('cold') || 
+      lowerLabel.includes('flu') || 
+      lowerLabel.includes('decongest') ||
+      lowerLabel.includes('sinus')) {
+    return 'cold_flu';
+  }
+  
+  // Cough
+  if (lowerLabel.includes('cough') || 
+      lowerLabel.includes('expectorant') ||
+      lowerLabel.includes('antitussive')) {
+    return 'cough';
+  }
+  
+  // GI
+  if (lowerLabel.includes('gi') || 
+      lowerLabel.includes('heartburn') || 
+      lowerLabel.includes('reflux') ||
+      lowerLabel.includes('stomach') ||
+      lowerLabel.includes('constipation') ||
+      lowerLabel.includes('diarrhea') ||
+      lowerLabel.includes('nausea') ||
+      lowerLabel.includes('antacid') ||
+      lowerLabel.includes('laxative') ||
+      lowerLabel.includes('digestive')) {
+    return 'gi';
+  }
+  
+  // Sleep/Stress
+  if (lowerLabel.includes('sleep') || 
+      lowerLabel.includes('melatonin') ||
+      lowerLabel.includes('stress') ||
+      lowerLabel.includes('insomnia') ||
+      lowerLabel.includes('relax')) {
+    return 'sleep';
+  }
+  
+  // Vitamins & Minerals
+  if (lowerLabel.includes('vitamin') || 
+      lowerLabel.includes('mineral') ||
+      lowerLabel.includes('multi')) {
+    return 'vitamins';
+  }
+  
+  // Supplements (herbs, adaptogens, etc.)
+  if (lowerLabel.includes('supplement') || 
+      lowerLabel.includes('herbal') ||
+      lowerLabel.includes('adaptogen') ||
+      lowerLabel.includes('probiotic') ||
+      lowerLabel.includes('omega') ||
+      lowerLabel.includes('fish oil')) {
+    return 'supplements';
+  }
+  
+  // Skin
+  if (lowerLabel.includes('skin') || 
+      lowerLabel.includes('fungal') || 
+      lowerLabel.includes('topical') ||
+      lowerLabel.includes('rash') ||
+      lowerLabel.includes('eczema') ||
+      lowerLabel.includes('dermat') ||
+      lowerLabel.includes('acne') ||
+      lowerLabel.includes('itch')) {
+    return 'skin';
+  }
+  
+  // Eye/Ear/Mouth
+  if (lowerLabel.includes('eye') || 
+      lowerLabel.includes('ear') || 
+      lowerLabel.includes('drops') ||
+      lowerLabel.includes('mouth') ||
+      lowerLabel.includes('ophthalmic') ||
+      lowerLabel.includes('otic')) {
+    return 'eye_ear';
+  }
+  
+  // First Aid
+  if (lowerLabel.includes('first aid') || 
+      lowerLabel.includes('bandage') || 
+      lowerLabel.includes('antiseptic') ||
+      lowerLabel.includes('wound')) {
+    return 'first_aid';
+  }
+  
+  // Feminine Care
+  if (lowerLabel.includes('feminine') || 
+      lowerLabel.includes('yeast') ||
+      lowerLabel.includes('vaginal')) {
+    return 'feminine';
+  }
+  
+  // Oral Care
+  if (lowerLabel.includes('oral') || 
+      lowerLabel.includes('tooth') || 
+      lowerLabel.includes('mouthwash') ||
+      lowerLabel.includes('dental')) {
+    return 'oral_care';
+  }
+  
+  // Smoking Cessation
+  if (lowerLabel.includes('smoking') || 
+      lowerLabel.includes('nicotine') || 
+      lowerLabel.includes('cessation') ||
+      lowerLabel.includes('quit')) {
+    return 'smoking_cessation';
+  }
+  
+  // Default fallback
+  return 'other';
 }
 
 // Seed data - Top 100 OTC generics + vitamins/supplements
@@ -128,50 +286,51 @@ const OTC_SEED_DATA: OtcProduct[] = [
   { display_name: "Vitamin K", generic_name: "phytonadione", primary_category: "Vitamins & Minerals", common_uses: "Supplement", search_terms: "vitamin k;k1;k2", is_vitamin: true, is_combo: false, combo_ingredients: "" },
   { display_name: "Vitamin B1", generic_name: "thiamine", primary_category: "Vitamins & Minerals", common_uses: "Supplement", search_terms: "thiamin;vitamin b1;b1", is_vitamin: true, is_combo: false, combo_ingredients: "" },
   { display_name: "Vitamin B2", generic_name: "riboflavin", primary_category: "Vitamins & Minerals", common_uses: "Supplement", search_terms: "vitamin b2;b2", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Vitamin B3", generic_name: "niacin", primary_category: "Vitamins & Minerals", common_uses: "Supplement", search_terms: "vitamin b3;b3;nicotinic acid", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Vitamin B3", generic_name: "niacin", primary_category: "Vitamins & Minerals", common_uses: "Supplement", search_terms: "nicotinic acid;vitamin b3;b3", is_vitamin: true, is_combo: false, combo_ingredients: "" },
   { display_name: "Vitamin B5", generic_name: "pantothenic acid", primary_category: "Vitamins & Minerals", common_uses: "Supplement", search_terms: "vitamin b5;b5", is_vitamin: true, is_combo: false, combo_ingredients: "" },
   { display_name: "Vitamin B6", generic_name: "pyridoxine", primary_category: "Vitamins & Minerals", common_uses: "Supplement", search_terms: "vitamin b6;b6", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Vitamin B7", generic_name: "biotin", primary_category: "Vitamins & Minerals", common_uses: "Hair nails", search_terms: "vitamin b7;b7;biotin", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Potassium", generic_name: "potassium chloride", primary_category: "Vitamins & Minerals", common_uses: "Supplement", search_terms: "potassium", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Selenium", generic_name: "selenium", primary_category: "Vitamins & Minerals", common_uses: "Supplement", search_terms: "selenium", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Biotin", generic_name: "biotin", primary_category: "Vitamins & Minerals", common_uses: "Supplement", search_terms: "vitamin b7;hair skin nails", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Potassium", generic_name: "potassium chloride", primary_category: "Vitamins & Minerals", common_uses: "Supplement", search_terms: "potassium;electrolyte", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Selenium", generic_name: "selenium", primary_category: "Vitamins & Minerals", common_uses: "Supplement", search_terms: "selenomethionine", is_vitamin: true, is_combo: false, combo_ingredients: "" },
   { display_name: "Chromium", generic_name: "chromium picolinate", primary_category: "Vitamins & Minerals", common_uses: "Supplement", search_terms: "chromium", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Iodine", generic_name: "potassium iodide", primary_category: "Vitamins & Minerals", common_uses: "Supplement", search_terms: "iodine", is_vitamin: true, is_combo: false, combo_ingredients: "" },
   { display_name: "Copper", generic_name: "copper gluconate", primary_category: "Vitamins & Minerals", common_uses: "Supplement", search_terms: "copper", is_vitamin: true, is_combo: false, combo_ingredients: "" },
   { display_name: "Manganese", generic_name: "manganese sulfate", primary_category: "Vitamins & Minerals", common_uses: "Supplement", search_terms: "manganese", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Iodine", generic_name: "potassium iodide", primary_category: "Vitamins & Minerals", common_uses: "Supplement", search_terms: "iodine;kelp", is_vitamin: true, is_combo: false, combo_ingredients: "" },
   
   // Supplements
-  { display_name: "Omega-3 Fish Oil", generic_name: "omega-3", primary_category: "Supplements", common_uses: "General health", search_terms: "fish oil;epa;dha;omega 3", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Probiotic", generic_name: "probiotic", primary_category: "Supplements", common_uses: "Gut health", search_terms: "lactobacillus;bifidobacterium;probiotics", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Creatine Monohydrate", generic_name: "creatine monohydrate", primary_category: "Supplements", common_uses: "Fitness", search_terms: "creatine", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Collagen Peptides", generic_name: "collagen peptides", primary_category: "Supplements", common_uses: "Skin joints", search_terms: "collagen;hydrolyzed collagen", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Turmeric", generic_name: "curcumin", primary_category: "Supplements", common_uses: "Anti-inflammatory", search_terms: "turmeric;curcumin", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "CoQ10", generic_name: "ubiquinone", primary_category: "Supplements", common_uses: "Supplement", search_terms: "coenzyme q10;coq10", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Ashwagandha", generic_name: "ashwagandha", primary_category: "Supplements", common_uses: "Stress", search_terms: "adaptogen;withania", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Glucosamine", generic_name: "glucosamine sulfate", primary_category: "Supplements", common_uses: "Joint health", search_terms: "glucosamine;joint support", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Chondroitin", generic_name: "chondroitin sulfate", primary_category: "Supplements", common_uses: "Joint health", search_terms: "chondroitin", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "L-Theanine", generic_name: "l-theanine", primary_category: "Supplements", common_uses: "Relaxation", search_terms: "theanine", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Elderberry", generic_name: "elderberry extract", primary_category: "Supplements", common_uses: "Immune support", search_terms: "elderberry;sambucus", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Echinacea", generic_name: "echinacea", primary_category: "Supplements", common_uses: "Immune support", search_terms: "echinacea;coneflower", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Ginger Root", generic_name: "ginger root extract", primary_category: "Supplements", common_uses: "Nausea digestion", search_terms: "ginger", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Valerian Root", generic_name: "valerian root", primary_category: "Supplements", common_uses: "Sleep", search_terms: "valerian;sleep herb", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "St. John's Wort", generic_name: "st johns wort", primary_category: "Supplements", common_uses: "Mood support", search_terms: "st john's wort;hypericum", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Milk Thistle", generic_name: "silymarin", primary_category: "Supplements", common_uses: "Liver health", search_terms: "milk thistle;silymarin", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Saw Palmetto", generic_name: "saw palmetto", primary_category: "Supplements", common_uses: "Prostate health", search_terms: "saw palmetto", is_vitamin: true, is_combo: false, combo_ingredients: "" },
-  { display_name: "Black Seed Oil", generic_name: "nigella sativa oil", primary_category: "Supplements", common_uses: "General wellness", search_terms: "black seed;black cumin;kalonji;habbatus sauda", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Fish Oil", generic_name: "omega-3 fatty acids", primary_category: "Supplements", common_uses: "Heart health", search_terms: "fish oil;EPA;DHA", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Glucosamine", generic_name: "glucosamine sulfate", primary_category: "Supplements", common_uses: "Joint health", search_terms: "joint supplement", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Chondroitin", generic_name: "chondroitin sulfate", primary_category: "Supplements", common_uses: "Joint health", search_terms: "joint supplement", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Glucosamine Chondroitin", generic_name: "glucosamine chondroitin", primary_category: "Supplements", common_uses: "Joint health", search_terms: "joint combo", is_vitamin: true, is_combo: true, combo_ingredients: "glucosamine;chondroitin" },
+  { display_name: "CoQ10", generic_name: "coenzyme q10", primary_category: "Supplements", common_uses: "Heart health", search_terms: "ubiquinone;CoQ10", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Probiotics", generic_name: "lactobacillus acidophilus", primary_category: "Supplements", common_uses: "Gut health", search_terms: "probiotic;acidophilus;gut", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Turmeric/Curcumin", generic_name: "curcumin", primary_category: "Supplements", common_uses: "Inflammation", search_terms: "turmeric", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Elderberry", generic_name: "sambucus nigra", primary_category: "Supplements", common_uses: "Immune support", search_terms: "elderberry;sambucol", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Echinacea", generic_name: "echinacea purpurea", primary_category: "Supplements", common_uses: "Immune support", search_terms: "echinacea", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Ginger", generic_name: "zingiber officinale", primary_category: "Supplements", common_uses: "Nausea", search_terms: "ginger;ginger root", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Garlic", generic_name: "allium sativum", primary_category: "Supplements", common_uses: "Heart health", search_terms: "garlic;allicin", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Milk Thistle", generic_name: "silymarin", primary_category: "Supplements", common_uses: "Liver support", search_terms: "milk thistle", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Ashwagandha", generic_name: "withania somnifera", primary_category: "Supplements", common_uses: "Stress adaptogen", search_terms: "ashwagandha;adaptogen", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Valerian Root", generic_name: "valeriana officinalis", primary_category: "Supplements", common_uses: "Sleep relaxation", search_terms: "valerian;sleep herb", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "St. John's Wort", generic_name: "hypericum perforatum", primary_category: "Supplements", common_uses: "Mood support", search_terms: "st johns wort", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Saw Palmetto", generic_name: "serenoa repens", primary_category: "Supplements", common_uses: "Prostate health", search_terms: "saw palmetto", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Cranberry", generic_name: "vaccinium macrocarpon", primary_category: "Supplements", common_uses: "UTI prevention", search_terms: "cranberry;cran", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Ginkgo Biloba", generic_name: "ginkgo biloba", primary_category: "Supplements", common_uses: "Memory cognitive", search_terms: "ginkgo", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Lutein", generic_name: "lutein", primary_category: "Supplements", common_uses: "Eye health", search_terms: "lutein;eye vitamin", is_vitamin: true, is_combo: false, combo_ingredients: "" },
+  { display_name: "Collagen", generic_name: "hydrolyzed collagen", primary_category: "Supplements", common_uses: "Skin joint", search_terms: "collagen;collagen peptides", is_vitamin: true, is_combo: false, combo_ingredients: "" },
 ];
 
-// Normalize to lowercase and trim
+// Helper functions
 function normalize(str: string): string {
-  return str.toLowerCase().trim();
+  return str.toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
-// Chunk array into batches
 function chunk<T>(arr: T[], size: number): T[][] {
-  const chunks: T[][] = [];
+  const result: T[][] = [];
   for (let i = 0; i < arr.length; i += size) {
-    chunks.push(arr.slice(i, i + size));
+    result.push(arr.slice(i, i + size));
   }
-  return chunks;
+  return result;
 }
 
 serve(async (req) => {
@@ -181,22 +340,23 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    // ============ AUTHENTICATION CHECK ============
-    const authHeader = req.headers.get('Authorization');
+    // ============ AUTH CHECK ============
+    const authHeader = req.headers.get('authorization');
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Missing Authorization header' }),
+        JSON.stringify({ error: 'Missing authorization header' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
+    
     const token = authHeader.replace('Bearer ', '');
     
-    // Create a client just to verify the token
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Create client with user's token to verify
     const authClient = createClient(supabaseUrl, supabaseServiceKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
       auth: { persistSession: false }
     });
     
@@ -240,23 +400,46 @@ serve(async (req) => {
     const result: SeedResult = {
       productsUpserted: 0,
       synonymsInserted: 0,
+      categoryStats: {},
+      unmappedCategories: [],
       errors: []
     };
 
     console.log(`[seed-otc] Starting seed of ${OTC_SEED_DATA.length} products...`);
 
-    // Prepare all product rows with normalized generic_name
-    const productRows = OTC_SEED_DATA.map(product => ({
-      name: (product.display_name || product.generic_name).trim(),
-      display_name: product.display_name.trim(),
-      generic_name: normalize(product.generic_name),
-      primary_category: product.primary_category,
-      common_uses: product.common_uses,
-      search_terms: product.search_terms ? product.search_terms.split(';').map(s => s.trim()).filter(Boolean) : [],
-      is_vitamin: product.is_vitamin,
-      is_combo: product.is_combo,
-      combo_ingredients: product.combo_ingredients ? product.combo_ingredients.split(';').map(s => s.trim()).filter(Boolean) : []
-    }));
+    // Prepare all product rows with normalized category and generic_name
+    const productRows = OTC_SEED_DATA.map(product => {
+      // Normalize the category to a canonical key
+      const canonicalCategory = normalizeCategory(product.primary_category);
+      
+      // Track stats
+      result.categoryStats[canonicalCategory] = (result.categoryStats[canonicalCategory] || 0) + 1;
+      
+      // Track items mapped to 'other' for review
+      if (canonicalCategory === 'other') {
+        result.unmappedCategories.push(`"${product.display_name}" (original: "${product.primary_category}")`);
+      }
+      
+      return {
+        name: (product.display_name || product.generic_name).trim(),
+        display_name: product.display_name.trim(),
+        generic_name: normalize(product.generic_name),
+        // CRITICAL: Set both category (NOT NULL) and primary_category
+        category: canonicalCategory,
+        primary_category: product.primary_category, // Keep original for UI display
+        common_uses: product.common_uses,
+        search_terms: product.search_terms ? product.search_terms.split(';').map(s => s.trim()).filter(Boolean) : [],
+        is_vitamin: product.is_vitamin,
+        is_combo: product.is_combo,
+        combo_ingredients: product.combo_ingredients ? product.combo_ingredients.split(';').map(s => s.trim()).filter(Boolean) : []
+      };
+    });
+
+    // Log category distribution
+    console.log('[seed-otc] Category distribution:', JSON.stringify(result.categoryStats, null, 2));
+    if (result.unmappedCategories.length > 0) {
+      console.log('[seed-otc] Items mapped to "other":', result.unmappedCategories);
+    }
 
     // Batch upsert products (50 at a time)
     const productBatches = chunk(productRows, 50);
@@ -342,6 +525,7 @@ serve(async (req) => {
     }
 
     console.log(`[seed-otc] Complete: ${result.productsUpserted} products, ${result.synonymsInserted} synonyms`);
+    console.log(`[seed-otc] Category stats:`, result.categoryStats);
     if (result.errors.length > 0) {
       console.log(`[seed-otc] Errors: ${result.errors.join(', ')}`);
     }

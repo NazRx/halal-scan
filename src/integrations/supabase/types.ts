@@ -269,7 +269,7 @@ export type Database = {
       otc_products: {
         Row: {
           brand: string | null
-          category: string | null
+          category: string
           combo_ingredients: string[] | null
           common_uses: string | null
           created_at: string
@@ -288,7 +288,7 @@ export type Database = {
         }
         Insert: {
           brand?: string | null
-          category?: string | null
+          category?: string
           combo_ingredients?: string[] | null
           common_uses?: string | null
           created_at?: string
@@ -307,7 +307,7 @@ export type Database = {
         }
         Update: {
           brand?: string | null
-          category?: string | null
+          category?: string
           combo_ingredients?: string[] | null
           common_uses?: string | null
           created_at?: string
