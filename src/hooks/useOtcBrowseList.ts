@@ -14,19 +14,41 @@ export interface OtcBrowseProduct {
 
 export type OtcBrowseTab = 'common' | 'vitamins';
 
+// Canonical category keys matching the database
 export const OTC_CATEGORIES = [
-  'Pain/Fever',
-  'Allergy',
-  'Sinus/Cold',
-  'Cough/Cold',
-  'GI',
-  'Sleep/Stress',
-  'Skin',
-  'Eye/Ear/Mouth',
-  'Smoking Cessation',
-  'Vitamins & Minerals',
-  'Supplements',
+  'pain',
+  'allergy',
+  'cold_flu',
+  'cough',
+  'gi',
+  'sleep',
+  'vitamins',
+  'supplements',
+  'skin',
+  'eye_ear',
+  'first_aid',
+  'feminine',
+  'oral_care',
+  'smoking_cessation',
 ] as const;
+
+// Human-readable labels for display
+export const OTC_CATEGORY_LABELS: Record<string, string> = {
+  'pain': 'Pain Relief',
+  'allergy': 'Allergy',
+  'cold_flu': 'Cold & Flu',
+  'cough': 'Cough',
+  'gi': 'Digestive',
+  'sleep': 'Sleep',
+  'vitamins': 'Vitamins',
+  'supplements': 'Supplements',
+  'skin': 'Skin Care',
+  'eye_ear': 'Eye & Ear',
+  'first_aid': 'First Aid',
+  'feminine': 'Feminine Care',
+  'oral_care': 'Oral Care',
+  'smoking_cessation': 'Quit Smoking',
+};
 
 export function useOtcBrowseList(
   tab: OtcBrowseTab,
@@ -47,7 +69,7 @@ export function useOtcBrowseList(
       try {
         let query = supabase
           .from('otc_products')
-          .select('id, display_name, generic_name, primary_category, common_uses, is_vitamin, is_combo, combo_ingredients', { count: 'exact' });
+          .select('id, display_name, generic_name, category, primary_category, common_uses, is_vitamin, is_combo, combo_ingredients', { count: 'exact' });
 
         // Filter by tab
         if (tab === 'vitamins') {
@@ -56,9 +78,9 @@ export function useOtcBrowseList(
           query = query.eq('is_vitamin', false);
         }
 
-        // Apply category filter
+        // Apply category filter using canonical category key
         if (categoryFilter && categoryFilter !== 'all') {
-          query = query.eq('primary_category', categoryFilter);
+          query = query.eq('category', categoryFilter);
         }
 
         // Order and paginate
@@ -72,7 +94,7 @@ export function useOtcBrowseList(
           id: p.id,
           displayName: p.display_name || p.generic_name,
           genericName: p.generic_name,
-          category: p.primary_category,
+          category: p.category || p.primary_category,
           commonUses: p.common_uses,
           isVitamin: p.is_vitamin || false,
           isCombo: p.is_combo || false,
@@ -104,8 +126,8 @@ export function useOtcCategories(tab: OtcBrowseTab) {
       try {
         let query = supabase
           .from('otc_products')
-          .select('primary_category')
-          .not('primary_category', 'is', null);
+          .select('category')
+          .not('category', 'is', null);
 
         if (tab === 'vitamins') {
           query = query.eq('is_vitamin', true);
@@ -114,8 +136,15 @@ export function useOtcCategories(tab: OtcBrowseTab) {
         }
 
         const { data } = await query;
-        const unique = [...new Set((data || []).map(p => p.primary_category).filter(Boolean))] as string[];
-        setCategories(unique.sort());
+        // Get unique canonical category keys
+        const unique = [...new Set((data || []).map(p => p.category).filter(Boolean))] as string[];
+        // Sort by the order defined in OTC_CATEGORIES
+        const sorted = unique.sort((a, b) => {
+          const indexA = OTC_CATEGORIES.indexOf(a as typeof OTC_CATEGORIES[number]);
+          const indexB = OTC_CATEGORIES.indexOf(b as typeof OTC_CATEGORIES[number]);
+          return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+        });
+        setCategories(sorted);
       } catch (err) {
         console.error('Failed to fetch categories:', err);
       }
