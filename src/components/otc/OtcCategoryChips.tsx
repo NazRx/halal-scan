@@ -1,12 +1,18 @@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { OTC_CATEGORY_LABELS } from '@/hooks/useOtcBrowseList';
 
 interface OtcCategoryChipsProps {
   categories: string[];
   selected: string | null;
   onSelect: (category: string | null) => void;
   className?: string;
+}
+
+// Get human-readable label for a category key
+function getCategoryLabel(categoryKey: string): string {
+  return OTC_CATEGORY_LABELS[categoryKey] || categoryKey;
 }
 
 export function OtcCategoryChips({ 
@@ -47,7 +53,7 @@ export function OtcCategoryChips({
               selected === category && 'bg-primary text-primary-foreground'
             )}
           >
-            {category}
+            {getCategoryLabel(category)}
           </Badge>
         </motion.button>
       ))}
