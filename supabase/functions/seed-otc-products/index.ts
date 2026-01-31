@@ -497,8 +497,30 @@ serve(async (req) => {
       combo_ingredients: product.combo_ingredients ? product.combo_ingredients.split(';').map(s => s.trim()).filter(Boolean) : []
     }));
 
+    // ============ DEDUPE PRODUCTS BY CONFLICT KEY (generic_name) ============
+    // Prevent "ON CONFLICT DO UPDATE command cannot affect row a second time" error
+    const dedupeByKey = <T extends Record<string, any>>(rows: T[], keyFn: (row: T) => string): T[] => {
+      const seen = new Map<string, T>();
+      for (const row of rows) {
+        const key = keyFn(row);
+        if (!seen.has(key)) {
+          seen.set(key, row);
+        }
+      }
+      return Array.from(seen.values());
+    };
+
+    const dedupedProductRows = dedupeByKey(productRows, row => row.generic_name);
+    const duplicateCount = productRows.length - dedupedProductRows.length;
+    
+    if (duplicateCount > 0) {
+      console.log(`[seed-otc] Deduped ${duplicateCount} duplicate generic_name entries`);
+      result.errors.push(`Warning: ${duplicateCount} duplicate generic_name entries removed before upsert`);
+    }
+    console.log(`[seed-otc] Preparing ${dedupedProductRows.length} unique product rows for upsert...`);
+
     // Batch upsert products (50 at a time)
-    const productBatches = chunk(productRows, 50);
+    const productBatches = chunk(dedupedProductRows, 50);
     const upsertedProducts: { id: string; generic_name: string; display_name: string }[] = [];
 
     for (const batch of productBatches) {
@@ -557,10 +579,20 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[seed-otc] Preparing ${allSynonymRows.length} synonym rows...`);
+    console.log(`[seed-otc] Total synonym rows prepared: ${allSynonymRows.length}`);
+
+    // ============ DEDUPE SYNONYMS BY CONFLICT KEY (otc_product_id,synonym) ============
+    const dedupedSynonymRows = dedupeByKey(allSynonymRows, row => `${row.otc_product_id}|${row.synonym}`);
+    const synonymDuplicateCount = allSynonymRows.length - dedupedSynonymRows.length;
+    
+    if (synonymDuplicateCount > 0) {
+      console.log(`[seed-otc] Deduped ${synonymDuplicateCount} duplicate synonym entries`);
+    }
+    console.log(`[seed-otc] Total synonym rows after dedupe: ${dedupedSynonymRows.length}`);
 
     // Batch upsert synonyms (50 at a time)
-    const synonymBatches = chunk(allSynonymRows, 50);
+    const synonymBatches = chunk(dedupedSynonymRows, 50);
+    let synonymErrors = 0;
     
     for (const batch of synonymBatches) {
       const { data: synResult, error: synError } = await supabase
@@ -572,6 +604,7 @@ serve(async (req) => {
         .select('id');
 
       if (synError) {
+        synonymErrors++;
         // Only log non-duplicate errors
         if (!synError.message?.includes('duplicate')) {
           console.error('[seed-otc] Synonym batch error:', JSON.stringify(synError, null, 2));
@@ -580,6 +613,10 @@ serve(async (req) => {
       } else if (synResult) {
         result.synonymsInserted += synResult.length;
       }
+    }
+    
+    if (synonymErrors > 0) {
+      console.log(`[seed-otc] Synonym insert errors: ${synonymErrors} batches had issues`);
     }
 
     // Final summary
