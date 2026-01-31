@@ -471,7 +471,7 @@ export default function SeedData() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Total Drugs</CardDescription>
@@ -526,12 +526,12 @@ export default function SeedData() {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="manufacturers">Manufacturers</TabsTrigger>
-                <TabsTrigger value="labels">Drug Labels</TabsTrigger>
-                <TabsTrigger value="recalls">Recalls</TabsTrigger>
-                <TabsTrigger value="rxnorm">RxNorm</TabsTrigger>
-                <TabsTrigger value="otc">OTC Products</TabsTrigger>
+              <TabsList className="flex w-full h-auto flex-wrap sm:flex-nowrap overflow-x-auto scrollbar-hide">
+                <TabsTrigger value="manufacturers" className="flex-shrink-0">Manufacturers</TabsTrigger>
+                <TabsTrigger value="labels" className="flex-shrink-0">Drug Labels</TabsTrigger>
+                <TabsTrigger value="recalls" className="flex-shrink-0">Recalls</TabsTrigger>
+                <TabsTrigger value="rxnorm" className="flex-shrink-0">RxNorm</TabsTrigger>
+                <TabsTrigger value="otc" className="flex-shrink-0">OTC Products</TabsTrigger>
               </TabsList>
 
               {/* Manufacturers Tab */}
@@ -550,7 +550,7 @@ export default function SeedData() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-col sm:flex-row flex-wrap gap-3">
                   <Button onClick={fetchDrugList} disabled={isLoading || isSeeding || isExpandingList}>
                     {isLoading ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -614,7 +614,7 @@ export default function SeedData() {
 
               {/* Drug Labels Tab */}
               <TabsContent value="labels" className="space-y-4 mt-4">
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-col sm:flex-row flex-wrap gap-3">
                   <Button onClick={fetchDrugList} disabled={isLoading || isSeeding}>
                     {isLoading ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />

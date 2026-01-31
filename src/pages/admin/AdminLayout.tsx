@@ -11,11 +11,14 @@ import {
   MessageSquare,
   Beaker,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  Menu
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const navItems = [
   { title: 'Dashboard', href: '/admin', icon: LayoutDashboard },
@@ -31,7 +34,83 @@ const navItems = [
 export default function AdminLayout() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const isMobile = useIsMobile();
 
+  const NavContent = ({ onItemClick }: { onItemClick?: () => void }) => (
+    <nav className="flex-1 p-2 space-y-1">
+      {navItems.map((item) => {
+        const isActive = location.pathname === item.href || 
+          (item.href !== '/admin' && location.pathname.startsWith(item.href));
+        
+        return (
+          <Link
+            key={item.href}
+            to={item.href}
+            onClick={onItemClick}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+              isActive 
+                ? "bg-primary text-primary-foreground" 
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <item.icon className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate">{item.title}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+
+  // Mobile layout with drawer
+  if (isMobile) {
+    return (
+      <div className="min-h-screen flex flex-col bg-muted/30 w-full">
+        {/* Mobile Header */}
+        <header className="sticky top-0 z-40 bg-card border-b px-4 py-3 flex items-center gap-3">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setMobileOpen(true)}
+            className="h-9 w-9"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <Shield className="h-5 w-5 text-primary" />
+          <span className="font-semibold">Admin Panel</span>
+        </header>
+
+        {/* Mobile Drawer */}
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetContent side="left" className="w-72 p-0">
+            <SheetHeader className="p-4 border-b">
+              <SheetTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" />
+                Admin Panel
+              </SheetTitle>
+            </SheetHeader>
+            <NavContent onItemClick={() => setMobileOpen(false)} />
+            <div className="p-2 border-t">
+              <Button variant="ghost" size="sm" asChild className="w-full justify-start">
+                <Link to="/app" onClick={() => setMobileOpen(false)}>
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  Back to App
+                </Link>
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        {/* Main Content - Mobile */}
+        <main className="flex-1 p-4 overflow-auto">
+          <Outlet />
+        </main>
+      </div>
+    );
+  }
+
+  // Desktop layout with collapsible sidebar
   return (
     <TooltipProvider delayDuration={0}>
       <div className="min-h-screen flex bg-muted/30 w-full">
@@ -134,7 +213,7 @@ export default function AdminLayout() {
           </div>
         </aside>
 
-        {/* Main Content */}
+        {/* Main Content - Desktop */}
         <main className="flex-1 p-8 overflow-auto">
           <Outlet />
         </main>
