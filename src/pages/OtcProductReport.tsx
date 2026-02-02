@@ -8,22 +8,35 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { motion } from "framer-motion";
 import { ArrowLeft, AlertCircle, CheckCircle, XCircle, HelpCircle, AlertTriangle } from "lucide-react";
 import { useOtcProduct } from "@/hooks/useOtcProduct";
-import { useOtcVerdict } from "@/hooks/useOtcVerdict";
+import { useOtcVerdictRow } from "@/hooks/useOtcVerdictRow";
+import { useOtcProductIngredients } from "@/hooks/useOtcProductIngredients";
+import { useOtcVerdict as useComputedOtcVerdict } from "@/hooks/useVerdict";
 import { cn } from "@/lib/utils";
+import type { HalalStatus, VerdictOutput } from "@/types/verdict";
 
-type VerdictStatus = 'halal' | 'mushbooh' | 'haram' | 'needs_verification' | null;
-
-function getStatusDisplay(status: VerdictStatus) {
+function getStatusDisplay(status: HalalStatus | 'needs_verification' | null) {
   switch (status) {
     case 'halal':
-      return { label: 'Halal', variant: 'default' as const, icon: CheckCircle, className: 'bg-green-600 hover:bg-green-700' };
-    case 'haram':
+      return { label: 'Likely Halal', variant: 'default' as const, icon: CheckCircle, className: 'bg-green-600 hover:bg-green-700' };
+    case 'not_halal':
       return { label: 'Not Halal', variant: 'destructive' as const, icon: XCircle, className: '' };
-    case 'mushbooh':
+    case 'questionable':
       return { label: 'Questionable', variant: 'secondary' as const, icon: AlertTriangle, className: 'bg-yellow-500 text-yellow-950 hover:bg-yellow-600' };
     case 'needs_verification':
+    case 'unknown':
     default:
       return { label: 'Unknown', variant: 'outline' as const, icon: HelpCircle, className: '' };
+  }
+}
+
+// Map DB status to verdict engine status
+function mapDbStatusToEngineStatus(dbStatus: 'halal' | 'mushbooh' | 'haram' | 'needs_verification' | null): HalalStatus {
+  switch (dbStatus) {
+    case 'halal': return 'halal';
+    case 'haram': return 'not_halal';
+    case 'mushbooh': return 'questionable';
+    case 'needs_verification':
+    default: return 'unknown';
   }
 }
 
@@ -31,10 +44,62 @@ const OtcProductReport = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { data: product, isLoading: productLoading, error: productError } = useOtcProduct(id);
-  // Auto-create verdict if none exists
-  const { data: verdict, isLoading: verdictLoading, createError } = useOtcVerdict(id, true);
+  
+  // Fetch DB verdict row (with auto-create)
+  const { data: dbVerdict, isLoading: verdictRowLoading, createError } = useOtcVerdictRow(id, true);
+  
+  // Fetch ingredient join data for verdict computation
+  const { data: dbIngredients, isLoading: ingredientsLoading } = useOtcProductIngredients(id);
 
-  const isLoading = productLoading || verdictLoading;
+  // Compute verdict using the verdict engine
+  const computedVerdict: VerdictOutput | null = dbIngredients && dbIngredients.length > 0
+    ? useComputedOtcVerdict(
+        dbIngredients.map(item => ({
+          ingredient_id: item.ingredient_id,
+          notes: item.notes,
+          source_id: item.source_id,
+          ingredients: {
+            id: item.ingredients.id,
+            name: item.ingredients.name,
+            risk: item.ingredients.risk,
+            default_concern_reason: item.ingredients.default_concern_reason,
+            synonyms: item.ingredients.synonyms || [],
+          },
+          sources: item.sources ? {
+            id: item.sources.id,
+            title: item.sources.title,
+            source_type: item.sources.source_type,
+            url: item.sources.url,
+          } : undefined,
+        })),
+        undefined // No admin override for view-only
+      )
+    : null;
+
+  const isLoading = productLoading || verdictRowLoading || ingredientsLoading;
+  const hasIngredientData = dbIngredients && dbIngredients.length > 0;
+
+  // Determine which status to show
+  // Use computed verdict if we have ingredient data, otherwise fall back to DB verdict
+  const displayStatus: HalalStatus = hasIngredientData && computedVerdict
+    ? computedVerdict.status
+    : dbVerdict
+      ? mapDbStatusToEngineStatus(dbVerdict.status)
+      : 'unknown';
+
+  const displayConfidence = hasIngredientData && computedVerdict
+    ? computedVerdict.confidence
+    : dbVerdict?.confidence ?? null;
+
+  const summaryReason = hasIngredientData && computedVerdict
+    ? computedVerdict.summaryReason
+    : !hasIngredientData
+      ? "Ingredient data not available yet for this product."
+      : dbVerdict?.summary_reason || "Status pending review.";
+
+  const verdictReasons = hasIngredientData && computedVerdict
+    ? computedVerdict.reasons
+    : [];
 
   // Log create error but don't crash
   if (createError) {
@@ -91,7 +156,7 @@ const OtcProductReport = () => {
   }
 
   const displayName = product.display_name || product.name || product.generic_name;
-  const statusInfo = getStatusDisplay(verdict?.status ?? null);
+  const statusInfo = getStatusDisplay(displayStatus);
   const StatusIcon = statusInfo.icon;
 
   return (
@@ -136,10 +201,10 @@ const OtcProductReport = () => {
               </Badge>
             </div>
 
-            {/* Confidence - only show if verdict exists and has confidence */}
-            {verdict && typeof verdict.confidence === 'number' && (
+            {/* Confidence - only show if available */}
+            {displayConfidence !== null && (
               <p className="text-sm text-muted-foreground">
-                Confidence: {verdict.confidence}%
+                Confidence: {displayConfidence}%
               </p>
             )}
           </Card>
@@ -151,8 +216,31 @@ const OtcProductReport = () => {
                 <AccordionTrigger className="hover:no-underline py-3">
                   <span className="font-medium">Why this status</span>
                 </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground pb-4">
-                  {verdict?.summary_reason || "This will be filled from verdict reasons."}
+                <AccordionContent className="pb-4">
+                  {/* Summary reason */}
+                  <p className="text-muted-foreground mb-3">
+                    {summaryReason}
+                  </p>
+                  
+                  {/* Verdict reasons as bullet list */}
+                  {verdictReasons.length > 0 && (
+                    <ul className="space-y-2 text-sm">
+                      {verdictReasons.map((reason, index) => (
+                        <li 
+                          key={`${reason.code}-${index}`}
+                          className={cn(
+                            "flex items-start gap-2",
+                            reason.severity === 'critical' && "text-destructive",
+                            reason.severity === 'warning' && "text-yellow-600 dark:text-yellow-400",
+                            reason.severity === 'info' && "text-muted-foreground"
+                          )}
+                        >
+                          <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-current flex-shrink-0" />
+                          <span>{reason.message}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </AccordionContent>
               </AccordionItem>
 
@@ -161,7 +249,13 @@ const OtcProductReport = () => {
                   <span className="font-medium">Sources</span>
                 </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground pb-4">
-                  Sources will appear here when available.
+                  {hasIngredientData && computedVerdict?.hasManufacturerSource ? (
+                    <p>Manufacturer documentation available for some ingredients.</p>
+                  ) : hasIngredientData && computedVerdict?.hasCertifierSource ? (
+                    <p>Halal certification available for some ingredients.</p>
+                  ) : (
+                    <p>Sources will appear here when available.</p>
+                  )}
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
