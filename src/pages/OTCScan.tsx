@@ -51,14 +51,14 @@ const OTCScan = () => {
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (upcCode.trim()) {
-      // Navigate to product detail with the UPC
-      navigate(`/otc/product/${upcCode}`);
+      // Navigate to product report with the UPC
+      navigate(`/otc/${upcCode}/report`);
     }
   };
 
   const handleDemoScan = () => {
     // Demo: simulate finding a product
-    navigate("/otc/product/demo-123");
+    navigate("/otc/demo-123/report");
   };
 
   return (

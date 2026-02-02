@@ -90,7 +90,7 @@ export function HeroSearchInput() {
     if (result.type === 'rx') {
       navigate(`/rx/med/${result.id}`);
     } else {
-      navigate(`/otc/product/${result.id}`);
+      navigate(`/otc/${result.id}/report`);
     }
   }, [navigate]);
 
