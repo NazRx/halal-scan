@@ -477,25 +477,82 @@ serve(async (req) => {
 
     console.log(`[seed-otc] Starting seed of ${OTC_SEED_DATA.length} products...`);
 
-    // Track category counts
-    for (const product of OTC_SEED_DATA) {
-      result.categoryStats[product.category] = (result.categoryStats[product.category] || 0) + 1;
-    }
-    console.log('[seed-otc] Category distribution:', JSON.stringify(result.categoryStats, null, 2));
+    // ============ ALLOWED CATEGORIES & VALIDATION HELPERS ============
+    const ALLOWED_CATEGORIES = new Set([
+      'pain','allergy','cold_flu','cough','gi','sleep','vitamins','supplements',
+      'skin','eye_ear','first_aid','feminine','oral_care','smoking_cessation','other'
+    ]);
 
-    // Prepare all product rows
-    const productRows = OTC_SEED_DATA.map(product => ({
-      name: (product.display_name || product.generic_name).trim(),
-      display_name: product.display_name.trim(),
-      generic_name: normalize(product.generic_name),
-      category: product.category, // Canonical category key (NOT NULL)
-      primary_category: product.primary_category, // Human-readable for UI
-      common_uses: product.common_uses,
-      search_terms: product.search_terms ? product.search_terms.split(';').map(s => s.trim()).filter(Boolean) : [],
-      is_vitamin: product.is_vitamin,
-      is_combo: product.is_combo,
-      combo_ingredients: product.combo_ingredients ? product.combo_ingredients.split(';').map(s => s.trim()).filter(Boolean) : []
-    }));
+    function safeTrim(s?: string | null) {
+      return (s ?? '').trim();
+    }
+
+    function validateAndFixProduct(product: OtcProduct): 
+      | { ok: false; reason: string }
+      | { ok: true; fixed: Record<string, any> } {
+      const display = safeTrim(product.display_name);
+      const genericRaw = safeTrim(product.generic_name);
+      const generic = normalize(genericRaw);
+
+      // generic_name is NOT NULL and is used as the upsert conflict key
+      if (!generic) return { ok: false, reason: 'missing generic_name' };
+
+      // name is NOT NULL
+      const name = safeTrim(display || genericRaw || generic);
+      if (!name) return { ok: false, reason: 'missing name' };
+
+      // category has NOT NULL + CHECK constraint; default to 'other'
+      const category = safeTrim(product.category) || 'other';
+      if (!ALLOWED_CATEGORIES.has(category)) {
+        return { ok: false, reason: `invalid category "${category}"` };
+      }
+
+      return {
+        ok: true,
+        fixed: {
+          name,
+          display_name: display || name,
+          generic_name: generic,
+          category,
+          primary_category: safeTrim(product.primary_category) || null,
+          common_uses: safeTrim(product.common_uses) || null,
+          search_terms: product.search_terms
+            ? product.search_terms.split(';').map(s => s.trim()).filter(Boolean)
+            : [],
+          is_vitamin: !!product.is_vitamin,
+          is_combo: !!product.is_combo,
+          combo_ingredients: product.combo_ingredients
+            ? product.combo_ingredients.split(';').map(s => s.trim()).filter(Boolean)
+            : []
+        }
+      };
+    }
+
+    // ============ VALIDATE AND FIX ALL PRODUCTS ============
+    const validRows: Record<string, any>[] = [];
+    const skipped: { display_name: string; generic_name: string; reason: string }[] = [];
+
+    for (const p of OTC_SEED_DATA) {
+      const v = validateAndFixProduct(p);
+      if (!v.ok) {
+        skipped.push({ display_name: p.display_name, generic_name: p.generic_name, reason: v.reason });
+        continue;
+      }
+      validRows.push(v.fixed);
+    }
+
+    if (skipped.length > 0) {
+      console.log(`[seed-otc] Skipped ${skipped.length} invalid products (won't hit DB):`, skipped.slice(0, 25));
+      result.errors.push(`Skipped ${skipped.length} invalid products. See logs for details.`);
+    }
+
+    // Track category counts from valid rows only
+    for (const row of validRows) {
+      result.categoryStats[row.category] = (result.categoryStats[row.category] || 0) + 1;
+    }
+    console.log('[seed-otc] Category distribution (valid rows):', JSON.stringify(result.categoryStats, null, 2));
+
+    const productRows = validRows;
 
     // ============ DEDUPE PRODUCTS BY CONFLICT KEY (generic_name) ============
     // Prevent "ON CONFLICT DO UPDATE command cannot affect row a second time" error
