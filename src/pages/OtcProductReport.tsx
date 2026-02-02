@@ -31,9 +31,15 @@ const OtcProductReport = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { data: product, isLoading: productLoading, error: productError } = useOtcProduct(id);
-  const { data: verdict, isLoading: verdictLoading } = useOtcVerdict(id);
+  // Auto-create verdict if none exists
+  const { data: verdict, isLoading: verdictLoading, createError } = useOtcVerdict(id, true);
 
   const isLoading = productLoading || verdictLoading;
+
+  // Log create error but don't crash
+  if (createError) {
+    console.warn('[OtcProductReport] Could not auto-create verdict:', createError);
+  }
 
   if (isLoading) {
     return (
