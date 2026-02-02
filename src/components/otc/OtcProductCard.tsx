@@ -22,7 +22,7 @@ export function OtcProductCard({ product, index = 0 }: OtcProductCardProps) {
     >
       <Card
         className="p-4 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group"
-        onClick={() => navigate(`/otc/product/${product.id}`)}
+        onClick={() => navigate(`/otc/${product.id}/report`)}
       >
         <div className="flex items-center gap-3">
           {/* Icon */}
