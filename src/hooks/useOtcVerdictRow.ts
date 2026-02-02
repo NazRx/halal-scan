@@ -16,7 +16,7 @@ export interface OtcVerdict {
   updated_by: string | null;
 }
 
-export function useOtcVerdict(productId: string | undefined, autoCreate: boolean = false) {
+export function useOtcVerdictRow(productId: string | undefined, autoCreate: boolean = false) {
   const queryClient = useQueryClient();
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -60,14 +60,14 @@ export function useOtcVerdict(productId: string | undefined, autoCreate: boolean
             .maybeSingle();
 
           if (insertError) {
-            console.error('[useOtcVerdict] Failed to auto-create verdict:', insertError.message);
+            console.error('[useOtcVerdictRow] Failed to auto-create verdict:', insertError.message);
             setCreateError(insertError.message);
           } else if (insertedData) {
             // Update cache with new verdict
             queryClient.setQueryData(["otc-verdict", productId], insertedData);
           }
         } catch (err) {
-          console.error('[useOtcVerdict] Unexpected error creating verdict:', err);
+          console.error('[useOtcVerdictRow] Unexpected error creating verdict:', err);
           setCreateError(err instanceof Error ? err.message : 'Unknown error');
         } finally {
           setIsCreating(false);
