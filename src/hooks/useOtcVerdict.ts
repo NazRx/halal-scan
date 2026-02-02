@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface OtcVerdict {
@@ -15,8 +16,12 @@ export interface OtcVerdict {
   updated_by: string | null;
 }
 
-export function useOtcVerdict(productId: string | undefined) {
-  return useQuery({
+export function useOtcVerdict(productId: string | undefined, autoCreate: boolean = false) {
+  const queryClient = useQueryClient();
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const query = useQuery({
     queryKey: ["otc-verdict", productId],
     queryFn: async () => {
       if (!productId) return null;
@@ -32,4 +37,51 @@ export function useOtcVerdict(productId: string | undefined) {
     },
     enabled: !!productId,
   });
+
+  // Auto-create verdict if none exists
+  useEffect(() => {
+    const createVerdict = async () => {
+      if (!autoCreate || !productId || query.isLoading || isCreating || query.data) return;
+      
+      // Only attempt creation if query completed and returned null
+      if (query.data === null && !query.isLoading && !query.isFetching) {
+        setIsCreating(true);
+        setCreateError(null);
+        
+        try {
+          const { data: insertedData, error: insertError } = await supabase
+            .from("otc_verdicts")
+            .insert({
+              product_id: productId,
+              status: 'needs_verification' as const,
+              confidence: 0,
+            })
+            .select()
+            .maybeSingle();
+
+          if (insertError) {
+            console.error('[useOtcVerdict] Failed to auto-create verdict:', insertError.message);
+            setCreateError(insertError.message);
+          } else if (insertedData) {
+            // Update cache with new verdict
+            queryClient.setQueryData(["otc-verdict", productId], insertedData);
+          }
+        } catch (err) {
+          console.error('[useOtcVerdict] Unexpected error creating verdict:', err);
+          setCreateError(err instanceof Error ? err.message : 'Unknown error');
+        } finally {
+          setIsCreating(false);
+        }
+      }
+    };
+
+    createVerdict();
+  }, [productId, autoCreate, query.data, query.isLoading, query.isFetching, isCreating, queryClient]);
+
+  return {
+    ...query,
+    isCreating,
+    createError,
+    isLoading: query.isLoading || isCreating,
+  };
 }
