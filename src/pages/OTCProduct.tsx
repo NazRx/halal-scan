@@ -1,4 +1,4 @@
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Navigate, Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,6 +12,12 @@ import { useOtcProduct } from "@/hooks/useOtcProduct";
 const OTCProduct = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+
+  // Redirect to the new report page
+  if (id) {
+    return <Navigate to={`/otc/${id}/report`} replace />;
+  }
+
   const { data: product, isLoading, error } = useOtcProduct(id);
 
   if (isLoading) {

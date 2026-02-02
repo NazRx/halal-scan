@@ -45,7 +45,7 @@ export function OtcSearchInput({
     if (onResultSelect) {
       onResultSelect(result);
     } else {
-      navigate(`/otc/product/${result.id}`);
+      navigate(`/otc/${result.id}/report`);
     }
   };
 

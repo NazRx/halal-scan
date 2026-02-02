@@ -175,7 +175,7 @@ export function OtcBrowseList({ items, isLoading, mode }: OtcListProps) {
                 >
                   <Card
                     className="p-4 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer"
-                    onClick={() => navigate(`/otc/product/${item.id}`)}
+                    onClick={() => navigate(`/otc/${item.id}/report`)}
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -222,7 +222,7 @@ export function OtcBrowseList({ items, isLoading, mode }: OtcListProps) {
         >
           <Card
             className="p-4 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer"
-            onClick={() => navigate(`/otc/product/${item.id}`)}
+            onClick={() => navigate(`/otc/${item.id}/report`)}
           >
             <div className="flex items-center gap-3">
               <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
