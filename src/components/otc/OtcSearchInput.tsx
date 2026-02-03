@@ -122,8 +122,9 @@ export function OtcSearchInput({
                   No products found for "{query}"
                 </div>
               ) : (
-                <ScrollArea className="max-h-[min(400px,50vh)]">
-                  <div className="py-2 pb-3">
+                <div className="max-h-[min(400px,50vh)] overflow-hidden">
+                  <ScrollArea className="h-full max-h-[min(400px,50vh)]">
+                    <div className="py-2 pb-3">
                     {/* Brand Matches Section */}
                     {brandMatches.length > 0 && (
                       <div>
@@ -157,8 +158,9 @@ export function OtcSearchInput({
                         ))}
                       </div>
                     )}
-                  </div>
-                </ScrollArea>
+                    </div>
+                  </ScrollArea>
+                </div>
               )}
             </motion.div>
           )}
