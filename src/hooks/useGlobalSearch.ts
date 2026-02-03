@@ -252,41 +252,78 @@ export function useGlobalSearch(query: string) {
         // Modifier tokens for boost/penalty scoring
         const MODIFIER_TOKENS = ['cold', 'flu', 'sinus', 'pm', 'night', 'severe', 'plus'];
         const queryLower = cleanQuery.toLowerCase();
+        
+        // Check if query has any modifier token
+        const queryHasAnyModifier = MODIFIER_TOKENS.some(token => queryLower.includes(token));
         const queryHasModifier = (token: string) => queryLower.includes(token);
         
-        // Calculate modifier score for a product
-        const getModifierScore = (displayName: string | null): number => {
-          if (!displayName) return 0;
-          const nameLower = displayName.toLowerCase();
+        // Brand intent detection: check if query contains a known brand key
+        let preferredGenerics: string[] = [];
+        let isBrandIntentSearch = false;
+        for (const [brand, generics] of Object.entries(COMMON_ALIASES)) {
+          if (queryLower.includes(brand)) {
+            isBrandIntentSearch = true;
+            preferredGenerics = generics.map(g => g.toLowerCase());
+            break;
+          }
+        }
+        
+        // Calculate comprehensive score for OTC product ranking
+        const getOtcScore = (product: OtcProductRow): number => {
           let score = 0;
+          const displayLower = (product.display_name || '').toLowerCase();
+          const genericLower = product.generic_name.toLowerCase();
+          
+          // Rule 1: Brand intent - boost if generic_name matches preferred generics
+          if (isBrandIntentSearch && preferredGenerics.length > 0) {
+            const matchesPreferred = preferredGenerics.some(pref => 
+              genericLower.includes(pref) || pref.includes(genericLower)
+            );
+            if (matchesPreferred) {
+              score -= 100; // Strong boost
+            } else {
+              score += 50; // Penalty for non-matching generics in brand search
+            }
+          }
+          
+          // Rule 2: Combo penalty - penalize combo products unless query has modifier
+          if (product.is_combo && !queryHasAnyModifier) {
+            score += 75; // Strong penalty for combos when user didn't ask for modifiers
+          }
+          
+          // Rule 3: Modifier token mismatch penalty
           for (const token of MODIFIER_TOKENS) {
-            const productHasToken = nameLower.includes(token);
+            const productHasToken = displayLower.includes(token);
             const queryHasToken = queryHasModifier(token);
             if (productHasToken && !queryHasToken) {
               // Product has modifier user didn't ask for → penalty
-              score += 10;
+              score += 25;
             } else if (productHasToken && queryHasToken) {
               // Product has modifier user asked for → boost
-              score -= 10;
+              score -= 30;
             }
           }
+          
           return score;
         };
 
-        // Sort OTC results: exact-generic > exact-synonym > partial, 
-        // then modifier score, then non-combo before combo, then alphabetical
+        // Sort OTC results with comprehensive scoring
+        // Priority: match type > score > combo status > alphabetical
         const otcProducts = Array.from(otcResultMap.values()).sort((a, b) => {
+          // First: match type priority (exact-generic > exact-synonym > partial)
           const priority = { 'exact-generic': 0, 'exact-synonym': 1, 'partial': 2 };
           const pDiff = priority[a.matchType] - priority[b.matchType];
           if (pDiff !== 0) return pDiff;
           
-          // Apply modifier boost/penalty
-          const aModScore = getModifierScore(a.display_name);
-          const bModScore = getModifierScore(b.display_name);
-          if (aModScore !== bModScore) return aModScore - bModScore;
+          // Second: Apply comprehensive scoring within same match type
+          const aScore = getOtcScore(a);
+          const bScore = getOtcScore(b);
+          if (aScore !== bScore) return aScore - bScore;
           
-          // Non-combo products before combo
+          // Third: Non-combo products before combo (fallback)
           if (a.is_combo !== b.is_combo) return a.is_combo ? 1 : -1;
+          
+          // Fourth: Alphabetical
           return (a.display_name || a.generic_name).localeCompare(b.display_name || b.generic_name);
         });
 
