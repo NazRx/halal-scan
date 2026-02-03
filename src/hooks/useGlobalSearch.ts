@@ -249,11 +249,42 @@ export function useGlobalSearch(query: string) {
           }
         });
 
-        // Sort OTC results: exact-generic > exact-synonym > partial, non-combo before combo
+        // Modifier tokens for boost/penalty scoring
+        const MODIFIER_TOKENS = ['cold', 'flu', 'sinus', 'pm', 'night', 'severe', 'plus'];
+        const queryLower = cleanQuery.toLowerCase();
+        const queryHasModifier = (token: string) => queryLower.includes(token);
+        
+        // Calculate modifier score for a product
+        const getModifierScore = (displayName: string | null): number => {
+          if (!displayName) return 0;
+          const nameLower = displayName.toLowerCase();
+          let score = 0;
+          for (const token of MODIFIER_TOKENS) {
+            const productHasToken = nameLower.includes(token);
+            const queryHasToken = queryHasModifier(token);
+            if (productHasToken && !queryHasToken) {
+              // Product has modifier user didn't ask for → penalty
+              score += 10;
+            } else if (productHasToken && queryHasToken) {
+              // Product has modifier user asked for → boost
+              score -= 10;
+            }
+          }
+          return score;
+        };
+
+        // Sort OTC results: exact-generic > exact-synonym > partial, 
+        // then modifier score, then non-combo before combo, then alphabetical
         const otcProducts = Array.from(otcResultMap.values()).sort((a, b) => {
           const priority = { 'exact-generic': 0, 'exact-synonym': 1, 'partial': 2 };
           const pDiff = priority[a.matchType] - priority[b.matchType];
           if (pDiff !== 0) return pDiff;
+          
+          // Apply modifier boost/penalty
+          const aModScore = getModifierScore(a.display_name);
+          const bModScore = getModifierScore(b.display_name);
+          if (aModScore !== bModScore) return aModScore - bModScore;
+          
           // Non-combo products before combo
           if (a.is_combo !== b.is_combo) return a.is_combo ? 1 : -1;
           return (a.display_name || a.generic_name).localeCompare(b.display_name || b.generic_name);
