@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Pill, Package, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useGlobalSearch, SearchResult } from '@/hooks/useGlobalSearch';
 import { cn } from '@/lib/utils';
 
@@ -133,7 +133,7 @@ export function GlobalSearch({
       {isOpen && (
         <div 
           ref={listRef}
-          className="absolute z-50 top-full mt-1 w-full bg-popover border rounded-lg shadow-lg overflow-hidden max-h-[400px] overflow-y-auto"
+          className="absolute z-50 top-full mt-1 w-full bg-popover border rounded-lg shadow-lg overflow-hidden"
         >
           {isLoading && results.length === 0 ? (
             <div className="p-4 text-center text-muted-foreground">
@@ -151,59 +151,63 @@ export function GlobalSearch({
               </p>
             </div>
           ) : (
-            results.map((result, index) => (
-              <div
-                key={`${result.type}-${result.id}`}
-                onClick={() => handleSelect(result)}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b last:border-b-0",
-                  selectedIndex === index 
-                    ? "bg-accent" 
-                    : "hover:bg-muted/50"
-                )}
-              >
-                {/* Type Icon */}
-                <div className={cn(
-                  "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
-                  result.type === 'rx' 
-                    ? "bg-accent/20 text-accent" 
-                    : "bg-primary/20 text-primary"
-                )}>
-                  {result.type === 'rx' ? (
-                    <Pill className="h-4 w-4" />
-                  ) : (
-                    <Package className="h-4 w-4" />
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium truncate">{result.primaryName}</span>
-                    <span className={cn(
-                      "text-xs font-medium px-1.5 py-0.5 rounded uppercase",
+            <ScrollArea className="max-h-[min(400px,50vh)]">
+              <div>
+                {results.map((result, index) => (
+                  <div
+                    key={`${result.type}-${result.id}`}
+                    onClick={() => handleSelect(result)}
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b last:border-b-0",
+                      selectedIndex === index 
+                        ? "bg-accent" 
+                        : "hover:bg-muted/50"
+                    )}
+                  >
+                    {/* Type Icon */}
+                    <div className={cn(
+                      "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
                       result.type === 'rx' 
-                        ? "bg-accent/10 text-accent" 
-                        : "bg-primary/10 text-primary"
+                        ? "bg-accent/20 text-accent" 
+                        : "bg-primary/20 text-primary"
                     )}>
-                      {result.type === 'rx' ? 'Rx' : 'OTC'}
-                    </span>
-                  </div>
-                  {result.secondaryLabel && (
-                    <p className="text-sm text-muted-foreground truncate">
-                      {result.secondaryLabel}
-                    </p>
-                  )}
-                </div>
+                      {result.type === 'rx' ? (
+                        <Pill className="h-4 w-4" />
+                      ) : (
+                        <Package className="h-4 w-4" />
+                      )}
+                    </div>
 
-                {/* Status Badge */}
-                <StatusBadge 
-                  status={result.status} 
-                  size="sm" 
-                  showLabel={false}
-                />
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium truncate">{result.primaryName}</span>
+                        <span className={cn(
+                          "text-xs font-medium px-1.5 py-0.5 rounded uppercase flex-shrink-0",
+                          result.type === 'rx' 
+                            ? "bg-accent/10 text-accent" 
+                            : "bg-primary/10 text-primary"
+                        )}>
+                          {result.type === 'rx' ? 'Rx' : 'OTC'}
+                        </span>
+                      </div>
+                      {result.secondaryLabel && (
+                        <p className="text-sm text-muted-foreground truncate">
+                          {result.secondaryLabel}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Status Badge */}
+                    <StatusBadge 
+                      status={result.status} 
+                      size="sm" 
+                      showLabel={false}
+                    />
+                  </div>
+                ))}
               </div>
-            ))
+            </ScrollArea>
           )}
         </div>
       )}
