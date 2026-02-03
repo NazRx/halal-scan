@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Package } from 'lucide-react';
+import { ArrowLeft, Package, Pill, FlaskConical } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { mapDbStatus } from '@/lib/status-labels';
 
@@ -24,6 +24,57 @@ interface OtcVerdict {
   status: string;
 }
 
+// Dosage form priority for single-ingredient sorting
+const DOSAGE_FORM_PRIORITY: Record<string, number> = {
+  'tablet': 1,
+  'tablets': 1,
+  'capsule': 2,
+  'capsules': 2,
+  'caplet': 2,
+  'caplets': 2,
+  'extended-release': 3,
+  'er': 3,
+  'xr': 3,
+  'liquid': 4,
+  'syrup': 4,
+  'suspension': 4,
+  'solution': 5,
+  'drops': 5,
+  'suppository': 6,
+  'rectal': 6,
+  'cream': 7,
+  'ointment': 7,
+  'gel': 7,
+};
+
+// Get dosage form priority from display name
+function getDosageFormPriority(displayName: string | null): number {
+  if (!displayName) return 99;
+  const lower = displayName.toLowerCase();
+  for (const [form, priority] of Object.entries(DOSAGE_FORM_PRIORITY)) {
+    if (lower.includes(form)) return priority;
+  }
+  return 99;
+}
+
+// Check if product is a combination based on is_combo flag or generic name analysis
+function isComboProduct(variant: OtcVariant): boolean {
+  // If explicitly marked as combo, use that
+  if (variant.is_combo === true) return true;
+  if (variant.is_combo === false) return false;
+  
+  // Analyze generic name for multiple active ingredients
+  const genericLower = variant.generic_name.toLowerCase();
+  
+  // Common separators for combo products
+  const hasSeparator = genericLower.includes('/') || 
+    genericLower.includes(' and ') || 
+    genericLower.includes(' + ') ||
+    genericLower.includes(', ');
+  
+  return hasSeparator;
+}
+
 const OtcGenericDrilldown = () => {
   const { genericName } = useParams<{ genericName: string }>();
   const navigate = useNavigate();
@@ -39,7 +90,6 @@ const OtcGenericDrilldown = () => {
         .from('otc_products')
         .select('id, display_name, generic_name, primary_category, is_combo, manufacturer, notes')
         .ilike('generic_name', `%${searchTerm}%`)
-        .order('is_combo', { ascending: true })
         .order('display_name', { ascending: true });
 
       if (error) throw error;
@@ -69,6 +119,38 @@ const OtcGenericDrilldown = () => {
     enabled: !!variants?.length,
   });
 
+  // Separate and sort variants
+  const { singleIngredient, combinations } = (variants || []).reduce<{
+    singleIngredient: OtcVariant[];
+    combinations: OtcVariant[];
+  }>(
+    (acc, variant) => {
+      if (isComboProduct(variant)) {
+        acc.combinations.push(variant);
+      } else {
+        acc.singleIngredient.push(variant);
+      }
+      return acc;
+    },
+    { singleIngredient: [], combinations: [] }
+  );
+
+  // Sort single-ingredient by dosage form priority
+  singleIngredient.sort((a, b) => {
+    const aPriority = getDosageFormPriority(a.display_name);
+    const bPriority = getDosageFormPriority(b.display_name);
+    if (aPriority !== bPriority) return aPriority - bPriority;
+    return (a.display_name || a.generic_name).localeCompare(b.display_name || b.generic_name);
+  });
+
+  // Sort combinations by category then alphabetical
+  combinations.sort((a, b) => {
+    const catA = a.primary_category || 'zzz';
+    const catB = b.primary_category || 'zzz';
+    if (catA !== catB) return catA.localeCompare(catB);
+    return (a.display_name || a.generic_name).localeCompare(b.display_name || b.generic_name);
+  });
+
   const handleVariantClick = (variantId: string) => {
     navigate(`/otc/${variantId}/report`);
   };
@@ -78,6 +160,40 @@ const OtcGenericDrilldown = () => {
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
+
+  const renderVariantCard = (variant: OtcVariant) => {
+    const status = mapDbStatus(verdicts?.[variant.id] || null);
+    
+    return (
+      <Card
+        key={variant.id}
+        onClick={() => handleVariantClick(variant.id)}
+        className="p-4 cursor-pointer hover:shadow-md hover:border-primary/20 transition-all"
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-medium truncate">
+                {variant.display_name || variant.generic_name}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {variant.primary_category && (
+                <span className="capitalize">{variant.primary_category.replace(/_/g, ' ')}</span>
+              )}
+              {variant.manufacturer && (
+                <>
+                  <span>•</span>
+                  <span className="truncate">{variant.manufacturer}</span>
+                </>
+              )}
+            </div>
+          </div>
+          <StatusBadge status={status} size="sm" />
+        </div>
+      </Card>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -119,45 +235,41 @@ const OtcGenericDrilldown = () => {
             </p>
           </Card>
         ) : (
-          <div className="space-y-3">
-            {variants?.map((variant) => {
-              const status = mapDbStatus(verdicts?.[variant.id] || null);
-              
-              return (
-                <Card
-                  key={variant.id}
-                  onClick={() => handleVariantClick(variant.id)}
-                  className="p-4 cursor-pointer hover:shadow-md hover:border-primary/20 transition-all"
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-medium truncate">
-                          {variant.display_name || variant.generic_name}
-                        </h3>
-                        {variant.is_combo && (
-                          <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground flex-shrink-0">
-                            Combo
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        {variant.primary_category && (
-                          <span className="capitalize">{variant.primary_category.replace(/_/g, ' ')}</span>
-                        )}
-                        {variant.manufacturer && (
-                          <>
-                            <span>•</span>
-                            <span className="truncate">{variant.manufacturer}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <StatusBadge status={status} size="sm" />
-                  </div>
-                </Card>
-              );
-            })}
+          <div className="space-y-6">
+            {/* Single-Ingredient Section */}
+            {singleIngredient.length > 0 && (
+              <section>
+                <div className="flex items-center gap-2 mb-3">
+                  <Pill className="h-5 w-5 text-primary" />
+                  <h2 className="text-lg font-semibold">Single-ingredient</h2>
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                    Recommended
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Products containing only {displayGenericName.toLowerCase()} as the active ingredient.
+                </p>
+                <div className="space-y-3">
+                  {singleIngredient.map(renderVariantCard)}
+                </div>
+              </section>
+            )}
+
+            {/* Combination Products Section */}
+            {combinations.length > 0 && (
+              <section>
+                <div className="flex items-center gap-2 mb-3">
+                  <FlaskConical className="h-5 w-5 text-muted-foreground" />
+                  <h2 className="text-lg font-semibold">Combination products</h2>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Products containing {displayGenericName.toLowerCase()} plus other active ingredients.
+                </p>
+                <div className="space-y-3">
+                  {combinations.map(renderVariantCard)}
+                </div>
+              </section>
+            )}
           </div>
         )}
       </main>
