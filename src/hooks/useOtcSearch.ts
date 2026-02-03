@@ -120,11 +120,31 @@ export function useOtcSearch(query: string) {
         });
 
         // Sort by match type priority, then alphabetically
+        // Prefer non-combo products when match types are equal
         const sortedResults = Array.from(resultMap.values()).sort((a, b) => {
           const priority = { 'exact-generic': 0, 'exact-synonym': 1, 'partial': 2 };
           const pDiff = priority[a.matchType] - priority[b.matchType];
           if (pDiff !== 0) return pDiff;
+          // Non-combo products should come before combo products
+          if (a.isCombo !== b.isCombo) return a.isCombo ? 1 : -1;
           return a.displayName.localeCompare(b.displayName);
+        });
+
+        // DEBUG: Log search diagnostics
+        const exactSynonymMatches = sortedResults.filter(r => r.matchType === 'exact-synonym');
+        const exactGenericMatches = sortedResults.filter(r => r.matchType === 'exact-generic');
+        console.log('🔍 [OTC Search Debug]', {
+          query: searchLower,
+          exactSynonymMatchFound: exactSynonymMatches.length > 0,
+          synonymMatchCount: synonymProducts.length,
+          totalResults: sortedResults.length,
+          top5: sortedResults.slice(0, 5).map(r => ({
+            displayName: r.displayName,
+            genericName: r.genericName,
+            isCombo: r.isCombo,
+            category: r.category,
+            matchType: r.matchType
+          }))
         });
 
         setResults(sortedResults.slice(0, 50)); // Limit to 50 results
