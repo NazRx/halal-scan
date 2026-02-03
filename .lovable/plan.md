@@ -1,124 +1,78 @@
 
-# Fix Admin Dashboard Mobile Layout
+# Fix Global Search Dropdown Scroll
 
-## Problem Summary
+## Problem
+The search results dropdown in the GlobalSearch component (used on the /app "Scanner" page and other pages) is not scrollable. When there are many results, items at the bottom are cut off and users cannot scroll to see them.
 
-The admin dashboard has severe visual overlap and usability issues on mobile devices (viewport ~344px wide):
+## Root Cause
+The Radix UI ScrollArea component is configured with `max-h-[min(400px,50vh)]` on the Root element, but the internal Viewport component has `h-full w-full` which doesn't properly constrain the scrollable area. The Radix ScrollArea's internal viewport applies inline styles that can override the CSS height, preventing proper scroll behavior.
 
-1. **Fixed sidebar takes too much space** - The sidebar (256px or 64px collapsed) leaves almost no room for main content on mobile
-2. **Tab buttons overflow** - The 5-column TabsList in SeedData page gets squished and unreadable
-3. **Stats grids are cramped** - Dashboard uses 2 columns minimum, SeedData uses up to 7 columns with no mobile accommodation
-4. **Excessive padding** - Main content uses `p-8` (32px) which wastes valuable mobile screen space
+## Solution
+Wrap the ScrollArea in a container div that has the explicit max-height constraint, and ensure the ScrollArea properly fills that container. This is the standard pattern for making Radix ScrollArea work with max-height constraints.
 
-## Solution Overview
+---
 
-Transform the admin panel into a mobile-first responsive layout:
+## Technical Implementation
 
-1. **Mobile drawer navigation** - Hide sidebar on mobile, replace with hamburger menu that opens a slide-out drawer
-2. **Responsive stat cards** - Use single column on mobile, progressively more columns on larger screens
-3. **Scrollable tabs** - Make TabsList horizontally scrollable on mobile instead of squished columns
-4. **Reduced mobile padding** - Use `p-4` on mobile, `p-8` on desktop
+### File: `src/components/search/GlobalSearch.tsx`
 
-## Implementation Details
-
-### 1. AdminLayout.tsx - Mobile Drawer Pattern
-
-**Current behavior:** Sidebar always visible, squishes main content on mobile
-
-**New behavior:**
-- On mobile (`< 768px`): Hide sidebar, show hamburger menu button in a fixed header
-- When hamburger clicked: Open a Sheet (drawer) with navigation items
-- On desktop: Keep current collapsible sidebar behavior
-
-```
-Mobile Layout:
-+----------------------------------+
-| [☰]  Admin Panel                |  <- Fixed header with menu button
-+----------------------------------+
-|                                  |
-|   Main Content                   |
-|   (full width)                   |
-|                                  |
-+----------------------------------+
-
-Sheet opens from left with nav items
-```
-
-### 2. Dashboard.tsx - Responsive Grid
-
-**Current:** `grid-cols-2 md:grid-cols-4`
-
-**New:** `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`
-
-- Mobile: 1 column (full width cards, easy to read)
-- Small tablets: 2 columns
-- Desktop: 4 columns
-
-Also reduce card content density on mobile.
-
-### 3. SeedData.tsx - Multiple Fixes
-
-**Stats Grid:**
-- Current: `grid-cols-2 md:grid-cols-4 lg:grid-cols-7`
-- New: `grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7`
-
-**TabsList:**
-- Current: `grid grid-cols-5` (forces 5 columns, breaks on mobile)
-- New: Use horizontal scrollable tabs with `overflow-x-auto` and `flex` instead of grid
-
-**Button Groups:**
-- Current: `flex flex-wrap gap-3`
-- New: Stack vertically on mobile with `flex-col sm:flex-row`
-
-### 4. Main Content Padding
-
-**Current:** `p-8` (32px all sides)
-
-**New:** `p-4 md:p-8` (16px mobile, 32px desktop)
-
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/pages/admin/AdminLayout.tsx` | Add mobile detection, Sheet drawer, responsive main padding |
-| `src/pages/admin/Dashboard.tsx` | Update stat card grid breakpoints |
-| `src/pages/admin/SeedData.tsx` | Responsive stat grid, scrollable tabs, stacked buttons on mobile |
-
-## Technical Approach
-
-### AdminLayout.tsx Key Changes
-
-1. Import `useIsMobile` hook and Sheet component
-2. Add `isOpen` state for mobile drawer
-3. Conditionally render:
-   - Mobile: Fixed header with hamburger + Sheet with nav items
-   - Desktop: Current sidebar implementation
-4. Update main content padding to be responsive
-
-### SeedData.tsx TabsList Solution
-
-Replace grid-based tabs with scrollable horizontal tabs:
+**Change 1:** Replace the current ScrollArea implementation (lines 156-213) with a wrapper pattern:
 
 ```tsx
-<TabsList className="flex w-full overflow-x-auto no-scrollbar">
-  <TabsTrigger value="manufacturers" className="flex-shrink-0">
-    Manufacturers
-  </TabsTrigger>
-  {/* ... other triggers with flex-shrink-0 */}
-</TabsList>
+// BEFORE (line 156-213):
+<ScrollArea className="max-h-[min(400px,50vh)]">
+  <div className="pb-2">
+    {results.map(...)}
+  </div>
+</ScrollArea>
+
+// AFTER:
+<div className="max-h-[min(400px,50vh)] overflow-hidden">
+  <ScrollArea className="h-full max-h-[min(400px,50vh)]">
+    <div className="pb-2">
+      {results.map(...)}
+    </div>
+  </ScrollArea>
+</div>
 ```
 
-Add CSS utility if needed:
-```css
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+**Why this works:** The outer div provides a fixed max-height boundary. The ScrollArea with `h-full` then fits within this boundary, and its viewport can properly calculate when content exceeds the available space, enabling scroll.
+
+---
+
+### File: `src/components/otc/OtcSearchInput.tsx`
+
+**Change 2:** Apply the same wrapper pattern to the OTC search dropdown (lines 123-154):
+
+```tsx
+// BEFORE (line 125):
+<ScrollArea className="max-h-[min(400px,50vh)]">
+  <div className="py-2 pb-3">
+    ...
+  </div>
+</ScrollArea>
+
+// AFTER:
+<div className="max-h-[min(400px,50vh)] overflow-hidden">
+  <ScrollArea className="h-full max-h-[min(400px,50vh)]">
+    <div className="py-2 pb-3">
+      ...
+    </div>
+  </ScrollArea>
+</div>
 ```
 
-## Expected Outcome
+---
 
-After implementation:
-- Admin dashboard is fully usable on mobile devices
-- No visual overlap between navigation and content
-- Stat cards and tabs are readable and tappable on mobile
-- Smooth transition between mobile drawer and desktop sidebar
-- Maintains desktop experience unchanged
+## Summary of Changes
+
+| File | Change |
+|------|--------|
+| `src/components/search/GlobalSearch.tsx` | Wrap ScrollArea in constraining div |
+| `src/components/otc/OtcSearchInput.tsx` | Apply same wrapper pattern |
+
+## Expected Result
+- Search results dropdown will show a visible scrollbar when results exceed the viewport
+- Users can scroll with mouse wheel, trackpad, or by dragging the scrollbar
+- All results become accessible regardless of list length
+- Works on both the /app (Scanner) page and /otc/browse page
