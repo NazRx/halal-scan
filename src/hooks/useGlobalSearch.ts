@@ -25,9 +25,12 @@ interface RxMedRow {
 
 interface OtcProductRow {
   id: string;
-  name: string;
-  brand: string | null;
-  category: string | null;
+  display_name: string | null;
+  generic_name: string;
+  primary_category: string | null;
+  is_combo: boolean | null;
+  search_terms?: string[] | null;
+  matchType: 'exact-generic' | 'exact-synonym' | 'partial';
 }
 
 // Common misspellings and aliases
@@ -153,20 +156,108 @@ export function useGlobalSearch(query: string) {
           .or(`generic_name.ilike.${primaryTerm}`)
           .limit(20);
 
-        // Search OTC products - by name and brand
-        const otcPromise = supabase
+        // Search OTC products using improved logic matching useOtcSearch
+        // 1. Exact generic match
+        const otcExactGenericPromise = supabase
           .from('otc_products')
-          .select('id, name, brand, category')
-          .or(`name.ilike.${primaryTerm},brand.ilike.${primaryTerm}`)
-          .limit(15);
+          .select('id, display_name, generic_name, primary_category, is_combo')
+          .ilike('generic_name', cleanQuery);
 
-        const [rxResponse, otcResponse] = await Promise.all([rxPromise, otcPromise]);
+        // 2. Exact synonym match
+        const otcSynonymPromise = supabase
+          .from('otc_synonyms')
+          .select('otc_product_id, synonym')
+          .ilike('synonym', cleanQuery);
+
+        // 3. Partial match on display_name or generic_name
+        const otcPartialPromise = supabase
+          .from('otc_products')
+          .select('id, display_name, generic_name, primary_category, is_combo, search_terms')
+          .or(`display_name.ilike.${primaryTerm},generic_name.ilike.${primaryTerm}`);
+
+        const [rxResponse, otcExactGenericResponse, otcSynonymResponse, otcPartialResponse] = await Promise.all([
+          rxPromise, 
+          otcExactGenericPromise, 
+          otcSynonymPromise, 
+          otcPartialPromise
+        ]);
 
         if (rxResponse.error) throw rxResponse.error;
-        if (otcResponse.error) throw otcResponse.error;
+        if (otcExactGenericResponse.error) throw otcExactGenericResponse.error;
+        if (otcSynonymResponse.error) throw otcSynonymResponse.error;
+        if (otcPartialResponse.error) throw otcPartialResponse.error;
 
         let rxMeds = (rxResponse.data || []) as RxMedRow[];
-        const otcProducts = (otcResponse.data || []) as OtcProductRow[];
+
+        // Process OTC results with proper match types and deduplication
+        const otcResultMap = new Map<string, OtcProductRow>();
+
+        // Add exact generic matches (highest priority)
+        (otcExactGenericResponse.data || []).forEach(p => {
+          otcResultMap.set(p.id, {
+            id: p.id,
+            display_name: p.display_name,
+            generic_name: p.generic_name,
+            primary_category: p.primary_category,
+            is_combo: p.is_combo,
+            matchType: 'exact-generic',
+          });
+        });
+
+        // Fetch products for synonym matches
+        const synonymProductIds = (otcSynonymResponse.data || []).map(s => s.otc_product_id);
+        if (synonymProductIds.length > 0) {
+          const { data: synonymProducts } = await supabase
+            .from('otc_products')
+            .select('id, display_name, generic_name, primary_category, is_combo')
+            .in('id', synonymProductIds);
+          
+          (synonymProducts || []).forEach(p => {
+            if (!otcResultMap.has(p.id)) {
+              otcResultMap.set(p.id, {
+                id: p.id,
+                display_name: p.display_name,
+                generic_name: p.generic_name,
+                primary_category: p.primary_category,
+                is_combo: p.is_combo,
+                matchType: 'exact-synonym',
+              });
+            }
+          });
+        }
+
+        // Add partial matches (lowest priority)
+        (otcPartialResponse.data || []).forEach(p => {
+          if (!otcResultMap.has(p.id)) {
+            const displayMatch = p.display_name?.toLowerCase().includes(cleanQuery.toLowerCase());
+            const genericMatch = p.generic_name.toLowerCase().includes(cleanQuery.toLowerCase());
+            const termsMatch = (p.search_terms || []).some((term: string) => 
+              term.toLowerCase().includes(cleanQuery.toLowerCase())
+            );
+            
+            if (displayMatch || genericMatch || termsMatch) {
+              otcResultMap.set(p.id, {
+                id: p.id,
+                display_name: p.display_name,
+                generic_name: p.generic_name,
+                primary_category: p.primary_category,
+                is_combo: p.is_combo,
+                search_terms: p.search_terms,
+                matchType: 'partial',
+              });
+            }
+          }
+        });
+
+        // Sort OTC results: exact-generic > exact-synonym > partial, non-combo before combo
+        const otcProducts = Array.from(otcResultMap.values()).sort((a, b) => {
+          const priority = { 'exact-generic': 0, 'exact-synonym': 1, 'partial': 2 };
+          const pDiff = priority[a.matchType] - priority[b.matchType];
+          if (pDiff !== 0) return pDiff;
+          // Non-combo products before combo
+          if (a.is_combo !== b.is_combo) return a.is_combo ? 1 : -1;
+          return (a.display_name || a.generic_name).localeCompare(b.display_name || b.generic_name);
+        });
 
         // Also search by brand names using array contains for each term
         const brandSearchPromises = searchTerms.map(term =>
@@ -285,13 +376,13 @@ export function useGlobalSearch(query: string) {
           });
         });
 
-        // Add OTC results
+        // Add OTC results (already sorted by match priority)
         otcProducts.forEach(product => {
           searchResults.push({
             id: product.id,
             type: 'otc',
-            primaryName: product.name,
-            secondaryLabel: product.brand,
+            primaryName: product.display_name || product.generic_name,
+            secondaryLabel: product.primary_category,
             status: mapDbStatus(otcVerdicts[product.id] || null),
           });
         });
