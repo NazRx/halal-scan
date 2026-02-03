@@ -10,8 +10,10 @@ import { OtcCategoryChips } from '@/components/otc/OtcCategoryChips';
 import { 
   useOtcBrowseList, 
   useOtcCategories,
-  OtcBrowseTab 
+  OtcBrowseTab,
+  POPULAR_BRAND_SEARCHES
 } from '@/hooks/useOtcBrowseList';
+import { PopularBrandChips } from '@/components/otc/PopularBrandChips';
 import { motion } from 'framer-motion';
 import { 
   ArrowLeft, 
@@ -109,6 +111,16 @@ const OtcBrowse = () => {
                 onSelect={handleCategoryChange}
               />
             </div>
+
+            {/* Popular Brand Chips for high-intent categories */}
+            {categoryFilter && POPULAR_BRAND_SEARCHES[categoryFilter] && (
+              <div className="mb-6">
+                <PopularBrandChips
+                  category={categoryFilter}
+                  brands={POPULAR_BRAND_SEARCHES[categoryFilter]}
+                />
+              </div>
+            )}
 
             {/* Common OTC Tab */}
             <TabsContent value="common" className="space-y-4">

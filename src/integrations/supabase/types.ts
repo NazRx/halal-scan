@@ -217,6 +217,39 @@ export type Database = {
         }
         Relationships: []
       }
+      otc_brand_aliases: {
+        Row: {
+          alias: string | null
+          brand: string
+          category: string | null
+          country: string | null
+          created_at: string
+          generic_name_normalized: string
+          id: string
+          priority: number | null
+        }
+        Insert: {
+          alias?: string | null
+          brand: string
+          category?: string | null
+          country?: string | null
+          created_at?: string
+          generic_name_normalized: string
+          id?: string
+          priority?: number | null
+        }
+        Update: {
+          alias?: string | null
+          brand?: string
+          category?: string | null
+          country?: string | null
+          created_at?: string
+          generic_name_normalized?: string
+          id?: string
+          priority?: number | null
+        }
+        Relationships: []
+      }
       otc_product_ingredients: {
         Row: {
           created_at: string
