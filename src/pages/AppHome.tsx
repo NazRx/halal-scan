@@ -38,11 +38,18 @@ const AppHome = () => {
         >
           <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome Back</h1>
           <p className="text-muted-foreground mb-4">Search or scan to check your medication.</p>
-          
-          {/* Global Search Bar */}
+        </motion.div>
+
+        {/* Centered Global Search Bar */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="flex justify-center mb-8"
+        >
           <GlobalSearch 
             placeholder="Search medications, products, or brands..."
-            className="max-w-xl"
+            className="w-full max-w-xl"
           />
         </motion.div>
 

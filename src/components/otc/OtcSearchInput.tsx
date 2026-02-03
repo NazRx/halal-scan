@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Search, X, Loader2 } from 'lucide-react';
 import { useOtcSearch, OtcSearchResult } from '@/hooks/useOtcSearch';
 import { OtcSearchResults } from './OtcSearchResults';
@@ -114,48 +115,50 @@ export function OtcSearchInput({
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto"
+              className="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-lg shadow-lg z-50 overflow-hidden"
             >
               {results.length === 0 && !isLoading ? (
                 <div className="p-4 text-center text-muted-foreground text-sm">
                   No products found for "{query}"
                 </div>
               ) : (
-                <div className="py-2">
-                  {/* Brand Matches Section */}
-                  {brandMatches.length > 0 && (
-                    <div>
-                      <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-muted/30">
-                        Brand Matches
+                <ScrollArea className="max-h-[min(400px,50vh)]">
+                  <div className="py-2 pb-3">
+                    {/* Brand Matches Section */}
+                    {brandMatches.length > 0 && (
+                      <div>
+                        <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-muted/30">
+                          Brand Matches
+                        </div>
+                        {brandMatches.map((result) => (
+                          <DropdownResultItem
+                            key={result.id}
+                            result={result}
+                            isTopMatch={result.id === topMatchId}
+                            onSelect={handleSelect}
+                          />
+                        ))}
                       </div>
-                      {brandMatches.map((result) => (
-                        <DropdownResultItem
-                          key={result.id}
-                          result={result}
-                          isTopMatch={result.id === topMatchId}
-                          onSelect={handleSelect}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* Generic Matches Section */}
-                  {genericMatches.length > 0 && (
-                    <div>
-                      <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-muted/30">
-                        Generic Matches
+                    )}
+                    
+                    {/* Generic Matches Section */}
+                    {genericMatches.length > 0 && (
+                      <div>
+                        <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-muted/30">
+                          Generic Matches
+                        </div>
+                        {genericMatches.map((result) => (
+                          <DropdownResultItem
+                            key={result.id}
+                            result={result}
+                            isTopMatch={result.id === topMatchId}
+                            onSelect={handleSelect}
+                          />
+                        ))}
                       </div>
-                      {genericMatches.map((result) => (
-                        <DropdownResultItem
-                          key={result.id}
-                          result={result}
-                          isTopMatch={result.id === topMatchId}
-                          onSelect={handleSelect}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                </ScrollArea>
               )}
             </motion.div>
           )}
