@@ -152,7 +152,7 @@ export function GlobalSearch({
             </div>
           ) : (
             <ScrollArea className="max-h-[min(400px,50vh)]">
-              <div>
+              <div className="pb-2">
                 {results.map((result, index) => (
                   <div
                     key={`${result.type}-${result.id}`}
