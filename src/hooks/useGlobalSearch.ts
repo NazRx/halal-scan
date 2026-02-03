@@ -309,7 +309,7 @@ export function useGlobalSearch(query: string) {
 
         // Sort OTC results with comprehensive scoring
         // Priority: match type > score > combo status > alphabetical
-        const otcProducts = Array.from(otcResultMap.values()).sort((a, b) => {
+        const sortedOtcProducts = Array.from(otcResultMap.values()).sort((a, b) => {
           // First: match type priority (exact-generic > exact-synonym > partial)
           const priority = { 'exact-generic': 0, 'exact-synonym': 1, 'partial': 2 };
           const pDiff = priority[a.matchType] - priority[b.matchType];
@@ -327,35 +327,41 @@ export function useGlobalSearch(query: string) {
           return (a.display_name || a.generic_name).localeCompare(b.display_name || b.generic_name);
         });
 
-        // Also search by brand names using array contains for each term
-        const brandSearchPromises = searchTerms.map(term =>
-          supabase
-            .from('rx_meds')
-            .select('id, generic_name, brand_names, category, dosage_forms')
-            .ilike('brand_names', `%${term}%`)
-            .limit(10)
-        );
-        
-        const brandSearchResults = await Promise.all(brandSearchPromises);
-        
-        // Merge and dedupe Rx results
-        brandSearchResults.forEach(result => {
-          if (!result.error && result.data) {
-            result.data.forEach(med => {
-              if (!rxMeds.find(m => m.id === med.id)) {
-                rxMeds.push(med as RxMedRow);
-              }
-            });
+        // Group OTC products by generic_name (case-insensitive)
+        const genericGroups = new Map<string, OtcProductRow[]>();
+        sortedOtcProducts.forEach(product => {
+          const genericKey = product.generic_name.toLowerCase().trim();
+          if (!genericGroups.has(genericKey)) {
+            genericGroups.set(genericKey, []);
           }
+          genericGroups.get(genericKey)!.push(product);
         });
 
-        // If we have a dosage form filter, apply it
-        if (dosageForm) {
-          rxMeds = rxMeds.filter(med => {
-            const forms = med.dosage_forms || [];
-            return forms.some(f => f.toLowerCase().includes(dosageForm));
-          });
+        // Collapse each generic group to a single representative result
+        interface CollapsedOtcResult {
+          representative: OtcProductRow;
+          variantCount: number;
+          genericNameNormalized: string;
         }
+        
+        const collapsedOtcResults: CollapsedOtcResult[] = [];
+        genericGroups.forEach((variants, genericKey) => {
+          // The first item is already the best-ranked due to prior sorting
+          collapsedOtcResults.push({
+            representative: variants[0],
+            variantCount: variants.length,
+            genericNameNormalized: genericKey.replace(/\s+/g, '-'),
+          });
+        });
+
+        // Sort collapsed results by the representative's original ranking
+        // (already sorted, but we need to maintain order when iterating the Map)
+        collapsedOtcResults.sort((a, b) => {
+          const aScore = getOtcScore(a.representative);
+          const bScore = getOtcScore(b.representative);
+          if (aScore !== bScore) return aScore - bScore;
+          return a.representative.generic_name.localeCompare(b.representative.generic_name);
+        });
 
         // Apply fuzzy matching to improve results
         rxMeds = rxMeds.filter(med => {
@@ -402,8 +408,8 @@ export function useGlobalSearch(query: string) {
           }
         }
 
-        // Get verdict statuses for OTC products
-        const otcProductIds = otcProducts.map(p => p.id);
+        // Get verdict statuses for OTC products (using all product IDs from collapsed results)
+        const otcProductIds = collapsedOtcResults.map(r => r.representative.id);
         let otcVerdicts: Record<string, string> = {};
         
         if (otcProductIds.length > 0) {
@@ -444,14 +450,27 @@ export function useGlobalSearch(query: string) {
           });
         });
 
-        // Add OTC results (already sorted by match priority)
-        otcProducts.forEach(product => {
+        // Add OTC results (collapsed by generic name)
+        collapsedOtcResults.forEach(({ representative, variantCount, genericNameNormalized }) => {
+          const hasMultiple = variantCount > 1;
+          const category = representative.primary_category?.replace(/_/g, ' ') || null;
+          
+          // Format secondary label with variant count if multiple
+          let secondaryLabel: string | null = category;
+          if (hasMultiple && category) {
+            secondaryLabel = `${category} • ${variantCount} variants`;
+          } else if (hasMultiple) {
+            secondaryLabel = `${variantCount} variants`;
+          }
+          
           searchResults.push({
-            id: product.id,
+            // Use genericNameNormalized as ID for routing when multiple variants
+            id: hasMultiple ? genericNameNormalized : representative.id,
             type: 'otc',
-            primaryName: product.display_name || product.generic_name,
-            secondaryLabel: product.primary_category,
-            status: mapDbStatus(otcVerdicts[product.id] || null),
+            primaryName: representative.generic_name,
+            secondaryLabel,
+            status: mapDbStatus(otcVerdicts[representative.id] || null),
+            hasMultipleVariants: hasMultiple,
           });
         });
 
