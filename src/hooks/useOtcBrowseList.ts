@@ -15,12 +15,13 @@ export interface OtcBrowseProduct {
 export type OtcBrowseTab = 'common' | 'vitamins';
 
 // Canonical category keys matching the database
+// PRIORITY ORDER: Pain, Allergy, GI first (highest user intent)
 export const OTC_CATEGORIES = [
-  'pain',
-  'allergy',
-  'cold_flu',
+  'pain',       // Highest priority
+  'allergy',    // High priority
+  'gi',         // High priority (GI = heartburn, nausea, etc.)
+  'cold_flu',   // Common
   'cough',
-  'gi',
   'sleep',
   'vitamins',
   'supplements',
@@ -34,12 +35,12 @@ export const OTC_CATEGORIES = [
 
 // Human-readable labels for display
 export const OTC_CATEGORY_LABELS: Record<string, string> = {
-  'pain': 'Pain Relief',
-  'allergy': 'Allergy',
+  'pain': 'Pain & Fever',
+  'allergy': 'Allergy & Sinus',
   'cold_flu': 'Cold & Flu',
   'cough': 'Cough',
-  'gi': 'Digestive',
-  'sleep': 'Sleep',
+  'gi': 'Digestive Health',
+  'sleep': 'Sleep Aids',
   'vitamins': 'Vitamins',
   'supplements': 'Supplements',
   'skin': 'Skin Care',
@@ -48,6 +49,42 @@ export const OTC_CATEGORY_LABELS: Record<string, string> = {
   'feminine': 'Feminine Care',
   'oral_care': 'Oral Care',
   'smoking_cessation': 'Quit Smoking',
+};
+
+// Popular brand searches for high-intent categories
+export const POPULAR_BRAND_SEARCHES: Record<string, { brand: string; generic: string }[]> = {
+  'pain': [
+    { brand: 'Tylenol', generic: 'acetaminophen' },
+    { brand: 'Advil', generic: 'ibuprofen' },
+    { brand: 'Motrin', generic: 'ibuprofen' },
+    { brand: 'Aleve', generic: 'naproxen' },
+    { brand: 'Excedrin', generic: 'acetaminophen aspirin caffeine' },
+    { brand: 'Voltaren', generic: 'diclofenac' },
+  ],
+  'allergy': [
+    { brand: 'Zyrtec', generic: 'cetirizine' },
+    { brand: 'Claritin', generic: 'loratadine' },
+    { brand: 'Allegra', generic: 'fexofenadine' },
+    { brand: 'Benadryl', generic: 'diphenhydramine' },
+    { brand: 'Flonase', generic: 'fluticasone' },
+    { brand: 'Nasacort', generic: 'triamcinolone' },
+  ],
+  'gi': [
+    { brand: 'Pepcid', generic: 'famotidine' },
+    { brand: 'Prilosec', generic: 'omeprazole' },
+    { brand: 'Nexium', generic: 'esomeprazole' },
+    { brand: 'Tums', generic: 'calcium carbonate' },
+    { brand: 'Imodium', generic: 'loperamide' },
+    { brand: 'MiraLAX', generic: 'polyethylene glycol' },
+    { brand: 'Pepto-Bismol', generic: 'bismuth subsalicylate' },
+  ],
+  'cold_flu': [
+    { brand: 'Mucinex', generic: 'guaifenesin' },
+    { brand: 'Sudafed', generic: 'pseudoephedrine' },
+    { brand: 'DayQuil', generic: 'acetaminophen dextromethorphan' },
+    { brand: 'NyQuil', generic: 'acetaminophen doxylamine' },
+    { brand: 'Robitussin', generic: 'dextromethorphan' },
+  ],
 };
 
 export function useOtcBrowseList(

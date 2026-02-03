@@ -597,8 +597,55 @@ serve(async (req) => {
 
     console.log(`[seed-otc] Upserted ${result.productsUpserted} products`);
 
+    // ============ SYNONYM HELPERS ============
+    // Stoplist for tokens that shouldn't become synonyms
+    const STOPLIST = new Set([
+      'tablet', 'tablets', 'capsule', 'capsules', 'caplet', 'caplets',
+      'mg', 'ml', 'mcg', 'gram', 'hour', 'hours', 'dose', 'doses',
+      'extra', 'strength', 'regular', 'maximum', 'max', 'original',
+      'liquid', 'gel', 'cream', 'spray', 'drops', 'patch', 'powder',
+      'oral', 'topical', 'nasal', 'chewable', 'softgel', 'softgels',
+      'relief', 'formula', 'fast', 'acting', 'extended', 'release',
+      'er', 'sr', 'dr', 'ir', 'pm', 'am', 'day', 'night', 'nighttime',
+      'daytime', 'the', 'and', 'for', 'with', 'plus', 'new', 'advanced'
+    ]);
+
+    function normalizeSynonym(s: string): string {
+      return s.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, ' ');
+    }
+
+    function parseSearchTerms(searchTerms: string | null | undefined): string[] {
+      if (!searchTerms) return [];
+      
+      // Split by semicolon, comma, or pipe (bulletproof delimiter handling)
+      const terms = searchTerms.split(/[;,|]/)
+        .map(t => normalizeSynonym(t))
+        .filter(t => t.length >= 2)
+        .filter(t => !STOPLIST.has(t))
+        .filter(t => !/^\d+$/.test(t)); // Remove purely numeric
+      
+      // Deduplicate case-insensitively
+      const seen = new Set<string>();
+      const unique: string[] = [];
+      for (const term of terms) {
+        if (!seen.has(term)) {
+          seen.add(term);
+          unique.push(term);
+        }
+      }
+      return unique;
+    }
+
+    // Log first 5 products for debugging search_terms
+    console.log('[seed-otc] Sample products with search_terms:');
+    OTC_SEED_DATA.slice(0, 5).forEach((p, i) => {
+      console.log(`[seed-otc]   ${i+1}. "${p.display_name}" -> search_terms: "${p.search_terms}"`);
+    });
+
     // Build synonym rows for all products
     const allSynonymRows: { otc_product_id: string; synonym: string; synonym_type: string }[] = [];
+    let productsWithSearchTerms = 0;
+    let productsWithoutSearchTerms = 0;
 
     for (const product of OTC_SEED_DATA) {
       const normalizedGenericName = normalize(product.generic_name);
@@ -611,18 +658,23 @@ serve(async (req) => {
       const productId = upsertedProduct.id;
       const synonymSet = new Set<string>();
 
-      // Add display_name as synonym
-      synonymSet.add(normalize(product.display_name));
+      // Add display_name as synonym (normalized for search)
+      const displayNorm = normalizeSynonym(product.display_name);
+      if (displayNorm && displayNorm.length > 1) synonymSet.add(displayNorm);
       
       // Add generic_name as synonym
-      synonymSet.add(normalizedGenericName);
+      const genericNorm = normalizeSynonym(product.generic_name);
+      if (genericNorm && genericNorm.length > 1) synonymSet.add(genericNorm);
       
-      // Add all search terms (brand names, etc.)
-      if (product.search_terms) {
-        product.search_terms.split(';').forEach(term => {
-          const normalized = normalize(term);
-          if (normalized && normalized.length > 1) synonymSet.add(normalized);
-        });
+      // Add all search terms (brand names, etc.) with bulletproof parsing
+      const searchTermSynonyms = parseSearchTerms(product.search_terms);
+      if (searchTermSynonyms.length > 0) {
+        productsWithSearchTerms++;
+        for (const syn of searchTermSynonyms) {
+          synonymSet.add(syn);
+        }
+      } else {
+        productsWithoutSearchTerms++;
       }
 
       // Create synonym rows
@@ -630,12 +682,14 @@ serve(async (req) => {
         allSynonymRows.push({
           otc_product_id: productId,
           synonym: synonym,
-          synonym_type: synonym === normalizedGenericName ? 'generic' : 
-                        synonym === normalize(product.display_name) ? 'display' : 'brand'
+          synonym_type: synonym === genericNorm ? 'generic' : 
+                        synonym === displayNorm ? 'display' : 'brand'
         });
       }
     }
 
+    console.log(`[seed-otc] Products with search_terms: ${productsWithSearchTerms}`);
+    console.log(`[seed-otc] Products without search_terms: ${productsWithoutSearchTerms}`);
     console.log(`[seed-otc] Total synonym rows prepared: ${allSynonymRows.length}`);
 
     // ============ DEDUPE SYNONYMS BY CONFLICT KEY (otc_product_id,synonym) ============
@@ -647,34 +701,43 @@ serve(async (req) => {
     }
     console.log(`[seed-otc] Total synonym rows after dedupe: ${dedupedSynonymRows.length}`);
 
-    // Batch upsert synonyms (50 at a time)
-    const synonymBatches = chunk(dedupedSynonymRows, 50);
-    let synonymErrors = 0;
+    // Batch upsert synonyms (100 at a time for efficiency)
+    const synonymBatches = chunk(dedupedSynonymRows, 100);
+    let synonymSuccessCount = 0;
+    let synonymErrorCount = 0;
     
     for (const batch of synonymBatches) {
-      const { data: synResult, error: synError } = await supabase
-        .from('otc_synonyms')
-        .upsert(batch, { 
-          onConflict: 'otc_product_id,synonym',
-          ignoreDuplicates: true 
-        })
-        .select('id');
+      try {
+        const { error: synError } = await supabase
+          .from('otc_synonyms')
+          .upsert(batch, { 
+            onConflict: 'otc_product_id,synonym',
+            ignoreDuplicates: false // Update synonym_type if changed
+          });
 
-      if (synError) {
-        synonymErrors++;
-        // Only log non-duplicate errors
-        if (!synError.message?.includes('duplicate')) {
+        if (synError) {
+          synonymErrorCount++;
           console.error('[seed-otc] Synonym batch error:', JSON.stringify(synError, null, 2));
-          result.errors.push(`Synonym batch error: ${synError.message} (code: ${synError.code})`);
+          result.errors.push(`Synonym error: ${synError.message}`);
+        } else {
+          synonymSuccessCount += batch.length;
         }
-      } else if (synResult) {
-        result.synonymsInserted += synResult.length;
+      } catch (e: any) {
+        synonymErrorCount++;
+        console.error('[seed-otc] Synonym batch exception:', e.message);
+        result.errors.push(`Synonym exception: ${e.message}`);
       }
     }
     
-    if (synonymErrors > 0) {
-      console.log(`[seed-otc] Synonym insert errors: ${synonymErrors} batches had issues`);
-    }
+    // Query final count from DB (since upsert may not return count accurately)
+    const { count: finalSynonymCount } = await supabase
+      .from('otc_synonyms')
+      .select('*', { count: 'exact', head: true });
+    
+    result.synonymsInserted = finalSynonymCount || 0;
+    
+    console.log(`[seed-otc] Synonym batches: ${synonymBatches.length} total, ${synonymErrorCount} errors`);
+    console.log(`[seed-otc] Final synonym count in DB: ${result.synonymsInserted}`);
 
     // Final summary
     console.log(`[seed-otc] ============ SEEDING COMPLETE ============`);
