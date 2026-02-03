@@ -47,6 +47,9 @@ export function GlobalSearch({
     
     if (result.type === 'rx') {
       navigate(`/rx/med/${result.id}`);
+    } else if (result.hasMultipleVariants) {
+      // Navigate to generic drilldown page for grouped results
+      navigate(`/otc/generic/${result.id}`);
     } else {
       navigate(`/otc/${result.id}/report`);
     }
