@@ -250,6 +250,62 @@ export type Database = {
         }
         Relationships: []
       }
+      otc_ingredient_profiles: {
+        Row: {
+          active_ingredients: Json | null
+          created_at: string
+          default_status: string | null
+          dosage_form: string | null
+          flags: Json | null
+          id: string
+          otc_product_id: string
+          rationale_long: string | null
+          rationale_short: string | null
+          risk_ingredients: Json | null
+          route: string | null
+          sources: Json | null
+          updated_at: string
+        }
+        Insert: {
+          active_ingredients?: Json | null
+          created_at?: string
+          default_status?: string | null
+          dosage_form?: string | null
+          flags?: Json | null
+          id?: string
+          otc_product_id: string
+          rationale_long?: string | null
+          rationale_short?: string | null
+          risk_ingredients?: Json | null
+          route?: string | null
+          sources?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          active_ingredients?: Json | null
+          created_at?: string
+          default_status?: string | null
+          dosage_form?: string | null
+          flags?: Json | null
+          id?: string
+          otc_product_id?: string
+          rationale_long?: string | null
+          rationale_short?: string | null
+          risk_ingredients?: Json | null
+          route?: string | null
+          sources?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "otc_ingredient_profiles_otc_product_id_fkey"
+            columns: ["otc_product_id"]
+            isOneToOne: true
+            referencedRelation: "otc_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       otc_product_ingredients: {
         Row: {
           created_at: string
@@ -384,6 +440,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "otc_synonyms_otc_product_id_fkey"
+            columns: ["otc_product_id"]
+            isOneToOne: false
+            referencedRelation: "otc_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      otc_user_submissions: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          id: string
+          otc_product_id: string
+          pasted_text: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string | null
+          submission_type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          id?: string
+          otc_product_id: string
+          pasted_text: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          submission_type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          id?: string
+          otc_product_id?: string
+          pasted_text?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          submission_type?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "otc_user_submissions_otc_product_id_fkey"
             columns: ["otc_product_id"]
             isOneToOne: false
             referencedRelation: "otc_products"
