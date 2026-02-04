@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
@@ -7,40 +7,71 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Disclaimer } from "@/components/ui/disclaimer";
 import { motion } from "framer-motion";
-import { ArrowLeft, AlertCircle, Package, Pill } from "lucide-react";
+import { ArrowLeft, AlertCircle, Package, Pill, GitCompare } from "lucide-react";
 import { useOtcProduct } from "@/hooks/useOtcProduct";
 import { useOtcIngredientProfile } from "@/hooks/useOtcIngredientProfile";
+import { useOtcBrandsForProduct } from "@/hooks/useOtcBrands";
+import { useOtcBrandProfile, resolveOtcProfile } from "@/hooks/useOtcBrandProfile";
 import { computeOtcVerdict } from "@/lib/otcVerdict";
 import { OtcVerdictDisplay } from "@/components/otc/OtcVerdictDisplay";
 import { ContributeIngredientsModal } from "@/components/otc/ContributeIngredientsModal";
+import { BrandSelect } from "@/components/otc/BrandSelect";
+import { CompareBrandsModal } from "@/components/otc/CompareBrandsModal";
 
 const OtcProductReport = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [showContributeModal, setShowContributeModal] = useState(false);
+  const [showCompareModal, setShowCompareModal] = useState(false);
+  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
   
   // Fetch product data
   const { data: product, isLoading: productLoading, error: productError } = useOtcProduct(id);
   
-  // Fetch ingredient profile (if exists)
-  const { data: profile, isLoading: profileLoading } = useOtcIngredientProfile(id);
+  // Fetch generic ingredient profile
+  const { data: genericProfile, isLoading: profileLoading } = useOtcIngredientProfile(id);
+  
+  // Fetch linked brands
+  const { data: brands = [], isLoading: brandsLoading } = useOtcBrandsForProduct(id);
+  
+  // Fetch brand-specific profile if a brand is selected
+  const { data: brandProfile, isLoading: brandProfileLoading } = useOtcBrandProfile(
+    id,
+    selectedBrandId || undefined
+  );
 
-  const isLoading = productLoading || profileLoading;
+  const isLoading = productLoading || profileLoading || brandsLoading;
 
-  // Compute verdict using the OTC-specific engine
-  const verdict = product
-    ? computeOtcVerdict(
-        {
-          id: product.id,
-          name: product.name,
-          display_name: product.display_name,
-          generic_name: product.generic_name,
-          dosage_form: profile?.dosage_form || null,
-          route: profile?.route || null,
-        },
-        profile || null
-      )
-    : null;
+  // Set primary brand as default when brands load
+  useMemo(() => {
+    if (brands.length > 0 && selectedBrandId === null) {
+      const primary = brands.find(b => b.is_primary);
+      if (primary) {
+        setSelectedBrandId(primary.otc_brand_id);
+      }
+    }
+  }, [brands, selectedBrandId]);
+
+  // Resolve the best profile and compute verdict
+  const { profile: resolvedProfile, source: profileSource } = useMemo(
+    () => resolveOtcProfile(genericProfile, brandProfile),
+    [genericProfile, brandProfile]
+  );
+
+  const verdict = useMemo(() => {
+    if (!product) return null;
+    return computeOtcVerdict(
+      {
+        id: product.id,
+        name: product.name,
+        display_name: product.display_name,
+        generic_name: product.generic_name,
+        dosage_form: resolvedProfile?.dosage_form || null,
+        route: resolvedProfile?.route || null,
+      },
+      resolvedProfile || null
+    );
+  }, [product, resolvedProfile]);
 
   if (isLoading) {
     return (
@@ -151,22 +182,51 @@ const OtcProductReport = () => {
                 {product.is_combo && (
                   <Badge variant="outline">Combination Product</Badge>
                 )}
-                {profile?.dosage_form && (
+                {resolvedProfile?.dosage_form && (
                   <Badge variant="outline" className="capitalize">
-                    {profile.dosage_form}
+                    {resolvedProfile.dosage_form}
                   </Badge>
                 )}
               </div>
             </div>
           </Card>
 
+          {/* Brand Selector */}
+          {brands.length > 0 && (
+            <Card className="p-4 mt-4">
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end justify-between">
+                <div className="flex-1 w-full sm:w-auto">
+                  <BrandSelect
+                    brands={brands}
+                    selectedBrandId={selectedBrandId}
+                    onBrandChange={setSelectedBrandId}
+                    disabled={brandProfileLoading}
+                  />
+                </div>
+                {brands.length >= 2 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowCompareModal(true)}
+                    className="flex items-center gap-2"
+                  >
+                    <GitCompare className="h-4 w-4" />
+                    Compare brands
+                  </Button>
+                )}
+              </div>
+            </Card>
+          )}
+
           {/* OTC Verdict Display */}
           {verdict && (
-            <OtcVerdictDisplay
-              verdict={verdict}
-              onContributeClick={() => setShowContributeModal(true)}
-              showProCta={true}
-            />
+            <div className="mt-4">
+              <OtcVerdictDisplay
+                verdict={verdict}
+                onContributeClick={() => setShowContributeModal(true)}
+                showProCta={true}
+              />
+            </div>
           )}
 
           {/* Combo Ingredients */}
@@ -207,7 +267,28 @@ const OtcProductReport = () => {
         onOpenChange={setShowContributeModal}
         productId={product.id}
         productName={displayName}
+        brands={brands}
       />
+
+      {/* Compare Brands Modal */}
+      {brands.length >= 2 && (
+        <CompareBrandsModal
+          open={showCompareModal}
+          onOpenChange={setShowCompareModal}
+          productId={product.id}
+          productName={displayName}
+          brands={brands}
+          genericProfile={genericProfile || null}
+          product={{
+            id: product.id,
+            name: product.name,
+            display_name: product.display_name,
+            generic_name: product.generic_name,
+            dosage_form: resolvedProfile?.dosage_form || null,
+            route: resolvedProfile?.route || null,
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -3,15 +3,19 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSubmitOtcContribution } from "@/hooks/useOtcIngredientProfile";
 import { toast } from "sonner";
 import { Loader2, CheckCircle2 } from "lucide-react";
+import type { OtcProductBrand } from "@/hooks/useOtcBrands";
 
 interface ContributeIngredientsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   productId: string;
   productName: string;
+  brands?: OtcProductBrand[];
 }
 
 export function ContributeIngredientsModal({
@@ -19,8 +23,11 @@ export function ContributeIngredientsModal({
   onOpenChange,
   productId,
   productName,
+  brands = [],
 }: ContributeIngredientsModalProps) {
   const [pastedText, setPastedText] = useState("");
+  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
+  const [upc, setUpc] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const submitMutation = useSubmitOtcContribution();
 
@@ -34,6 +41,8 @@ export function ContributeIngredientsModal({
       await submitMutation.mutateAsync({
         productId,
         pastedText: pastedText.trim(),
+        brandId: selectedBrandId || undefined,
+        upc: upc.trim() || undefined,
       });
       setSubmitted(true);
       toast.success("Thank you! Your contribution has been submitted for review.");
@@ -48,6 +57,8 @@ export function ContributeIngredientsModal({
     // Reset state after modal closes
     setTimeout(() => {
       setPastedText("");
+      setSelectedBrandId(null);
+      setUpc("");
       setSubmitted(false);
     }, 200);
   };
@@ -58,7 +69,7 @@ export function ContributeIngredientsModal({
         <DialogContent className="sm:max-w-md">
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <div className="p-3 rounded-full bg-green-500/10 mb-4">
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
+              <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
             </div>
             <DialogTitle className="mb-2">Thank you!</DialogTitle>
             <DialogDescription>
@@ -78,14 +89,38 @@ export function ContributeIngredientsModal({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Contribute Ingredient Details</DialogTitle>
+          <DialogTitle>Help improve this OTC verdict</DialogTitle>
           <DialogDescription>
-            Help us improve the halal assessment for <strong>{productName}</strong> by 
-            sharing the inactive ingredients from the package label.
+            Share the inactive ingredients from <strong>{productName}</strong> to help us 
+            provide a more accurate halal assessment.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Brand selection */}
+          {brands.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="brand">Brand (optional)</Label>
+              <Select
+                value={selectedBrandId || "none"}
+                onValueChange={(val) => setSelectedBrandId(val === "none" ? null : val)}
+              >
+                <SelectTrigger id="brand">
+                  <SelectValue placeholder="Select brand if known" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Not sure / Generic</SelectItem>
+                  {brands.map((pb) => (
+                    <SelectItem key={pb.otc_brand_id} value={pb.otc_brand_id}>
+                      {pb.brand.brand_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Ingredients textarea */}
           <div className="space-y-2">
             <Label htmlFor="ingredients">
               Paste inactive ingredients from the label
@@ -100,6 +135,20 @@ export function ContributeIngredientsModal({
             />
             <p className="text-xs text-muted-foreground">
               Tip: Look for "Inactive ingredients" or "Other ingredients" on the Drug Facts label.
+            </p>
+          </div>
+
+          {/* Optional UPC */}
+          <div className="space-y-2">
+            <Label htmlFor="upc">UPC (optional)</Label>
+            <Input
+              id="upc"
+              placeholder="e.g., 041100081254"
+              value={upc}
+              onChange={(e) => setUpc(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              The barcode number helps us match the exact product variant.
             </p>
           </div>
         </div>
