@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.rebuild-otc-synonyms]
 verify_jwt = false
+
+[functions.seed-otc-brands]
+verify_jwt = false

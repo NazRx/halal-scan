@@ -250,6 +250,108 @@ export type Database = {
         }
         Relationships: []
       }
+      otc_brand_ingredient_profiles: {
+        Row: {
+          active_ingredients: Json | null
+          created_at: string
+          dosage_form: string | null
+          flags: Json | null
+          id: string
+          otc_brand_id: string
+          otc_product_id: string
+          rationale_long: string | null
+          rationale_short: string | null
+          risk_ingredients: Json | null
+          route: string | null
+          sources: Json | null
+          updated_at: string
+        }
+        Insert: {
+          active_ingredients?: Json | null
+          created_at?: string
+          dosage_form?: string | null
+          flags?: Json | null
+          id?: string
+          otc_brand_id: string
+          otc_product_id: string
+          rationale_long?: string | null
+          rationale_short?: string | null
+          risk_ingredients?: Json | null
+          route?: string | null
+          sources?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          active_ingredients?: Json | null
+          created_at?: string
+          dosage_form?: string | null
+          flags?: Json | null
+          id?: string
+          otc_brand_id?: string
+          otc_product_id?: string
+          rationale_long?: string | null
+          rationale_short?: string | null
+          risk_ingredients?: Json | null
+          route?: string | null
+          sources?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "otc_brand_ingredient_profiles_otc_brand_id_fkey"
+            columns: ["otc_brand_id"]
+            isOneToOne: false
+            referencedRelation: "otc_brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "otc_brand_ingredient_profiles_otc_product_id_fkey"
+            columns: ["otc_product_id"]
+            isOneToOne: false
+            referencedRelation: "otc_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      otc_brands: {
+        Row: {
+          brand_name: string
+          certification_body: string | null
+          certification_url: string | null
+          created_at: string
+          id: string
+          is_halal_certified: boolean
+          labeler_name: string | null
+          notes: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          brand_name: string
+          certification_body?: string | null
+          certification_url?: string | null
+          created_at?: string
+          id?: string
+          is_halal_certified?: boolean
+          labeler_name?: string | null
+          notes?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          brand_name?: string
+          certification_body?: string | null
+          certification_url?: string | null
+          created_at?: string
+          id?: string
+          is_halal_certified?: boolean
+          labeler_name?: string | null
+          notes?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       otc_ingredient_profiles: {
         Row: {
           active_ingredients: Json | null
@@ -301,6 +403,54 @@ export type Database = {
             foreignKeyName: "otc_ingredient_profiles_otc_product_id_fkey"
             columns: ["otc_product_id"]
             isOneToOne: true
+            referencedRelation: "otc_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      otc_product_brands: {
+        Row: {
+          created_at: string
+          id: string
+          is_primary: boolean
+          ndc: string | null
+          notes: string | null
+          otc_brand_id: string
+          otc_product_id: string
+          upc: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          ndc?: string | null
+          notes?: string | null
+          otc_brand_id: string
+          otc_product_id: string
+          upc?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          ndc?: string | null
+          notes?: string | null
+          otc_brand_id?: string
+          otc_product_id?: string
+          upc?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "otc_product_brands_otc_brand_id_fkey"
+            columns: ["otc_brand_id"]
+            isOneToOne: false
+            referencedRelation: "otc_brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "otc_product_brands_otc_product_id_fkey"
+            columns: ["otc_product_id"]
+            isOneToOne: false
             referencedRelation: "otc_products"
             referencedColumns: ["id"]
           },
@@ -452,39 +602,52 @@ export type Database = {
           admin_notes: string | null
           created_at: string
           id: string
+          otc_brand_id: string | null
           otc_product_id: string
           pasted_text: string
           reviewed_at: string | null
           reviewed_by: string | null
           status: string | null
           submission_type: string | null
+          upc: string | null
           user_id: string | null
         }
         Insert: {
           admin_notes?: string | null
           created_at?: string
           id?: string
+          otc_brand_id?: string | null
           otc_product_id: string
           pasted_text: string
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string | null
           submission_type?: string | null
+          upc?: string | null
           user_id?: string | null
         }
         Update: {
           admin_notes?: string | null
           created_at?: string
           id?: string
+          otc_brand_id?: string | null
           otc_product_id?: string
           pasted_text?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string | null
           submission_type?: string | null
+          upc?: string | null
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "otc_user_submissions_otc_brand_id_fkey"
+            columns: ["otc_brand_id"]
+            isOneToOne: false
+            referencedRelation: "otc_brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "otc_user_submissions_otc_product_id_fkey"
             columns: ["otc_product_id"]

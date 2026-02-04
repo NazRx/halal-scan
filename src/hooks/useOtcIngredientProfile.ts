@@ -51,9 +51,13 @@ export function useSubmitOtcContribution() {
     mutationFn: async ({
       productId,
       pastedText,
+      brandId,
+      upc,
     }: {
       productId: string;
       pastedText: string;
+      brandId?: string;
+      upc?: string;
     }) => {
       const { data: session } = await supabase.auth.getSession();
       
@@ -64,6 +68,8 @@ export function useSubmitOtcContribution() {
           user_id: session?.session?.user?.id || null,
           pasted_text: pastedText,
           submission_type: 'inactive_ingredients',
+          otc_brand_id: brandId || null,
+          upc: upc || null,
         })
         .select()
         .single();
