@@ -27,7 +27,7 @@ export function BrandSelect({
   return (
     <div className="space-y-1.5">
       <label className="text-sm font-medium text-muted-foreground">
-        Brand / Manufacturer
+        Brand / Labeler
       </label>
       <Select
         value={selectedBrandId || "all"}
@@ -35,7 +35,7 @@ export function BrandSelect({
         disabled={disabled}
       >
         <SelectTrigger className="w-full">
-          <SelectValue placeholder="Select brand" />
+          <SelectValue placeholder="Select brand (formulations vary)" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">
@@ -51,7 +51,7 @@ export function BrandSelect({
                   </Badge>
                 )}
                 {pb.brand.is_halal_certified && (
-                  <Award className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                  <Award className="h-3.5 w-3.5 text-primary" />
                 )}
               </div>
             </SelectItem>
@@ -59,16 +59,10 @@ export function BrandSelect({
         </SelectContent>
       </Select>
       
-      {/* Context note */}
-      {selectedBrandId ? (
-        <p className="text-xs text-muted-foreground">
-          Verdict reflects the selected brand's formulation.
-        </p>
-      ) : brands.length > 0 ? (
-        <p className="text-xs text-muted-foreground">
-          Formulations can vary by brand. Select a brand to refine confidence.
-        </p>
-      ) : null}
+      {/* Helper text - always visible */}
+      <p className="text-xs text-muted-foreground">
+        OTC formulations can vary by brand and dosage form. Selecting a brand improves accuracy.
+      </p>
     </div>
   );
 }
