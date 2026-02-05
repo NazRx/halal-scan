@@ -3,20 +3,26 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Disclaimer } from "@/components/ui/disclaimer";
 import { motion } from "framer-motion";
-import { ArrowLeft, AlertCircle, Package, Pill, GitCompare } from "lucide-react";
+import { ArrowLeft, AlertCircle, GitCompare } from "lucide-react";
 import { useOtcProduct } from "@/hooks/useOtcProduct";
 import { useOtcIngredientProfile } from "@/hooks/useOtcIngredientProfile";
 import { useOtcBrandsForProduct } from "@/hooks/useOtcBrands";
 import { useOtcBrandProfile, resolveOtcProfile } from "@/hooks/useOtcBrandProfile";
 import { computeOtcVerdict } from "@/lib/otcVerdict";
-import { OtcVerdictDisplay } from "@/components/otc/OtcVerdictDisplay";
 import { ContributeIngredientsModal } from "@/components/otc/ContributeIngredientsModal";
 import { BrandSelect } from "@/components/otc/BrandSelect";
 import { CompareBrandsModal } from "@/components/otc/CompareBrandsModal";
+import { OtcProductHeader } from "@/components/otc/OtcProductHeader";
+import { OtcVerdictCard } from "@/components/otc/OtcVerdictCard";
+import { ConfidenceExplainer } from "@/components/otc/ConfidenceExplainer";
+import { GeneralOtcKnowledge } from "@/components/otc/GeneralOtcKnowledge";
+import { DosageFormGuidance } from "@/components/otc/DosageFormGuidance";
+import { OtcNextSteps } from "@/components/otc/OtcNextSteps";
+import { ProUpgradeCard } from "@/components/otc/ProUpgradeCard";
+import { OtcFooterTrust } from "@/components/otc/OtcFooterTrust";
 
 const OtcProductReport = () => {
   const { id } = useParams();
@@ -123,6 +129,7 @@ const OtcProductReport = () => {
   }
 
   const displayName = product.display_name || product.name || product.generic_name;
+  const dosageForm = resolvedProfile?.dosage_form || null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -142,58 +149,21 @@ const OtcProductReport = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-2xl mx-auto"
+          className="max-w-2xl mx-auto space-y-4"
         >
-          <Disclaimer variant="card" showOtcNote className="mb-6" defaultExpanded={false} />
+          <Disclaimer variant="card" showOtcNote className="mb-2" defaultExpanded={false} />
 
-          {/* Product Header */}
-          <Card className="p-6 mb-6 text-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-b from-muted/50 to-transparent" />
-            
-            <div className="relative">
-              <div className="flex justify-center mb-4">
-                {product.is_vitamin ? (
-                  <div className="p-3 rounded-full bg-primary/10">
-                    <Pill className="h-8 w-8 text-primary" />
-                  </div>
-                ) : (
-                  <div className="p-3 rounded-full bg-muted">
-                    <Package className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                )}
-              </div>
+          {/* A) Product Header */}
+          <OtcProductHeader
+            productName={displayName}
+            primaryCategory={product.primary_category || product.category}
+            isVitamin={product.is_vitamin || false}
+            isCombo={product.is_combo || false}
+          />
 
-              <h1 className="text-2xl font-bold mb-2">{displayName}</h1>
-              
-              {/* Secondary line: brand + category */}
-              <p className="text-muted-foreground mb-4">
-                {[product.brand, product.primary_category || product.category]
-                  .filter(Boolean)
-                  .join(' • ') || 'OTC Product'}
-              </p>
-
-              <div className="flex flex-wrap gap-2 justify-center">
-                {product.primary_category && (
-                  <Badge variant="secondary">{product.primary_category}</Badge>
-                )}
-                {product.is_vitamin && (
-                  <Badge variant="outline">Vitamin/Supplement</Badge>
-                )}
-                {product.is_combo && (
-                  <Badge variant="outline">Combination Product</Badge>
-                )}
-                {resolvedProfile?.dosage_form && (
-                  <Badge variant="outline" className="capitalize">
-                    {resolvedProfile.dosage_form}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </Card>
-
-          {/* Brand Selector */}
+          {/* B) Brand Selector */}
           {brands.length > 0 && (
-            <Card className="p-4 mt-4">
+            <Card className="p-4">
               <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end justify-between">
                 <div className="flex-1 w-full sm:w-auto">
                   <BrandSelect
@@ -218,33 +188,34 @@ const OtcProductReport = () => {
             </Card>
           )}
 
-          {/* OTC Verdict Display */}
+          {/* C) Verdict Card */}
           {verdict && (
-            <div className="mt-4">
-              <OtcVerdictDisplay
-                verdict={verdict}
-                onContributeClick={() => setShowContributeModal(true)}
-                showProCta={true}
-              />
-            </div>
+            <OtcVerdictCard
+              verdict={verdict}
+              hasIngredientProfile={!!resolvedProfile}
+              profileSource={profileSource}
+            />
           )}
 
-          {/* Combo Ingredients */}
-          {product.is_combo && product.combo_ingredients && product.combo_ingredients.length > 0 && (
-            <Card className="p-6 mt-6">
-              <h2 className="font-semibold text-lg mb-4">Active Ingredients</h2>
-              <div className="flex flex-wrap gap-2">
-                {product.combo_ingredients.map((ingredient) => (
-                  <Badge key={ingredient} variant="outline" className="capitalize">
-                    {ingredient}
-                  </Badge>
-                ))}
-              </div>
-            </Card>
+          {/* D) Confidence Explainer */}
+          <ConfidenceExplainer />
+
+          {/* E) General OTC Knowledge - Always show */}
+          <GeneralOtcKnowledge drugName={displayName} />
+
+          {/* F) Dosage Form Guidance - Always show */}
+          <DosageFormGuidance dosageForm={dosageForm} />
+
+          {/* G) Next Steps / Contribution CTA - show for unknown or use_caution */}
+          {verdict && (verdict.status === 'unknown' || verdict.status === 'use_caution') && (
+            <OtcNextSteps onContributeClick={() => setShowContributeModal(true)} />
           )}
+
+          {/* H) Pro Upgrade Card */}
+          <ProUpgradeCard />
 
           {/* Report Issue */}
-          <Card className="p-4 bg-muted/50 mt-6">
+          <Card className="p-4 bg-muted/50">
             <div className="flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
               <div>
@@ -258,6 +229,9 @@ const OtcProductReport = () => {
               </div>
             </div>
           </Card>
+
+          {/* I) Footer Trust Copy */}
+          <OtcFooterTrust />
         </motion.div>
       </main>
 
