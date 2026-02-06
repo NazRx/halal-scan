@@ -1,6 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { FileCheck, Info } from "lucide-react";
+import { FileCheck } from "lucide-react";
 
 interface ReviewedExample {
   name: string;
@@ -9,24 +8,37 @@ interface ReviewedExample {
 
 const REVIEWED_EXAMPLES: ReviewedExample[] = [
   {
-    name: "Tylenol® tablet formulations",
+    name: "Tylenol® tablets",
     notes: [
       "No gelatin detected",
-      "No alcohol detected",
-      "Inactive ingredients vary by product line",
+      "Formulation varies by product line",
     ],
   },
   {
-    name: "Store-brand acetaminophen tablets (Walmart / CVS)",
+    name: "Equate® (Walmart) tablets",
     notes: [
       "Often similar to name brands",
-      "Contract manufacturers may vary",
+      "Contract manufactured",
     ],
   },
   {
-    name: "Softgel pain relievers (multiple brands)",
+    name: "CVS Health® tablets",
     notes: [
-      "Gelatin commonly present",
+      "Ingredient lists often published",
+      "Varies by dosage form",
+    ],
+  },
+  {
+    name: "Walgreens® tablets",
+    notes: [
+      "Contract manufactured",
+      "Varies by dosage form",
+    ],
+  },
+  {
+    name: "Generic softgels (multiple brands)",
+    notes: [
+      "Gelatin commonly used",
       "Source usually undisclosed",
     ],
   },
@@ -39,11 +51,8 @@ export function OtcReviewedExamples() {
         <FileCheck className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
         <div>
           <h3 className="font-semibold text-base">
-            Examples of OTC formulations we've reviewed
+            Examples of reviewed OTC formulations
           </h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            These examples show how formulations can differ. They are not endorsements and may change over time.
-          </p>
         </div>
       </div>
 
@@ -69,12 +78,9 @@ export function OtcReviewedExamples() {
         ))}
       </div>
 
-      <div className="flex items-start gap-2 mt-4 p-3 rounded-lg bg-muted/50">
-        <Info className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-        <p className="text-xs text-muted-foreground">
-          If a specific product isn't listed here, it doesn't mean it's unsafe — it means it hasn't been fully reviewed yet.
-        </p>
-      </div>
+      <p className="text-xs text-muted-foreground mt-4 italic">
+        Examples are non-exhaustive and may change over time.
+      </p>
     </Card>
   );
 }
