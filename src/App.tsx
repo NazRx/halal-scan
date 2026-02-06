@@ -34,6 +34,7 @@ import FeedbackManagement from "./pages/admin/FeedbackManagement";
 import IngestDebug from "./pages/admin/IngestDebug";
 import HydrateLabelData from "./pages/admin/HydrateLabelData";
 import Feedback from "./pages/Feedback";
+import ReportIssue from "./pages/ReportIssue";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +62,7 @@ const App = () => (
           <Route path="/account" element={<Account />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/feedback" element={<Feedback />} />
+          <Route path="/report-issue" element={<ReportIssue />} />
           <Route path="/history" element={<History />} />
           <Route path="/saved" element={<SavedManufacturers />} />
           

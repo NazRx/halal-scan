@@ -1327,6 +1327,54 @@ export type Database = {
           },
         ]
       }
+      user_issue_reports: {
+        Row: {
+          admin_notes: string | null
+          brand_id: string | null
+          created_at: string
+          description: string
+          email: string | null
+          id: string
+          issue_type: string
+          page_url: string | null
+          product_id: string | null
+          resolved_at: string | null
+          status: string
+          upc: string | null
+          user_id: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          brand_id?: string | null
+          created_at?: string
+          description: string
+          email?: string | null
+          id?: string
+          issue_type: string
+          page_url?: string | null
+          product_id?: string | null
+          resolved_at?: string | null
+          status?: string
+          upc?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          brand_id?: string | null
+          created_at?: string
+          description?: string
+          email?: string | null
+          id?: string
+          issue_type?: string
+          page_url?: string | null
+          product_id?: string | null
+          resolved_at?: string | null
+          status?: string
+          upc?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

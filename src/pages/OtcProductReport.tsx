@@ -223,7 +223,26 @@ const OtcProductReport = () => {
                 <p className="text-sm text-muted-foreground mb-2">
                   Help us improve by reporting inaccurate information.
                 </p>
-                <Button variant="outline" size="sm" onClick={() => navigate(`/report/${id}`)}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    const selectedBrand = brands.find(b => b.otc_brand_id === selectedBrandId);
+                    const params = new URLSearchParams({
+                      productId: product.id,
+                      productName: displayName,
+                      returnUrl: `/otc/${id}/report`,
+                    });
+                    if (selectedBrand?.brand) {
+                      params.set("brandId", selectedBrand.otc_brand_id);
+                      params.set("brandName", selectedBrand.brand.brand_name);
+                    }
+                    if (product.upc) {
+                      params.set("upc", product.upc);
+                    }
+                    navigate(`/report-issue?${params.toString()}`);
+                  }}
+                >
                   Report an Issue
                 </Button>
               </div>
