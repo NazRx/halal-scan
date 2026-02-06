@@ -11,6 +11,7 @@ import { useOtcProduct } from "@/hooks/useOtcProduct";
 import { useOtcIngredientProfile } from "@/hooks/useOtcIngredientProfile";
 import { useOtcBrandsForProduct } from "@/hooks/useOtcBrands";
 import { useOtcBrandProfile, resolveOtcProfile } from "@/hooks/useOtcBrandProfile";
+import { useOtcBrandReviewStatus, getReviewLevelLabel } from "@/hooks/useOtcBrandReviewStatus";
 import { computeOtcVerdict } from "@/lib/otcVerdict";
 import { ContributeIngredientsModal } from "@/components/otc/ContributeIngredientsModal";
 import { BrandSelect } from "@/components/otc/BrandSelect";
@@ -23,6 +24,10 @@ import { DosageFormGuidance } from "@/components/otc/DosageFormGuidance";
 import { OtcNextSteps } from "@/components/otc/OtcNextSteps";
 import { ProUpgradeCard } from "@/components/otc/ProUpgradeCard";
 import { OtcFooterTrust } from "@/components/otc/OtcFooterTrust";
+import { OtcFormulationPatterns } from "@/components/otc/OtcFormulationPatterns";
+import { OtcReviewedExamples } from "@/components/otc/OtcReviewedExamples";
+import { OtcTransparencyNote } from "@/components/otc/OtcTransparencyNote";
+import { OtcManufacturerSignals } from "@/components/otc/OtcManufacturerSignals";
 
 const OtcProductReport = () => {
   const { id } = useParams();
@@ -45,6 +50,9 @@ const OtcProductReport = () => {
     id,
     selectedBrandId || undefined
   );
+
+  // Fetch brand review status (Phase 3)
+  const { data: brandReviewStatus } = useOtcBrandReviewStatus(selectedBrandId);
 
   const isLoading = productLoading || profileLoading || brandsLoading;
 
@@ -171,6 +179,7 @@ const OtcProductReport = () => {
                     selectedBrandId={selectedBrandId}
                     onBrandChange={setSelectedBrandId}
                     disabled={brandProfileLoading}
+                    reviewLevel={brandReviewStatus?.review_level}
                   />
                 </div>
                 {brands.length >= 2 && (
@@ -205,6 +214,18 @@ const OtcProductReport = () => {
 
           {/* F) Dosage Form Guidance - Always show */}
           <DosageFormGuidance dosageForm={dosageForm} />
+
+          {/* Phase 2: Manufacturer Signals */}
+          <OtcManufacturerSignals signals={[]} dosageForm={dosageForm} />
+
+          {/* Phase 1: Formulation Patterns */}
+          <OtcFormulationPatterns />
+
+          {/* Phase 1: Reviewed Examples */}
+          <OtcReviewedExamples />
+
+          {/* Phase 1: Transparency Note */}
+          <OtcTransparencyNote />
 
           {/* G) Next Steps / Contribution CTA - show for unknown or use_caution */}
           {verdict && (verdict.status === 'unknown' || verdict.status === 'use_caution') && (
