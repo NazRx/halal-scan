@@ -19,7 +19,7 @@ import { CompareBrandsModal } from "@/components/otc/CompareBrandsModal";
 import { OtcProductHeader } from "@/components/otc/OtcProductHeader";
 import { OtcVerdictCard } from "@/components/otc/OtcVerdictCard";
 import { ConfidenceExplainer } from "@/components/otc/ConfidenceExplainer";
-import { GeneralOtcKnowledge } from "@/components/otc/GeneralOtcKnowledge";
+import { OtcQuickContextCard } from "@/components/otc/OtcQuickContextCard";
 import { DosageFormGuidance } from "@/components/otc/DosageFormGuidance";
 import { OtcNextSteps } from "@/components/otc/OtcNextSteps";
 import { ProUpgradeCard } from "@/components/otc/ProUpgradeCard";
@@ -209,8 +209,8 @@ const OtcProductReport = () => {
           {/* D) Confidence Explainer */}
           <ConfidenceExplainer />
 
-          {/* E) General OTC Knowledge - Always show */}
-          <GeneralOtcKnowledge drugName={displayName} />
+          {/* E) Quick Context Card - Compact V1 */}
+          <OtcQuickContextCard />
 
           {/* F) Dosage Form Guidance - Always show */}
           <DosageFormGuidance dosageForm={dosageForm} />
