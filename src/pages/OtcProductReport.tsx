@@ -11,7 +11,8 @@ import { useOtcProduct } from "@/hooks/useOtcProduct";
 import { useOtcIngredientProfile } from "@/hooks/useOtcIngredientProfile";
 import { useOtcBrandsForProduct } from "@/hooks/useOtcBrands";
 import { useOtcBrandProfile, resolveOtcProfile } from "@/hooks/useOtcBrandProfile";
-import { useOtcBrandReviewStatus, getReviewLevelLabel } from "@/hooks/useOtcBrandReviewStatus";
+import { useOtcBrandReviewStatus } from "@/hooks/useOtcBrandReviewStatus";
+import { useSubscription } from "@/hooks/useSubscription";
 import { computeOtcVerdict } from "@/lib/otcVerdict";
 import { ContributeIngredientsModal } from "@/components/otc/ContributeIngredientsModal";
 import { BrandSelect } from "@/components/otc/BrandSelect";
@@ -25,9 +26,13 @@ import { OtcNextSteps } from "@/components/otc/OtcNextSteps";
 import { ProUpgradeCard } from "@/components/otc/ProUpgradeCard";
 import { OtcFooterTrust } from "@/components/otc/OtcFooterTrust";
 import { OtcFormulationPatterns } from "@/components/otc/OtcFormulationPatterns";
-import { OtcReviewedExamples } from "@/components/otc/OtcReviewedExamples";
+import { OtcPatternReviewedBrands } from "@/components/otc/OtcPatternReviewedBrands";
 import { OtcTransparencyNote } from "@/components/otc/OtcTransparencyNote";
-import { OtcManufacturerSignals } from "@/components/otc/OtcManufacturerSignals";
+import { OtcSignalTags } from "@/components/otc/OtcSignalTags";
+import {
+  reviewedBrandsSectionProps,
+  getSignalTagsForDosageForm,
+} from "@/lib/otcReviewData";
 
 const OtcProductReport = () => {
   const { id } = useParams();
@@ -53,6 +58,9 @@ const OtcProductReport = () => {
 
   // Fetch brand review status (Phase 3)
   const { data: brandReviewStatus } = useOtcBrandReviewStatus(selectedBrandId);
+
+  // Subscription status for Pro features
+  const { isPro } = useSubscription();
 
   const isLoading = productLoading || profileLoading || brandsLoading;
 
@@ -138,6 +146,7 @@ const OtcProductReport = () => {
 
   const displayName = product.display_name || product.name || product.generic_name;
   const dosageForm = resolvedProfile?.dosage_form || null;
+  const signalTags = getSignalTagsForDosageForm(dosageForm);
 
   return (
     <div className="min-h-screen bg-background">
@@ -215,14 +224,14 @@ const OtcProductReport = () => {
           {/* F) Dosage Form Guidance - Always show */}
           <DosageFormGuidance dosageForm={dosageForm} />
 
-          {/* Phase 2: Manufacturer Signals */}
-          <OtcManufacturerSignals signals={[]} dosageForm={dosageForm} />
+          {/* Phase 2: Signal Tags */}
+          <OtcSignalTags tags={signalTags} isPro={isPro} />
 
           {/* Phase 1: Formulation Patterns */}
           <OtcFormulationPatterns />
 
-          {/* Phase 1: Reviewed Examples */}
-          <OtcReviewedExamples />
+          {/* Phase 1: Reviewed Brand Examples */}
+          <OtcPatternReviewedBrands {...reviewedBrandsSectionProps} />
 
           {/* Phase 1: Transparency Note */}
           <OtcTransparencyNote />

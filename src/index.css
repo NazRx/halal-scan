@@ -47,6 +47,10 @@
     --status-unknown: 220 13% 50%;
     --status-unknown-bg: 220 13% 95%;
 
+    /* Warning - For cautionary signals (amber) */
+    --warning: 45 93% 47%;
+    --warning-foreground: 45 93% 10%;
+
     /* System */
     --border: 160 20% 90%;
     --input: 160 20% 90%;
@@ -109,6 +113,10 @@
     --status-not-halal-bg: 0 40% 15%;
     --status-unknown: 220 13% 60%;
     --status-unknown-bg: 220 15% 20%;
+
+    /* Warning - For cautionary signals (amber) */
+    --warning: 45 93% 55%;
+    --warning-foreground: 45 93% 95%;
 
     --border: 160 15% 20%;
     --input: 160 15% 20%;
