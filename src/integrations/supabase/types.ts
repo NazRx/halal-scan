@@ -313,6 +313,47 @@ export type Database = {
           },
         ]
       }
+      otc_brand_review_status: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          last_reviewed_at: string | null
+          notes: string | null
+          review_level: Database["public"]["Enums"]["otc_review_level"]
+          reviewed_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          last_reviewed_at?: string | null
+          notes?: string | null
+          review_level?: Database["public"]["Enums"]["otc_review_level"]
+          reviewed_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          last_reviewed_at?: string | null
+          notes?: string | null
+          review_level?: Database["public"]["Enums"]["otc_review_level"]
+          reviewed_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "otc_brand_review_status_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "otc_brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       otc_brands: {
         Row: {
           brand_name: string
@@ -1450,6 +1491,12 @@ export type Database = {
       halal_status: "halal" | "mushbooh" | "haram" | "needs_verification"
       ingredient_role: "active" | "inactive"
       org_role: "owner" | "admin" | "member"
+      otc_review_level:
+        | "none"
+        | "pattern_reviewed"
+        | "ingredient_reviewed"
+        | "manufacturer_confirmed"
+        | "halal_certified"
       plan_type: "free" | "pro" | "clinic"
       review_request_status: "new" | "in_progress" | "resolved"
       review_request_type: "otc_not_found" | "rx_not_found" | "variant_unclear"
@@ -1605,6 +1652,13 @@ export const Constants = {
       halal_status: ["halal", "mushbooh", "haram", "needs_verification"],
       ingredient_role: ["active", "inactive"],
       org_role: ["owner", "admin", "member"],
+      otc_review_level: [
+        "none",
+        "pattern_reviewed",
+        "ingredient_reviewed",
+        "manufacturer_confirmed",
+        "halal_certified",
+      ],
       plan_type: ["free", "pro", "clinic"],
       review_request_status: ["new", "in_progress", "resolved"],
       review_request_type: ["otc_not_found", "rx_not_found", "variant_unclear"],
