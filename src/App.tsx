@@ -35,6 +35,15 @@ import IngestDebug from "./pages/admin/IngestDebug";
 import HydrateLabelData from "./pages/admin/HydrateLabelData";
 import Feedback from "./pages/Feedback";
 import ReportIssue from "./pages/ReportIssue";
+import Resources from "./pages/Resources";
+import FAQ from "./pages/FAQ";
+import IngredientDatabase from "./pages/IngredientDatabase";
+import Blog from "./pages/Blog";
+import BlogPost from "./pages/BlogPost";
+import Legal from "./pages/Legal";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
+import Disclaimer from "./pages/Disclaimer";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +72,15 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/feedback" element={<Feedback />} />
           <Route path="/report-issue" element={<ReportIssue />} />
+          <Route path="/resources" element={<Resources />} />
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/ingredient-database" element={<IngredientDatabase />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/blog/:slug" element={<BlogPost />} />
+          <Route path="/legal" element={<Legal />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/disclaimer" element={<Disclaimer />} />
           <Route path="/history" element={<History />} />
           <Route path="/saved" element={<SavedManufacturers />} />
           
