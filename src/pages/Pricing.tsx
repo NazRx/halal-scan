@@ -1,190 +1,128 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { Check, Shield, Sparkles, Users, Loader2, CreditCard, Moon } from "lucide-react";
+import { Check, Shield, Sparkles, Users, Loader2, CreditCard } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
-import { useScanCredits } from "@/hooks/useScanCredits";
-import { useRamadan } from "@/hooks/useRamadan";
 import { toast } from "sonner";
 
 const Pricing = () => {
   const navigate = useNavigate();
   const { isAuthenticated, session } = useAuth();
   const { tier, isPro, isClinic } = useSubscription();
-  const { freeScansRemaining, purchasedCredits, FREE_RX_SCAN_LIMIT } = useScanCredits();
-  const { isRamadan, pricing, dayOfRamadan } = useRamadan();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
-  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
 
-  // Dynamic plans based on Ramadan status
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const plans = [
     {
       id: "free",
-      name: isRamadan ? "Explore+" : "Explore",
-      subtitle: isRamadan ? "Ramadan Boost" : "Free",
+      name: "Explore",
       price: "$0",
       period: "forever",
-      description: isRamadan 
-        ? "A month of clarity and intention." 
-        : "Try it safely. No commitment.",
+      subtitle: "For quick halal clarity.",
       features: [
         "Unlimited OTC scans",
-        `${FREE_RX_SCAN_LIMIT} lifetime Rx scans`,
+        "5 lifetime Rx scans",
         "Clear halal status (Halal / Not Halal / Unclear)",
-        "Ingredient list (basic)",
+        "Basic ingredient list",
         "Community explanations",
-        ...(isRamadan ? ["No ads for first 7 days"] : []),
       ],
-      limits: isRamadan ? [
+      limits: [
         "No manufacturer comparison",
+        "No ingredient source references",
+        "No confidence score",
         "No exports",
-      ] : [
-        "No manufacturer comparison",
-        "No exports",
-        "Ads appear after scan #5",
+        "Ads appear after scan #3",
       ],
       cta: "Start Free",
+      ctaNote: "No credit card required",
       popular: false,
-      icon: isRamadan ? Moon : Shield,
-      color: isRamadan ? "text-amber-600" : "text-emerald-600",
-      bgColor: isRamadan ? "bg-amber-50" : "bg-emerald-50",
+      icon: Shield,
     },
     {
       id: "pro",
-      name: isRamadan ? "Ramadan Protect" : "Protect",
-      subtitle: "Pro",
-      price: isRamadan ? "$2.99" : "$4.99",
-      yearlyPrice: isRamadan ? "$29" : "$39",
-      period: "per month",
-      yearlyPeriod: "per year",
-      yearlySavings: isRamadan ? "Save 50%" : "Save 35%",
-      description: isRamadan 
-        ? "One month free of doubt."
-        : "For Muslims who rely on medications and want certainty.",
+      name: "Protect",
+      price: "$4.99",
+      period: "month",
+      subtitle: "For Muslims who cannot afford doubt.",
       features: [
-        "Everything in Free, plus:",
+        "Everything in Free",
         "Unlimited OTC + Rx scans",
         "Manufacturer-level comparison",
-        "Ingredient rulings with sources",
+        "Ingredient rulings with scholarly sources",
         "Confidence score with explanation",
-        "Export & share reports (PDF)",
+        "Exportable PDF reports",
         "No ads",
         "Priority support",
       ],
       limits: [],
-      cta: isRamadan ? "Ramadan Offer — Start for $2.99" : "Start Free Trial",
+      cta: "Start Free Trial",
+      ctaNote: "7-day free trial — no credit card required",
       popular: true,
       icon: Sparkles,
-      color: "text-primary",
-      bgColor: "bg-primary/10",
-      trialDays: 7,
     },
     {
       id: "clinic",
-      name: "Professional",
-      subtitle: "Clinic",
+      name: "Clinic",
       price: "From $49",
-      period: "per month",
-      description: "For pharmacists, clinics, and healthcare teams.",
+      period: "month",
+      subtitle: "For healthcare teams serving Muslim patients.",
       features: [
-        "Everything in Protect, plus:",
+        "Everything in Protect",
         "Multi-user access",
         "Bulk lookups",
-        "Exportable patient-friendly reports",
+        "Patient-friendly exports",
         "Optional API access",
-        "Custom branding (Pro tier)",
+        "Custom branding",
         "Dedicated support",
-        ...(isRamadan ? ["Ramadan Health Awareness badge", "Priority onboarding"] : []),
       ],
       limits: [],
       compliance: "HIPAA-aware workflows — no patient identifiers stored.",
-      cta: "Request Access",
+      cta: "Request Demo",
+      ctaNote: null,
       popular: false,
       icon: Users,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
     },
   ];
 
-  // Dynamic scan packs based on Ramadan
-  const scanPacks = isRamadan 
-    ? [
-        { credits: 50, price: "$2.99", label: "Ramadan Pack" },
-        { credits: 200, price: "$6.99", label: "Family Pack" },
-      ]
-    : [
-        { credits: 25, price: "$2.99" },
-        { credits: 100, price: "$6.99" },
-      ];
-
-  const faqs = [
-    {
-      question: "Can I cancel anytime?",
-      answer: "Yes, you can cancel your subscription at any time. You'll continue to have access until the end of your billing period.",
-    },
-    {
-      question: "Is there a free trial?",
-      answer: "Yes! Protect plan includes a 7-day free trial. No credit card required to start.",
-    },
-    {
-      question: "What are scan credits?",
-      answer: "Scan credits let you check Rx medications without a subscription. Credits never expire and can be used anytime.",
-    },
-    {
-      question: "How is halal status determined?",
-      answer: "Our pharmacist team reviews each ingredient against established Islamic rulings. We respect the principle of necessity (darura) and provide clear confidence levels.",
-    },
-    ...(isRamadan ? [{
-      question: "How long does the Ramadan offer last?",
-      answer: "Ramadan pricing is available throughout the blessed month. Subscribe anytime during Ramadan to lock in the special rates.",
-    }] : []),
+  const scanPacks = [
+    { credits: 25, price: "$3.99", note: "Credits never expire." },
+    { credits: 100, price: "$9.99", note: "Best value.", highlight: true },
   ];
 
-  const handleSubscribe = async (planId: string, yearly = false) => {
+  const handleSubscribe = async (planId: string) => {
     if (!isAuthenticated) {
-      toast.info("Please sign in first", {
-        description: "You need to be signed in to subscribe.",
-      });
+      toast.info("Please sign in first", { description: "You need to be signed in to subscribe." });
       navigate("/auth");
       return;
     }
-
     if (planId === "clinic") {
-      toast.info("Contact us for Professional plans", {
-        description: "Email us at support@halalrx.com for custom pricing.",
-      });
+      toast.info("Contact us for Professional plans", { description: "Email us at support@halalrx.com for custom pricing." });
       return;
     }
-
     if (planId === "free") {
       navigate("/app");
       return;
     }
-
-    setLoadingAction(`subscribe-${planId}-${yearly ? 'yearly' : 'monthly'}`);
+    setLoadingAction(`subscribe-${planId}`);
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { plan: planId, yearly, isRamadanOffer: isRamadan },
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-        },
+        body: { plan: planId },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
       });
-
       if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, '_blank');
-      }
+      if (data?.url) window.open(data.url, '_blank');
     } catch (err) {
       console.error('Checkout error:', err);
-      toast.error("Failed to start checkout", {
-        description: "Please try again or contact support.",
-      });
+      toast.error("Failed to start checkout", { description: "Please try again or contact support." });
     } finally {
       setLoadingAction(null);
     }
@@ -192,26 +130,18 @@ const Pricing = () => {
 
   const handleBuyCredits = async (credits: number) => {
     if (!isAuthenticated) {
-      toast.info("Please sign in first", {
-        description: "You need to be signed in to purchase credits.",
-      });
+      toast.info("Please sign in first", { description: "You need to be signed in to purchase credits." });
       navigate("/auth");
       return;
     }
-
     setLoadingAction(`credits-${credits}`);
     try {
       const { data, error } = await supabase.functions.invoke('create-credit-purchase', {
         body: { credits },
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-        },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
       });
-
       if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, '_blank');
-      }
+      if (data?.url) window.open(data.url, '_blank');
     } catch (err) {
       console.error('Credit purchase error:', err);
       toast.error("Failed to start checkout");
@@ -228,94 +158,35 @@ const Pricing = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      
-      <main className="flex-1 pt-24 pb-16">
-        <div className="container px-4">
-          {/* Ramadan Banner */}
-          {isRamadan && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="max-w-3xl mx-auto mb-8"
-            >
-              <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-center">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Moon className="h-5 w-5 text-amber-600" />
-                  <span className="font-semibold text-amber-800 dark:text-amber-200">
-                    Ramadan Mubarak
-                  </span>
-                  <Moon className="h-5 w-5 text-amber-600" />
-                </div>
-                <p className="text-sm text-amber-700 dark:text-amber-300">
-                  Additional Rx scans unlocked to help you make informed, halal-conscious decisions this month.
-                </p>
-              </div>
-            </motion.div>
-          )}
 
-          {/* Header */}
+      <main className="flex-1 pt-24 pb-20">
+        {/* SECTION 1 — Header */}
+        <section className="text-center px-4 mb-16">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-12"
+            className="max-w-2xl mx-auto"
           >
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              Know what you're taking.
-              <span className="block text-primary">With confidence.</span>
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
+              Choose Your Level of
+              <span className="block text-primary">Halal Certainty</span>
             </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Instant halal screening for medications — built by pharmacists, guided by Islamic principles.
+            <p className="text-lg text-muted-foreground">
+              Start free. Upgrade when you need deeper verification. No pressure. No hidden fees.
             </p>
           </motion.div>
+        </section>
 
-          {/* Billing toggle for Pro */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="flex justify-center mb-8"
-          >
-            <div className="inline-flex items-center gap-2 p-1 rounded-full bg-muted">
-              <button
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  billingPeriod === 'monthly' 
-                    ? 'bg-background shadow text-foreground' 
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-                onClick={() => setBillingPeriod('monthly')}
-              >
-                Monthly
-              </button>
-              <button
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${
-                  billingPeriod === 'yearly' 
-                    ? 'bg-background shadow text-foreground' 
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-                onClick={() => setBillingPeriod('yearly')}
-              >
-                Yearly
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  isRamadan 
-                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200'
-                    : 'bg-status-halal-bg text-status-halal'
-                }`}>
-                  {isRamadan ? 'Save 50%' : 'Save 35%'}
-                </span>
-              </button>
-            </div>
-          </motion.div>
-
-          {/* Plans Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-16">
+        {/* SECTION 2 — Pricing Cards */}
+        <section className="px-4 mb-20">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-start">
             {plans.map((plan, index) => {
               const isCurrentPlan = getCurrentPlanBadge(plan.id);
               const isLoading = loadingAction?.startsWith(`subscribe-${plan.id}`);
               const Icon = plan.icon;
-              const showYearly = billingPeriod === 'yearly' && !!plan.yearlyPrice;
-              
+
               return (
                 <motion.div
                   key={plan.id}
@@ -324,214 +195,165 @@ const Pricing = () => {
                   transition={{ delay: index * 0.1 }}
                   className={`relative ${plan.popular ? "md:-mt-4 md:mb-4" : ""}`}
                 >
-                  <Card className={`p-6 h-full flex flex-col ${
+                  <Card className={`p-6 h-full flex flex-col transition-shadow duration-300 ${
                     plan.popular
-                      ? isRamadan
-                        ? "border-amber-400 shadow-xl shadow-amber-500/10 bg-gradient-to-b from-amber-50 to-transparent dark:from-amber-950/20"
-                        : "border-primary shadow-xl shadow-primary/10 bg-gradient-to-b from-primary/5 to-transparent"
-                      : ""
+                      ? "border-primary shadow-lg shadow-primary/10 ring-1 ring-primary/20"
+                      : "hover:shadow-md"
                   } ${isCurrentPlan ? "ring-2 ring-primary" : ""}`}>
+                    {/* Badge */}
                     {plan.popular && !isCurrentPlan && (
-                      <div className={`absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-medium ${
-                        isRamadan 
-                          ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'
-                          : 'gradient-hero text-primary-foreground'
-                      }`}>
-                        {isRamadan ? '🌙 Ramadan Special' : 'Most Popular'}
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full gradient-hero text-primary-foreground text-xs font-semibold">
+                        Most Popular
                       </div>
                     )}
                     {isCurrentPlan && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
                         Your Plan
                       </div>
                     )}
 
-                    {/* Plan header */}
-                    <div className="mb-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className={`p-2 rounded-lg ${plan.bgColor}`}>
-                          <Icon className={`h-5 w-5 ${plan.color}`} />
+                    {/* Header */}
+                    <div className="mb-5">
+                      <div className="flex items-center gap-2.5 mb-3">
+                        <div className={`p-2 rounded-lg ${
+                          plan.popular ? "bg-primary/10" : "bg-muted"
+                        }`}>
+                          <Icon className={`h-5 w-5 ${
+                            plan.popular ? "text-primary" : "text-muted-foreground"
+                          }`} />
                         </div>
-                        <div>
-                          <h2 className="font-bold text-lg">{plan.name}</h2>
-                          <span className="text-xs text-muted-foreground">{plan.subtitle}</span>
-                        </div>
+                        <h2 className="text-xl font-bold">{plan.name}</h2>
                       </div>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-bold">
-                          {showYearly ? plan.yearlyPrice : plan.price}
-                        </span>
-                        <span className="text-muted-foreground text-sm">
-                          /{showYearly ? plan.yearlyPeriod : plan.period}
-                        </span>
+                      <div className="flex items-baseline gap-1 mb-1">
+                        <span className="text-4xl font-bold tracking-tight">{plan.price}</span>
+                        <span className="text-muted-foreground">/ {plan.period}</span>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>
+                      <p className="text-sm text-muted-foreground">{plan.subtitle}</p>
                     </div>
 
                     {/* Features */}
-                    <div className="flex-1">
-                      <ul className="space-y-2 mb-4">
+                    <div className="flex-1 space-y-4">
+                      <ul className="space-y-2.5">
                         {plan.features.map((feature) => (
-                          <li key={feature} className="flex items-start gap-2 text-sm">
-                            <div className="flex-shrink-0 mt-0.5 w-4 h-4 rounded-full bg-status-halal-bg flex items-center justify-center">
-                              <Check className="h-2.5 w-2.5 text-status-halal" />
-                            </div>
+                          <li key={feature} className="flex items-start gap-2.5 text-sm">
+                            <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
                             <span>{feature}</span>
                           </li>
                         ))}
                       </ul>
-                      
+
+                      {/* Limits divider */}
                       {plan.limits.length > 0 && (
-                        <ul className="space-y-2 mb-4">
-                          {plan.limits.map((limit) => (
-                            <li key={limit} className="flex items-start gap-2 text-sm text-muted-foreground">
-                              <div className="flex-shrink-0 mt-0.5 w-4 h-4 rounded-full bg-muted flex items-center justify-center">
-                                <span className="text-[10px]">—</span>
-                              </div>
-                              <span>{limit}</span>
-                            </li>
-                          ))}
-                        </ul>
+                        <>
+                          <div className="border-t" />
+                          <ul className="space-y-2">
+                            {plan.limits.map((limit) => (
+                              <li key={limit} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                                <span className="flex-shrink-0 mt-0.5 w-4 text-center">—</span>
+                                <span>{limit}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
                       )}
 
                       {plan.compliance && (
-                        <p className="text-xs text-muted-foreground mb-4 p-2 bg-muted/50 rounded">
+                        <p className="text-xs text-muted-foreground p-3 bg-muted/50 rounded-lg border">
                           {plan.compliance}
                         </p>
                       )}
                     </div>
 
                     {/* CTA */}
-                    <Button
-                      className={`w-full ${
-                        plan.popular
-                          ? isRamadan
-                            ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
-                            : "gradient-hero text-primary-foreground hover:opacity-90"
-                          : ""
-                      }`}
-                      variant={plan.popular ? "default" : "outline"}
-                      size="lg"
-                      onClick={() => handleSubscribe(plan.id, showYearly)}
-                      disabled={isLoading || isCurrentPlan}
-                    >
-                      {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                      {isCurrentPlan ? "Current Plan" : plan.cta}
-                    </Button>
-                    
-                    {plan.trialDays && !isCurrentPlan && (
-                      <p className="text-xs text-center text-muted-foreground mt-2">
-                        {isRamadan 
-                          ? 'Cancel anytime · No guilt · No pressure'
-                          : `🎁 ${plan.trialDays}-day free trial — no credit card`
-                        }
-                      </p>
-                    )}
-                    
-                    {plan.id === 'free' && (
-                      <p className="text-xs text-center text-muted-foreground mt-2">
-                        No credit card required
-                      </p>
-                    )}
+                    <div className="mt-6">
+                      <Button
+                        className={`w-full ${
+                          plan.popular
+                            ? "gradient-hero text-primary-foreground hover:opacity-90"
+                            : ""
+                        }`}
+                        variant={plan.popular ? "default" : "outline"}
+                        size="lg"
+                        onClick={() => handleSubscribe(plan.id)}
+                        disabled={isLoading || isCurrentPlan}
+                      >
+                        {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                        {isCurrentPlan ? "Current Plan" : plan.cta}
+                      </Button>
+                      {plan.ctaNote && !isCurrentPlan && (
+                        <p className="text-xs text-center text-muted-foreground mt-2.5">
+                          {plan.ctaNote}
+                        </p>
+                      )}
+                    </div>
                   </Card>
                 </motion.div>
               );
             })}
           </div>
+        </section>
 
-          {/* Scan Credit Packs */}
+        {/* SECTION 3 — Scan Packs */}
+        <section className="px-4 mb-20">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="max-w-md mx-auto mb-16"
+            className="max-w-lg mx-auto text-center"
           >
-            <Card className={`p-6 ${
-              isRamadan 
-                ? 'bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200 dark:border-amber-800'
-                : 'bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 border-violet-200 dark:border-violet-800'
-            }`}>
-              <div className="flex items-center gap-2 mb-4">
-                <div className={`p-2 rounded-lg ${isRamadan ? 'bg-amber-100 dark:bg-amber-900' : 'bg-violet-100 dark:bg-violet-900'}`}>
-                  <CreditCard className={`h-5 w-5 ${isRamadan ? 'text-amber-600 dark:text-amber-400' : 'text-violet-600 dark:text-violet-400'}`} />
-                </div>
-                <div>
-                  <h3 className="font-bold">
-                    {isRamadan ? 'Ramadan Scan Packs' : 'One-Time Scan Packs'}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">No subscription required</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                {scanPacks.map((pack) => (
+            <div className="flex items-center gap-2 justify-center mb-2">
+              <CreditCard className="h-5 w-5 text-muted-foreground" />
+              <h2 className="text-2xl font-bold">No subscription? Use scan credits.</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-6">
+              Pay once. Credits never expire.
+            </p>
+
+            <div className="grid grid-cols-2 gap-4">
+              {scanPacks.map((pack) => (
+                <Card
+                  key={pack.credits}
+                  className={`p-5 text-center flex flex-col items-center gap-2 ${
+                    pack.highlight ? "border-primary/30 shadow-sm" : ""
+                  }`}
+                >
+                  <span className="text-2xl font-bold">{pack.credits} scans</span>
+                  <span className="text-lg font-semibold text-primary">{pack.price}</span>
+                  <span className="text-xs text-muted-foreground">{pack.note}</span>
                   <Button
-                    key={pack.credits}
                     variant="outline"
-                    className={`flex flex-col h-auto py-3 bg-background ${
-                      isRamadan 
-                        ? 'hover:bg-amber-50 dark:hover:bg-amber-950'
-                        : 'hover:bg-violet-50 dark:hover:bg-violet-950'
-                    }`}
+                    size="sm"
+                    className="mt-2 w-full"
                     onClick={() => handleBuyCredits(pack.credits)}
-                    disabled={loadingAction?.startsWith('credits')}
+                    disabled={loadingAction?.startsWith("credits")}
                   >
                     {loadingAction === `credits-${pack.credits}` && (
-                      <Loader2 className="h-4 w-4 mb-1 animate-spin" />
+                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
                     )}
-                    <span className="font-semibold">{pack.credits} Scans</span>
-                    <span className="text-sm text-muted-foreground">{pack.price}</span>
-                    {'label' in pack && (
-                      <span className="text-xs text-amber-600 dark:text-amber-400">{pack.label}</span>
-                    )}
+                    Buy {pack.credits}
                   </Button>
-                ))}
-              </div>
-              
-              <p className="text-xs text-center text-muted-foreground">
-                {isRamadan 
-                  ? 'No subscription. Use anytime. Even after Ramadan.'
-                  : 'Credits never expire • Use anytime'
-                }
-              </p>
-            </Card>
-          </motion.div>
-
-          {/* Trust Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <p className="text-sm text-muted-foreground">
-              Designed by a PharmD · Islamic necessity (darura) respected
-            </p>
-            {isRamadan && (
-              <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-                Supporting this app helps maintain an independent, ad-free halal medication database.
-              </p>
-            )}
-          </motion.div>
-
-          {/* FAQs */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="max-w-2xl mx-auto"
-          >
-            <h2 className="text-2xl font-bold text-center mb-8">Common Questions</h2>
-            <div className="space-y-4">
-              {faqs.map((faq) => (
-                <Card key={faq.question} className="p-6">
-                  <h3 className="font-semibold mb-2">{faq.question}</h3>
-                  <p className="text-muted-foreground text-sm">{faq.answer}</p>
                 </Card>
               ))}
             </div>
           </motion.div>
-        </div>
+        </section>
+
+        {/* SECTION 4 — Trust Footer */}
+        <section className="px-4 text-center">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="max-w-lg mx-auto space-y-2"
+          >
+            <p className="text-sm font-medium">
+              Built by a U.S. hospital pharmacist. Designed for religious clarity.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              No medical advice. Always consult your healthcare provider.
+            </p>
+          </motion.div>
+        </section>
       </main>
 
       <Footer />
