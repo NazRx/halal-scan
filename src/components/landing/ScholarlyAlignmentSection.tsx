@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 
 export function ScholarlyAlignmentSection() {
   return (
-    <section className="py-24">
+    <section className="py-24 bg-muted/20">
       <div className="container px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -10,7 +10,14 @@ export function ScholarlyAlignmentSection() {
           viewport={{ once: true }}
           className="max-w-2xl mx-auto"
         >
-          <h2 className="text-3xl md:text-4xl font-bold mb-10 text-foreground text-center">
+          {/* Decorative divider */}
+          <div className="flex items-center justify-center mb-10">
+            <div className="h-px w-12 bg-primary/30" />
+            <div className="mx-3 w-2 h-2 rounded-full bg-primary/30" />
+            <div className="h-px w-12 bg-primary/30" />
+          </div>
+
+          <h2 className="text-4xl md:text-5xl font-bold mb-10 text-foreground text-center tracking-tight">
             Committed to Scholarly Alignment
           </h2>
 
