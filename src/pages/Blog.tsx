@@ -1,18 +1,34 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { SearchCTA } from "@/components/landing/SearchCTA";
+import { supabase } from "@/integrations/supabase/client";
 
-const posts = [
-  { title: "Is Gelatin Always Haram?", slug: "is-gelatin-always-haram" },
-  { title: "Understanding Alcohol in Medicine", slug: "understanding-alcohol-in-medicine" },
-  { title: "Emergency Exceptions in Islamic Law", slug: "emergency-exceptions-in-islamic-law" },
-  { title: "How to Ask Your Pharmacist About Ingredients", slug: "how-to-ask-your-pharmacist" },
-];
+interface Post {
+  title: string;
+  slug: string;
+  excerpt: string | null;
+}
 
 export default function Blog() {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from("blog_posts")
+      .select("title, slug, excerpt")
+      .eq("status", "published")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        setPosts(data || []);
+        setLoading(false);
+      });
+  }, []);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
@@ -31,17 +47,26 @@ export default function Blog() {
         </section>
 
         <section className="container max-w-3xl px-4 pb-16">
-          <div className="grid sm:grid-cols-2 gap-4">
-            {posts.map((post) => (
-              <Link key={post.slug} to={`/blog/${post.slug}`}>
-                <Card className="hover:shadow-md transition-shadow h-full">
-                  <CardContent className="p-6 flex items-center min-h-[100px]">
-                    <h3 className="font-medium">{post.title}</h3>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
+          {loading ? (
+            <p className="text-center text-muted-foreground">Loading…</p>
+          ) : posts.length === 0 ? (
+            <p className="text-center text-muted-foreground">No articles yet. Check back soon!</p>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-4">
+              {posts.map((post) => (
+                <Link key={post.slug} to={`/blog/${post.slug}`}>
+                  <Card className="hover:shadow-md transition-shadow h-full">
+                    <CardContent className="p-6 space-y-1 min-h-[100px]">
+                      <h3 className="font-medium">{post.title}</h3>
+                      {post.excerpt && (
+                        <p className="text-sm text-muted-foreground">{post.excerpt}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
 
         <SearchCTA />

@@ -33,6 +33,7 @@ import SeedData from "./pages/admin/SeedData";
 import FeedbackManagement from "./pages/admin/FeedbackManagement";
 import IngestDebug from "./pages/admin/IngestDebug";
 import HydrateLabelData from "./pages/admin/HydrateLabelData";
+import BlogManagement from "./pages/admin/BlogManagement";
 import Feedback from "./pages/Feedback";
 import ReportIssue from "./pages/ReportIssue";
 import Resources from "./pages/Resources";
@@ -98,6 +99,7 @@ const App = () => (
             <Route path="feedback" element={<FeedbackManagement />} />
             <Route path="ingest-debug" element={<IngestDebug />} />
             <Route path="hydrate-label" element={<HydrateLabelData />} />
+            <Route path="blog" element={<BlogManagement />} />
           </Route>
           
           <Route path="*" element={<NotFound />} />
