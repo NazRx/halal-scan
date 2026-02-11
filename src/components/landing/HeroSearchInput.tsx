@@ -164,10 +164,10 @@ export function HeroSearchInput() {
         <form onSubmit={handleSubmit}>
           <div
             className={cn(
-              "relative flex items-center gap-3 rounded-2xl border-2 bg-card/80 backdrop-blur-xl px-4 py-3 transition-all duration-300",
+              "relative flex items-center gap-3 rounded-2xl border-2 bg-white/90 backdrop-blur-xl px-4 py-3 transition-all duration-300 shadow-lg",
               isFocused 
-                ? "border-primary shadow-lg shadow-primary/10" 
-                : "border-border hover:border-primary/50"
+                ? "border-white shadow-xl" 
+                : "border-white/60 hover:border-white"
             )}
           >
             <Search className="h-5 w-5 text-muted-foreground shrink-0" />
@@ -324,19 +324,19 @@ export function HeroSearchInput() {
       <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
         <button
           onClick={() => navigate("/otc/scan")}
-          className="px-4 py-2 rounded-full border bg-card/50 hover:bg-card hover:border-primary/50 text-sm transition-all"
+          className="px-4 py-2 rounded-full border border-white/30 bg-white/15 hover:bg-white/25 text-primary-foreground text-sm transition-all backdrop-blur-sm"
         >
           📦 Scan OTC
         </button>
         <button
           onClick={() => navigate("/rx/search")}
-          className="px-4 py-2 rounded-full border bg-card/50 hover:bg-card hover:border-primary/50 text-sm transition-all"
+          className="px-4 py-2 rounded-full border border-white/30 bg-white/15 hover:bg-white/25 text-primary-foreground text-sm transition-all backdrop-blur-sm"
         >
           💊 Search Rx
         </button>
         <button
           onClick={() => navigate("/browse")}
-          className="px-4 py-2 rounded-full border bg-card/50 hover:bg-card hover:border-primary/50 text-sm transition-all"
+          className="px-4 py-2 rounded-full border border-white/30 bg-white/15 hover:bg-white/25 text-primary-foreground text-sm transition-all backdrop-blur-sm"
         >
           📋 Browse All
         </button>

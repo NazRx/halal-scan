@@ -4,22 +4,25 @@ const tiers = [
   {
     title: "High Confidence",
     description: "Verified ingredient information with clear manufacturer data.",
+    accent: "border-l-primary",
   },
   {
     title: "Moderate Confidence",
     description:
       "No red-flag ingredients detected, but limited sourcing transparency.",
+    accent: "border-l-warning",
   },
   {
     title: "Limited Data",
     description:
       "Insufficient publicly available information. Manufacturer clarification may be required.",
+    accent: "border-l-muted-foreground/40",
   },
 ];
 
 export function ConfidenceSystemSection() {
   return (
-    <section className="py-24 bg-muted/20">
+    <section className="py-24">
       <div className="container px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -27,7 +30,7 @@ export function ConfidenceSystemSection() {
           viewport={{ once: true }}
           className="max-w-2xl mx-auto"
         >
-          <h2 className="text-3xl md:text-4xl font-bold mb-6 text-foreground text-center">
+          <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground text-center tracking-tight">
             Our Confidence System
           </h2>
 
@@ -45,7 +48,7 @@ export function ConfidenceSystemSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
-                className="rounded-xl border border-border bg-card p-6"
+                className={`rounded-xl border border-border bg-card p-6 border-l-4 ${tier.accent} shadow-sm hover:shadow-md transition-shadow`}
               >
                 <h3 className="font-semibold text-foreground mb-1">{tier.title}</h3>
                 <p className="text-muted-foreground">{tier.description}</p>

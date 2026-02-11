@@ -3,7 +3,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export function FounderStorySection() {
   return (
-    <section className="py-24 bg-muted/20">
+    <section className="py-24">
       <div className="container px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -11,7 +11,7 @@ export function FounderStorySection() {
           viewport={{ once: true }}
           className="max-w-2xl mx-auto text-center"
         >
-          <h2 className="text-3xl md:text-4xl font-bold mb-10 text-foreground">
+          <h2 className="text-4xl md:text-5xl font-bold mb-10 text-foreground tracking-tight">
             Made by Muslims, for Muslims
           </h2>
 
@@ -21,7 +21,7 @@ export function FounderStorySection() {
             medication ingredients.
           </p>
 
-          <div className="rounded-2xl border border-border bg-card p-8 md:p-10 text-left">
+          <div className="rounded-2xl border border-border bg-card p-8 md:p-10 text-left shadow-lg border-l-4 border-l-primary">
             <blockquote className="text-muted-foreground text-lg leading-relaxed italic mb-6">
               "As a pharmacist, I counseled countless patients who simply wanted
               to know whether their medications aligned with their faith. The
