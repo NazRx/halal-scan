@@ -10,6 +10,7 @@ import {
   Shield,
   MessageSquare,
   Beaker,
+  FileText,
   PanelLeftClose,
   PanelLeft,
   Menu
@@ -29,6 +30,7 @@ const navItems = [
   { title: 'Seed Data', href: '/admin/seed-data', icon: Database },
   { title: 'Ingest Debug', href: '/admin/ingest-debug', icon: Beaker },
   { title: 'Hydrate Labels', href: '/admin/hydrate-label', icon: Beaker },
+  { title: 'Blog', href: '/admin/blog', icon: FileText },
 ];
 
 export default function AdminLayout() {
