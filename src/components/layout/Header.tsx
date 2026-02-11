@@ -17,7 +17,7 @@ export function Header() {
   const location = useLocation();
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 px-4 pt-4">
+    <header className="fixed top-0 left-0 right-0 z-50 px-3 pt-2 sm:px-4 sm:pt-4">
       <div className="container max-w-5xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
