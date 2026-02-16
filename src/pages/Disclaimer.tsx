@@ -8,7 +8,7 @@ import { SearchCTA } from "@/components/landing/SearchCTA";
 
 export default function Disclaimer() {
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1 pt-24">
         <section className="container max-w-3xl px-4 pb-16 space-y-8">

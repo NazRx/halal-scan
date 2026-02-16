@@ -55,6 +55,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <ScrollToTop />
+        <div className="app-gradient-bg">
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/app" element={<AppHome />} />
@@ -104,6 +105,7 @@ const App = () => (
           
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </div>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

@@ -97,7 +97,7 @@ const OtcProductReport = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen">
         <Header />
         <main className="container px-4 pt-24 pb-6">
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-4">
@@ -122,7 +122,7 @@ const OtcProductReport = () => {
 
   if (productError || !product) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen">
         <Header />
         <main className="container px-4 pt-24 pb-6">
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-4">
@@ -149,7 +149,7 @@ const OtcProductReport = () => {
   const signalTags = getSignalTagsForDosageForm(dosageForm);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Header />
       
       <main className="container px-4 pt-24 pb-6">

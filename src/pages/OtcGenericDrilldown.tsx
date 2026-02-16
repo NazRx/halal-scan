@@ -196,7 +196,7 @@ const OtcGenericDrilldown = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Header />
       
       <main className="container px-4 pt-24 pb-8">

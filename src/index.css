@@ -242,4 +242,25 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  .app-gradient-bg {
+    background: linear-gradient(
+      180deg,
+      hsl(158 40% 95%) 0%,
+      hsl(150 20% 98%) 30%,
+      hsl(165 15% 97%) 70%,
+      hsl(158 30% 95%) 100%
+    );
+    min-height: 100vh;
+  }
+
+  .dark .app-gradient-bg {
+    background: linear-gradient(
+      180deg,
+      hsl(160 30% 6%) 0%,
+      hsl(160 25% 8%) 30%,
+      hsl(165 20% 7%) 70%,
+      hsl(158 25% 6%) 100%
+    );
+  }
 }
