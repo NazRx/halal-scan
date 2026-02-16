@@ -99,7 +99,7 @@ const ReportIssue = () => {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen">
         <Header />
         <main className="container px-4 pt-24 pb-6">
           <Card className="max-w-xl mx-auto p-8 text-center">
@@ -120,7 +120,7 @@ const ReportIssue = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Header />
       <main className="container px-4 pt-24 pb-6">
         <Button

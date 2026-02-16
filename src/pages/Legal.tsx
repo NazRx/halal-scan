@@ -14,7 +14,7 @@ const links = [
 
 export default function Legal() {
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1 pt-24">
         <section className="container max-w-3xl px-4 pb-16 text-center space-y-6">

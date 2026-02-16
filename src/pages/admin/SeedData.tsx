@@ -453,7 +453,7 @@ export default function SeedData() {
   const next700Count = drugs.filter(d => !d.popularityRank || d.popularityRank > 300).length;
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">

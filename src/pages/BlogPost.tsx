@@ -36,7 +36,7 @@ export default function BlogPost() {
   const title = post?.title || slug?.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()) || "Blog Post";
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1 pt-24">
         <section className="container max-w-3xl px-4 pb-16 space-y-6">

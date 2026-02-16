@@ -387,7 +387,7 @@ const RxMedication = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen">
         <Header />
         <main className="container px-4 pt-24 pb-6">
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-4">
@@ -406,7 +406,7 @@ const RxMedication = () => {
 
   if (!medication) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen">
         <Header />
         <main className="container px-4 pt-24 pb-6">
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-4">
@@ -427,7 +427,7 @@ const RxMedication = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Header />
       
       <main className="container px-4 pt-24 pb-6">

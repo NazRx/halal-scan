@@ -22,7 +22,7 @@ const OTCProduct = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen">
         <Header />
         <main className="container px-4 pt-24 pb-6">
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-4">
@@ -47,7 +47,7 @@ const OTCProduct = () => {
 
   if (error || !product) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen">
         <Header />
         <main className="container px-4 pt-24 pb-6">
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-4">
@@ -75,7 +75,7 @@ const OTCProduct = () => {
     : null;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Header />
       
       <main className="container px-4 pt-24 pb-6">

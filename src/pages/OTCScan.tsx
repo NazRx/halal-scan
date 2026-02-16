@@ -62,7 +62,7 @@ const OTCScan = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Header />
       
       <main className="container px-4 py-6">

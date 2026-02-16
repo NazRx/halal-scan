@@ -78,7 +78,7 @@ const SelectManufacturer = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Header />
       
       <main className="container px-4 pt-24 pb-6 max-w-2xl mx-auto">

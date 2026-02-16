@@ -86,7 +86,7 @@ const Account = () => {
 
   if (loading || subscriptionLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -100,7 +100,7 @@ const Account = () => {
   const displayEmail = user?.email || "";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Header />
       
       <main className="container px-4 pt-24 pb-8">

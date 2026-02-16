@@ -81,7 +81,7 @@ const Report = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background print:bg-white">
+    <div className="min-h-screen print:bg-white">
       <div className="print:hidden">
         <Header />
       </div>

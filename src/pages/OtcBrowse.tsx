@@ -53,7 +53,7 @@ const OtcBrowse = () => {
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Header />
       
       <main className="container px-4 pt-24 pb-6">

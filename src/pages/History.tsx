@@ -16,7 +16,7 @@ export default function History() {
   const { history, loading, error } = useViewHistory(50);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Header />
       
       <main className="container max-w-2xl mx-auto px-4 pt-24 pb-6">
