@@ -47,6 +47,7 @@ import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Disclaimer from "./pages/Disclaimer";
 import Methodology from "./pages/Methodology";
+import MyRequests from "./pages/MyRequests";
 
 const queryClient = new QueryClient();
 
@@ -88,6 +89,7 @@ const App = () => (
           <Route path="/methodology" element={<Methodology />} />
           <Route path="/history" element={<History />} />
           <Route path="/saved" element={<SavedManufacturers />} />
+          <Route path="/my-requests" element={<MyRequests />} />
           
           {/* Admin Routes */}
           <Route path="/admin" element={
