@@ -8,31 +8,31 @@
 
 @layer base {
   :root {
-    /* Core surfaces — Uplifted Mint palette */
-    --background: 168 55% 97%;         /* #F4FBFA near-white mint */
-    --foreground: 172 40% 13%;         /* dark teal text */
+  /* Core surfaces — Medical Teal palette */
+    --background: 168 40% 97%;         /* #F3F9F8 soft clinical tint */
+    --foreground: 174 45% 12%;         /* dark medical teal text */
 
     /* Cards & containers */
     --card: 0 0% 100%;
-    --card-foreground: 172 40% 13%;
+    --card-foreground: 174 45% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 172 40% 13%;
+    --popover-foreground: 174 45% 12%;
 
-    /* Primary — #2A8C7F (hsl ~172 53% 36%) */
-    --primary: 172 53% 36%;
+    /* Primary — #1E6F67 (hsl ~174 57% 28%) */
+    --primary: 174 57% 28%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary — soft mint wash */
-    --secondary: 168 45% 95%;
-    --secondary-foreground: 172 35% 18%;
+    /* Secondary — soft clinical wash */
+    --secondary: 168 35% 95%;
+    --secondary-foreground: 174 40% 18%;
 
     /* Muted surfaces */
-    --muted: 168 30% 95%;
-    --muted-foreground: 170 14% 43%;
+    --muted: 168 25% 95%;
+    --muted-foreground: 172 12% 42%;
 
     /* Accent — same as primary for icon/highlight use */
-    --accent: 172 53% 36%;
+    --accent: 174 57% 28%;
     --accent-foreground: 0 0% 100%;
 
     /* Destructive */
@@ -40,8 +40,8 @@
     --destructive-foreground: 0 0% 100%;
 
     /* Status Colors */
-    --status-halal: 172 53% 36%;
-    --status-halal-bg: 168 55% 96%;
+    --status-halal: 174 57% 28%;
+    --status-halal-bg: 168 40% 96%;
     --status-questionable: 40 65% 50%;
     --status-questionable-bg: 40 65% 96%;
     --status-not-halal: 0 72% 51%;
@@ -54,25 +54,25 @@
     --warning-foreground: 40 65% 10%;
 
     /* System */
-    --border: 168 45% 91%;             /* #E6F5F2 */
-    --input: 168 45% 91%;
-    --ring: 172 53% 36%;
+    --border: 168 38% 91%;             /* #E1F0EE */
+    --input: 168 38% 91%;
+    --ring: 174 57% 28%;
     --radius: 0.75rem;
 
     /* Sidebar */
-    --sidebar-background: 168 40% 97%;
-    --sidebar-foreground: 172 35% 18%;
-    --sidebar-primary: 172 53% 36%;
+    --sidebar-background: 168 35% 97%;
+    --sidebar-foreground: 174 40% 18%;
+    --sidebar-primary: 174 57% 28%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 168 45% 93%;
-    --sidebar-accent-foreground: 172 35% 18%;
-    --sidebar-border: 168 45% 91%;
-    --sidebar-ring: 172 53% 36%;
+    --sidebar-accent: 168 38% 93%;
+    --sidebar-accent-foreground: 174 40% 18%;
+    --sidebar-border: 168 38% 91%;
+    --sidebar-ring: 174 57% 28%;
 
-    /* Gradients — #67C5B6 → #8ED9CC */
-    --gradient-hero: linear-gradient(180deg, hsl(172 42% 59%) 0%, hsl(173 44% 70%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(168 30% 97%) 100%);
-    --gradient-scanner: linear-gradient(180deg, hsl(172 35% 8%) 0%, hsl(172 30% 13%) 100%);
+    /* Gradients — #3FAF9F → #5EC6B6 */
+    --gradient-hero: linear-gradient(180deg, hsl(174 44% 47%) 0%, hsl(174 46% 57%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(168 25% 97%) 100%);
+    --gradient-scanner: linear-gradient(180deg, hsl(174 40% 8%) 0%, hsl(174 35% 13%) 100%);
 
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 hsl(172 30% 10% / 0.04);

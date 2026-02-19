@@ -42,7 +42,7 @@ export function HowItWorksSection() {
             Methodical. Transparent. Structured.
           </h2>
           <div className="flex justify-center mb-5">
-            <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(42,140,127,0.30)" }} />
+            <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(30,111,103,0.30)" }} />
           </div>
           <p className="text-muted-foreground text-lg leading-[1.8]">
             Each review is grounded in publicly available documentation.
@@ -67,15 +67,15 @@ export function HowItWorksSection() {
                     className="w-24 h-24 rounded-[18px] flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
                     style={{
                       background: "#FFFFFF",
-                      border: "1px solid #E6F5F2",
+                      border: "1px solid #E1F0EE",
                       boxShadow: "0 10px 25px rgba(0,0,0,0.04)",
                     }}
                   >
-                    <step.icon className="h-9 w-9" style={{ color: "#2A8C7F" }} />
+                    <step.icon className="h-9 w-9" style={{ color: "#1E6F67" }} />
                   </div>
                   <div
                     className="absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm"
-                    style={{ background: "#67C5B6" }}
+                    style={{ background: "#3FAF9F" }}
                   >
                     {index + 1}
                   </div>
