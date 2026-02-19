@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 
 export function ScholarlyAlignmentSection() {
   return (
-    <section className="py-24 bg-muted/20">
+    <section className="py-28" style={{ background: "#FFFFFF" }}>
       <div className="container px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -10,18 +10,21 @@ export function ScholarlyAlignmentSection() {
           viewport={{ once: true }}
           className="max-w-2xl mx-auto"
         >
-          {/* Decorative divider */}
-          <div className="flex items-center justify-center mb-10">
-            <div className="h-px w-12 bg-primary/30" />
-            <div className="mx-3 w-2 h-2 rounded-full bg-primary/30" />
-            <div className="h-px w-12 bg-primary/30" />
+          {/* Accent divider */}
+          <div className="flex items-center justify-center mb-12">
+            <div className="h-px w-16" style={{ background: "rgba(31,92,82,0.25)" }} />
+            <div className="mx-3 w-1.5 h-1.5 rounded-full" style={{ background: "rgba(31,92,82,0.35)" }} />
+            <div className="h-px w-16" style={{ background: "rgba(31,92,82,0.25)" }} />
           </div>
 
-          <h2 className="text-4xl md:text-5xl font-bold mb-10 text-foreground text-center tracking-tight">
+          <h2 className="text-4xl md:text-5xl font-bold mb-3 text-foreground text-center tracking-tight">
             Our Relationship with Scholarship
           </h2>
+          <div className="flex justify-center mb-10">
+            <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(31,92,82,0.3)" }} />
+          </div>
 
-          <div className="space-y-6 text-muted-foreground text-lg leading-relaxed">
+          <div className="space-y-6 text-muted-foreground text-lg leading-[1.8]">
             <p>AmanahRx does not issue religious rulings (fatwa).</p>
 
             <p>
@@ -41,7 +44,7 @@ export function ScholarlyAlignmentSection() {
               guidance in such situations.
             </p>
 
-            <p className="text-foreground font-medium">
+            <p className="text-foreground font-semibold">
               Health decisions deserve both clinical accuracy and spiritual mindfulness.
               We provide the former. We respect the latter.
             </p>

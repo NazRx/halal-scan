@@ -5,16 +5,16 @@ import { ArrowRight, Scan } from "lucide-react";
 
 export function CTASection() {
   return (
-    <section className="py-20 bg-muted/30">
+    <section className="py-20" style={{ background: "#1F5C52" }}>
       <div className="container px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="relative max-w-4xl mx-auto rounded-3xl gradient-hero p-12 md:p-16 text-center overflow-hidden"
+          className="relative max-w-4xl mx-auto rounded-3xl p-12 md:p-16 text-center overflow-hidden"
+          style={{ background: "linear-gradient(180deg, #2F6F64 0%, #1F5C52 100%)" }}
         >
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.06)_0%,_transparent_60%)] rounded-3xl" />
 
           <div className="relative">
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-primary-foreground mb-4">
@@ -29,7 +29,7 @@ export function CTASection() {
               <Link to="/rx/search">
                 <Button
                   size="lg"
-                  className="bg-white text-primary hover:bg-white/90 text-lg px-8 py-6 rounded-xl"
+                  className="bg-white text-primary hover:bg-[#F3F7F6] text-lg px-8 py-6 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5"
                 >
                   Search Medication
                   <ArrowRight className="h-5 w-5 ml-2" />
@@ -38,8 +38,7 @@ export function CTASection() {
               <Link to="/otc/scan">
                 <Button
                   size="lg"
-                  variant="outline"
-                  className="border-white/30 text-primary-foreground hover:bg-white/10 text-lg px-8 py-6 rounded-xl"
+                  className="bg-white/12 border border-white/35 text-white hover:bg-white hover:text-primary hover:border-white text-lg px-8 py-6 rounded-xl transition-all hover:shadow-md"
                 >
                   <Scan className="h-5 w-5 mr-2" />
                   Scan Barcode
