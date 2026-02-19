@@ -31,6 +31,7 @@ import UserManagement from "./pages/admin/UserManagement";
 import Analytics from "./pages/admin/Analytics";
 import SeedData from "./pages/admin/SeedData";
 import FeedbackManagement from "./pages/admin/FeedbackManagement";
+import ReviewRequests from "./pages/admin/ReviewRequests";
 import IngestDebug from "./pages/admin/IngestDebug";
 import HydrateLabelData from "./pages/admin/HydrateLabelData";
 import BlogManagement from "./pages/admin/BlogManagement";
@@ -100,6 +101,7 @@ const App = () => (
             <Route path="analytics" element={<Analytics />} />
             <Route path="seed-data" element={<SeedData />} />
             <Route path="feedback" element={<FeedbackManagement />} />
+            <Route path="review-requests" element={<ReviewRequests />} />
             <Route path="ingest-debug" element={<IngestDebug />} />
             <Route path="hydrate-label" element={<HydrateLabelData />} />
             <Route path="blog" element={<BlogManagement />} />
