@@ -4,7 +4,6 @@ import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { ConfidenceMeter } from "@/components/ui/confidence-meter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Disclaimer } from "@/components/ui/disclaimer";
 import { ManufacturerSelector } from "@/components/rx/ManufacturerSelector";
@@ -468,7 +467,10 @@ const RxMedication = () => {
               <StatusBadge status={displayStatus} />
             </div>
 
-            <ConfidenceMeter value={displayConfidence} className="mb-4" />
+            {/* Disclosure level indicator — replaces confidence percentage */}
+            <p className="text-xs text-muted-foreground mb-4">
+              Ingredient disclosure level: {displayConfidence >= 80 ? 'High' : displayConfidence >= 50 ? 'Moderate' : 'Limited'}
+            </p>
 
             {/* Selected manufacturer indicator */}
             {selectedManufacturer && (
@@ -602,7 +604,9 @@ const RxMedication = () => {
                     <StatusBadge status={selectedManufacturer.status} size="sm" />
                   </div>
 
-                  <ConfidenceMeter value={selectedManufacturer.confidence} className="mb-3" />
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Ingredient disclosure level: {selectedManufacturer.confidence >= 80 ? 'High' : selectedManufacturer.confidence >= 50 ? 'Moderate' : 'Limited'}
+                  </p>
 
                   {/* Classification Rationale - Premium Only */}
                   <PremiumGate
@@ -633,27 +637,19 @@ const RxMedication = () => {
                     )}
                   </PremiumGate>
 
-                  {/* Why This Status - Show triggering ingredient */}
+                  {/* Flagged Ingredient Note */}
                   {selectedManufacturer.status !== 'halal' && selectedManufacturer.status !== 'unknown' && selectedManufacturer.inactiveIngredients.length > 0 && (
-                    <div className={`p-3 rounded-lg mb-4 ${
-                      selectedManufacturer.status === 'not-halal' 
-                        ? 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800'
-                        : 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800'
-                    }`}>
+                    <div className="p-3 rounded-lg mb-4 bg-muted border border-border">
                       <div className="flex items-start gap-2">
-                        {selectedManufacturer.status === 'not-halal' ? (
-                          <X className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
-                        ) : (
-                          <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                        )}
+                        <AlertCircle className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                         <div>
-                          <p className="text-sm font-medium">Why this status?</p>
+                          <p className="text-sm font-medium">Flagged ingredient</p>
                           {(() => {
                             const trigger = selectedManufacturer.inactiveIngredients.find(
                               i => i.status === 'not-halal' || i.status === 'questionable'
                             );
                             return trigger ? (
-                              <p className="text-sm">
+                              <p className="text-sm text-muted-foreground">
                                 <strong>{trigger.name}</strong>
                                 {trigger.notes && `: ${trigger.notes}`}
                               </p>
@@ -666,16 +662,15 @@ const RxMedication = () => {
 
                   {/* Missing Inactive Ingredients Warning */}
                   {selectedManufacturer.inactiveIngredients.length === 0 ? (
-                    <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <div className="p-4 bg-muted border border-border rounded-lg">
                       <div className="flex items-start gap-3">
-                        <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <AlertCircle className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                         <div>
-                          <p className="font-medium text-amber-800 dark:text-amber-200">
-                            Inactive Ingredients Not Available
+                          <p className="font-medium">
+                            Inactive Ingredient Data Not Available
                           </p>
-                          <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                            Halal status cannot be fully determined without reviewing inactive ingredients (excipients). 
-                            Status is set to "Unknown (Needs Verification)".
+                          <p className="text-sm text-muted-foreground mt-1">
+                            A complete ingredient assessment cannot be performed without inactive ingredient (excipient) data. This formulation is listed as unverified.
                           </p>
                         </div>
                       </div>
@@ -729,7 +724,9 @@ const RxMedication = () => {
                           <StatusBadge status={mfr.status} size="sm" />
                         </div>
 
-                        <ConfidenceMeter value={mfr.confidence} className="mb-3" />
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Ingredient disclosure level: {mfr.confidence >= 80 ? 'High' : mfr.confidence >= 50 ? 'Moderate' : 'Limited'}
+                        </p>
 
                         {mfr.inactiveIngredients.length === 0 ? (
                           <p className="text-sm text-muted-foreground italic">

@@ -1,9 +1,9 @@
 import { StatusBadge } from '@/components/ui/status-badge';
-import { ConfidenceMeter } from '@/components/ui/confidence-meter';
+import { ResearchSummaryCard, type DisclosureLevel } from '@/components/report/ResearchSummaryCard';
 import { VerdictSummary } from './VerdictSummary';
 import { IngredientBreakdown } from './IngredientBreakdown';
 import type { VerdictOutput } from '@/types/verdict';
-import { toUiStatus } from '@/lib/status-labels';
+import { toUiStatus, getDisclosureLevel } from '@/lib/status-labels';
 
 interface VerdictDisplayProps {
   verdict: VerdictOutput;
@@ -19,18 +19,14 @@ export function VerdictDisplay({
   showManufacturerWarning = true,
 }: VerdictDisplayProps) {
   const uiStatus = toUiStatus(verdict.status);
+  const disclosureLevel: DisclosureLevel = getDisclosureLevel(verdict.confidence);
   
   return (
     <div className="space-y-6">
-      {/* Status & Confidence Header */}
+      {/* Status Badge + Product Info */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex items-center gap-4">
-          <StatusBadge 
-            status={uiStatus} 
-            size="lg" 
-            showLabel 
-            animate={verdict.status === 'halal'}
-          />
+          <StatusBadge status={uiStatus} size="lg" showLabel />
           <div>
             <h2 className="text-xl font-bold">{productName}</h2>
             <p className="text-sm text-muted-foreground">
@@ -38,13 +34,6 @@ export function VerdictDisplay({
             </p>
           </div>
         </div>
-        {/* Pass status to ConfidenceMeter for proper color logic */}
-        <ConfidenceMeter 
-          value={verdict.confidence} 
-          size="lg" 
-          showLabel 
-          status={uiStatus}
-        />
       </div>
 
       {/* Why This Status Summary */}
@@ -53,6 +42,9 @@ export function VerdictDisplay({
         showManufacturerWarning={showManufacturerWarning && productType === 'rx'}
         productType={productType}
       />
+
+      {/* Research Summary Card — replaces confidence meter */}
+      <ResearchSummaryCard disclosureLevel={disclosureLevel} />
 
       {/* Ingredient Breakdown Table */}
       <IngredientBreakdown 

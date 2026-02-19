@@ -8,7 +8,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { ConfidenceMeter } from '@/components/ui/confidence-meter';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PremiumGate } from '@/components/premium/PremiumGate';
 import { useSavedManufacturers, SavedManufacturer } from '@/hooks/useSavedManufacturers';
@@ -199,12 +198,9 @@ export default function SavedManufacturers() {
                             </p>
 
                             {item.verdict?.confidence !== undefined && (
-                              <div className="mt-2">
-                                <ConfidenceMeter 
-                                  value={item.verdict.confidence} 
-                                  compact 
-                                />
-                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Disclosure level: {item.verdict.confidence >= 80 ? 'High' : item.verdict.confidence >= 50 ? 'Moderate' : 'Limited'}
+                              </p>
                             )}
 
                             <p className="text-xs text-muted-foreground mt-2">

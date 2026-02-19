@@ -1,7 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, AlertTriangle, HelpCircle, XCircle, Info } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Search, AlertTriangle, HelpCircle, Info } from "lucide-react";
 import type { OtcVerdictOutput } from "@/lib/otcVerdict";
 
 interface OtcVerdictCardProps {
@@ -12,28 +11,28 @@ interface OtcVerdictCardProps {
 
 const statusConfig = {
   likely_halal: {
-    label: "Likely halal",
-    icon: CheckCircle,
-    className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800",
-    iconClassName: "text-green-600 dark:text-green-400",
+    label: "No Flagged Concerns Identified",
+    icon: Search,
+    className: "bg-muted text-foreground border-border",
+    iconClassName: "text-muted-foreground",
   },
   use_caution: {
-    label: "Use caution",
+    label: "Contains Ingredients Commonly Questioned",
     icon: AlertTriangle,
-    className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800",
-    iconClassName: "text-yellow-600 dark:text-yellow-400",
+    className: "bg-muted text-foreground border-border",
+    iconClassName: "text-muted-foreground",
   },
   unknown: {
-    label: "Brand-specific details not yet verified",
+    label: "Insufficient Public Disclosure",
     icon: HelpCircle,
-    className: "bg-muted text-muted-foreground border-muted",
+    className: "bg-muted text-muted-foreground border-border",
     iconClassName: "text-muted-foreground",
   },
   likely_haram: {
-    label: "Likely not halal",
-    icon: XCircle,
-    className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800",
-    iconClassName: "text-red-600 dark:text-red-400",
+    label: "Contains Ingredients Commonly Questioned",
+    icon: Info,
+    className: "bg-muted text-foreground border-border",
+    iconClassName: "text-muted-foreground",
   },
 };
 
@@ -42,37 +41,19 @@ export function OtcVerdictCard({ verdict, hasIngredientProfile, profileSource }:
   const Icon = config.icon;
 
   return (
-    <Card className={`p-6 border-2 ${config.className}`}>
+    <Card className={`p-6 border ${config.className}`}>
       <div className="flex flex-col items-center text-center">
-        <Icon className={`h-12 w-12 mb-3 ${config.iconClassName}`} />
+        <Icon className={`h-10 w-10 mb-3 ${config.iconClassName}`} />
         
-        <h2 className="text-xl font-bold mb-2">{config.label}</h2>
-        
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-sm font-medium">
-            Confidence: {verdict.confidence}%
-          </span>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger>
-                <Info className="h-4 w-4 text-muted-foreground" />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p className="text-sm">
-                  Confidence reflects how complete the ingredient/formulation info is and whether common high-risk excipients are present. It's not a religious ruling.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
+        <h2 className="text-lg font-bold mb-3">{config.label}</h2>
 
         {verdict.status === "unknown" && (
           <div className="space-y-2 text-sm text-muted-foreground">
             <p>
-              We don't yet have the inactive ingredient details for this specific OTC product and brand.
+              Detailed inactive ingredient data for this product has not yet been verified from public sources.
             </p>
             <p className="text-xs italic">
-              We do not assume halal status when formulation details are unclear.
+              AmanahRx does not assume ingredient safety when formulation data is unavailable.
             </p>
           </div>
         )}
@@ -86,12 +67,12 @@ export function OtcVerdictCard({ verdict, hasIngredientProfile, profileSource }:
         {/* Profile source indicator */}
         {profileSource === "brand_override" && (
           <Badge variant="secondary" className="mt-3 text-xs">
-            Verdict reflects the selected brand's formulation
+            Reflects the selected brand's formulation data
           </Badge>
         )}
         {profileSource === "generic" && hasIngredientProfile && (
           <p className="text-xs text-muted-foreground mt-3">
-            Formulations can vary by brand. Select a brand to refine confidence.
+            Formulations vary by brand. Select a specific brand to refine this summary.
           </p>
         )}
       </div>

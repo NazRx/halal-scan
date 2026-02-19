@@ -3,7 +3,6 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { ConfidenceMeter } from '@/components/ui/confidence-meter';
 import {
   Select,
   SelectContent,
@@ -153,7 +152,7 @@ export function ManufacturerCompare({
                 <span className="font-medium truncate">{leftMfr.name}</span>
                 <StatusBadge status={leftMfr.status} size="sm" showLabel={false} />
               </div>
-              <ConfidenceMeter value={leftMfr.confidence} size="sm" />
+              <p className="text-xs text-muted-foreground">Disclosure: {leftMfr.confidence >= 80 ? 'High' : leftMfr.confidence >= 50 ? 'Moderate' : 'Limited'}</p>
               <p className="text-xs text-muted-foreground mt-2">
                 {leftMfr.dosageForm} • {leftMfr.strength}
               </p>
@@ -165,7 +164,7 @@ export function ManufacturerCompare({
                 <span className="font-medium truncate">{rightMfr.name}</span>
                 <StatusBadge status={rightMfr.status} size="sm" showLabel={false} />
               </div>
-              <ConfidenceMeter value={rightMfr.confidence} size="sm" />
+              <p className="text-xs text-muted-foreground">Disclosure: {rightMfr.confidence >= 80 ? 'High' : rightMfr.confidence >= 50 ? 'Moderate' : 'Limited'}</p>
               <p className="text-xs text-muted-foreground mt-2">
                 {rightMfr.dosageForm} • {rightMfr.strength}
               </p>
