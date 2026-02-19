@@ -45,6 +45,7 @@ import Legal from "./pages/Legal";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Disclaimer from "./pages/Disclaimer";
+import Methodology from "./pages/Methodology";
 
 const queryClient = new QueryClient();
 
@@ -83,6 +84,7 @@ const App = () => (
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/disclaimer" element={<Disclaimer />} />
+          <Route path="/methodology" element={<Methodology />} />
           <Route path="/history" element={<History />} />
           <Route path="/saved" element={<SavedManufacturers />} />
           

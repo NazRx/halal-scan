@@ -9,13 +9,13 @@ export function Footer() {
           <div className="space-y-4">
             <Link to="/" className="flex items-center gap-2">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-hero">
-                <span className="text-lg font-bold text-primary-foreground">H</span>
+                <span className="text-lg font-bold text-primary-foreground">A</span>
               </div>
-              <span className="text-xl font-bold">HalalRx</span>
+              <span className="text-xl font-bold">AmanahRx</span>
             </Link>
             <p className="text-sm text-muted-foreground">
-              Made by Muslims, for Muslims. Built by a Doctor of Pharmacy who understands 
-              both the clinical and religious considerations. Every ingredient is reviewed with care and expertise.
+              An independent medication transparency initiative serving Muslims in the United States.
+              Built with responsibility. Operated with trust.
             </p>
           </div>
 
@@ -23,10 +23,10 @@ export function Footer() {
           <div>
             <h4 className="font-semibold mb-4">Product</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link to="/app" className="hover:text-primary transition-colors">Scanner</Link></li>
+              <li><Link to="/app" className="hover:text-primary transition-colors">Scan Medication</Link></li>
+              <li><Link to="/rx/search" className="hover:text-primary transition-colors">Search Rx</Link></li>
+              <li><Link to="/browse" className="hover:text-primary transition-colors">Browse Database</Link></li>
               <li><Link to="/pricing" className="hover:text-primary transition-colors">Pricing</Link></li>
-              <li><Link to="/app" className="hover:text-primary transition-colors">OTC Products</Link></li>
-              <li><Link to="/app" className="hover:text-primary transition-colors">Rx Medications</Link></li>
             </ul>
           </div>
 
@@ -34,10 +34,11 @@ export function Footer() {
           <div>
             <h4 className="font-semibold mb-4">Resources</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
+              <li><Link to="/methodology" className="hover:text-primary transition-colors">Methodology</Link></li>
               <li><Link to="/faq" className="hover:text-primary transition-colors">FAQ</Link></li>
               <li><Link to="/ingredient-database" className="hover:text-primary transition-colors">Ingredient Database</Link></li>
-              <li><Link to="/feedback" className="hover:text-primary transition-colors">Share Feedback</Link></li>
               <li><Link to="/blog" className="hover:text-primary transition-colors">Blog</Link></li>
+              <li><Link to="/feedback" className="hover:text-primary transition-colors">Contact</Link></li>
             </ul>
           </div>
 
@@ -55,12 +56,11 @@ export function Footer() {
         <div className="mt-12 pt-8 border-t">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} HalalRx. All rights reserved.
+              © {new Date().getFullYear()} AmanahRx. All rights reserved.
             </p>
             <p className="text-xs text-muted-foreground text-center md:text-right max-w-lg">
-              Disclaimer: This tool provides informational guidance only. Always verify halal status with manufacturers, 
-              certified halal organizations, or qualified Islamic scholars. Medical necessity (darura) may permit otherwise 
-              impermissible ingredients.
+              AmanahRx is an informational research platform. We do not issue religious rulings or certify products.
+              Users are responsible for consulting qualified scholars and healthcare professionals.
             </p>
           </div>
         </div>

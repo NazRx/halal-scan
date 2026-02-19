@@ -105,7 +105,7 @@ const Pricing = () => {
       return;
     }
     if (planId === "clinic") {
-      toast.info("Contact us for Professional plans", { description: "Email us at support@halalrx.com for custom pricing." });
+      toast.info("Contact us for Professional plans", { description: "Email us at support@amanahrx.com for custom pricing." });
       return;
     }
     if (planId === "free") {
@@ -170,11 +170,12 @@ const Pricing = () => {
             className="max-w-2xl mx-auto"
           >
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
-              Choose Your Level of
-              <span className="block text-primary">Halal Certainty</span>
+              Support Independent
+              <span className="block text-primary">Medication Transparency</span>
             </h1>
             <p className="text-lg text-muted-foreground">
-              Start free. Upgrade when you need deeper verification. No pressure. No hidden fees.
+              AmanahRx is a small independent initiative. Upgrading helps sustain the research.
+              Start free — no pressure.
             </p>
           </motion.div>
         </section>
@@ -347,10 +348,10 @@ const Pricing = () => {
             className="max-w-lg mx-auto space-y-2"
           >
             <p className="text-sm font-medium">
-              Built by a U.S. hospital pharmacist. Designed for religious clarity.
+              Built by Muslim healthcare professionals. Independent. Transparent. Community-driven.
             </p>
             <p className="text-xs text-muted-foreground">
-              No medical advice. Always consult your healthcare provider.
+              AmanahRx does not issue rulings. Always consult qualified scholars and healthcare providers.
             </p>
           </motion.div>
         </section>

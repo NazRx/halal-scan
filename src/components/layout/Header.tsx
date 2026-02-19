@@ -9,6 +9,7 @@ const navLinks = [
   { href: "/", label: "Home" },
   { href: "/app", label: "Scanner" },
   { href: "/browse", label: "Browse" },
+  { href: "/methodology", label: "Methodology" },
   { href: "/pricing", label: "Pricing" },
 ];
 
@@ -33,9 +34,9 @@ export function Header() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent">
-              <span className="text-sm font-bold text-primary-foreground">H</span>
+              <span className="text-sm font-bold text-primary-foreground">A</span>
             </div>
-            <span className="text-lg font-bold text-foreground">HalalRx</span>
+            <span className="text-lg font-bold text-foreground">AmanahRx</span>
           </Link>
 
           {/* Desktop Navigation */}
