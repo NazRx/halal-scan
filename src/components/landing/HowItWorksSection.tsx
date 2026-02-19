@@ -30,7 +30,7 @@ const steps = [
 
 export function HowItWorksSection() {
   return (
-    <section className="py-24 relative">
+    <section className="py-28 relative" style={{ background: "#FFFFFF" }}>
       <div className="container px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -38,10 +38,13 @@ export function HowItWorksSection() {
           viewport={{ once: true }}
           className="text-center mb-16 max-w-2xl mx-auto"
         >
-          <h2 className="text-4xl md:text-5xl font-bold mb-4 text-foreground tracking-tight">
+          <h2 className="text-4xl md:text-5xl font-bold mb-3 text-foreground tracking-tight">
             How It Works
           </h2>
-          <p className="text-muted-foreground text-lg">
+          <div className="flex justify-center mb-5">
+            <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(31,92,82,0.3)" }} />
+          </div>
+          <p className="text-muted-foreground text-lg leading-[1.8]">
             AmanahRx reviews publicly available sources and provides structured context —
             not rulings.
           </p>
@@ -61,8 +64,15 @@ export function HowItWorksSection() {
                 className="relative flex flex-col items-center text-center"
               >
                 <div className="relative mb-4">
-                  <div className="w-24 h-24 rounded-2xl bg-card border border-border/50 flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
-                    <step.icon className="h-10 w-10 text-primary" />
+                  <div
+                    className="w-24 h-24 rounded-2xl flex items-center justify-center transition-all hover:-translate-y-0.5"
+                    style={{
+                      background: "#FFFFFF",
+                      border: "1px solid #E5EFEC",
+                      boxShadow: "0 12px 30px rgba(0,0,0,0.05)",
+                    }}
+                  >
+                    <step.icon className="h-10 w-10" style={{ color: "#1F5C52" }} />
                   </div>
                   <div className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-bold text-sm shadow-lg">
                     {index + 1}
