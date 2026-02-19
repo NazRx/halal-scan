@@ -200,6 +200,45 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          link: string | null
+          message: string
+          metadata: Json | null
+          role_recipient: string | null
+          title: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          message: string
+          metadata?: Json | null
+          role_recipient?: string | null
+          title: string
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          message?: string
+          metadata?: Json | null
+          role_recipient?: string | null
+          title?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       organization_members: {
         Row: {
           created_at: string
@@ -829,6 +868,7 @@ export type Database = {
           message: string | null
           ndc_number: string | null
           notes_text: string | null
+          notify_user_on_resolve: boolean
           query_text: string | null
           resolution_links: string[] | null
           resolved_summary: string | null
@@ -855,6 +895,7 @@ export type Database = {
           message?: string | null
           ndc_number?: string | null
           notes_text?: string | null
+          notify_user_on_resolve?: boolean
           query_text?: string | null
           resolution_links?: string[] | null
           resolved_summary?: string | null
@@ -881,6 +922,7 @@ export type Database = {
           message?: string | null
           ndc_number?: string | null
           notes_text?: string | null
+          notify_user_on_resolve?: boolean
           query_text?: string | null
           resolution_links?: string[] | null
           resolved_summary?: string | null

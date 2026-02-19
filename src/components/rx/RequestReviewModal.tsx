@@ -201,6 +201,7 @@ export function RequestReviewModal({
   const [isSuccess, setIsSuccess] = useState(false);
   const [identifierError, setIdentifierError] = useState(false);
   const [submitError, setSubmitError] = useState(false);
+  const [notifyOnResolve, setNotifyOnResolve] = useState(false);
 
   const {
     register,
@@ -281,6 +282,7 @@ export function RequestReviewModal({
         ingredients_image_path: ingredientsPath,
         source_page: sourcePage || window.location.pathname,
         query_text: data.drug_name?.trim() || null,
+        notify_user_on_resolve: userId ? notifyOnResolve : false,
       });
 
       if (error) throw error;
@@ -449,7 +451,27 @@ export function RequestReviewModal({
             />
           </div>
 
-          {/* ── Submit Error ─────────────────────────────────────────── */}
+          {/* ── Notify on Resolve (logged-in only) ─────────────────────── */}
+          {user && (
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={notifyOnResolve}
+                onChange={(e) => setNotifyOnResolve(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border accent-primary cursor-pointer"
+              />
+              <div>
+                <p className="text-sm font-medium group-hover:text-foreground">
+                  Notify me in the app when this request is resolved
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  You'll receive an in-app notification when our team updates this request.
+                </p>
+              </div>
+            </label>
+          )}
+
+
           {submitError && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
               <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
