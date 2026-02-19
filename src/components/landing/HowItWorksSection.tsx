@@ -38,11 +38,11 @@ export function HowItWorksSection() {
           viewport={{ once: true }}
           className="text-center mb-16 max-w-2xl mx-auto"
         >
-          <h2 className="font-display text-4xl md:text-5xl font-bold mb-3 text-foreground tracking-tight leading-[1.15]">
+          <h2 className="font-sans text-4xl md:text-5xl font-bold mb-3 text-foreground tracking-tight leading-[1.15]">
             Methodical. Transparent. Structured.
           </h2>
           <div className="flex justify-center mb-5">
-            <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(31,92,82,0.3)" }} />
+            <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(47,126,114,0.30)" }} />
           </div>
           <p className="text-muted-foreground text-lg leading-[1.8]">
             Each review is grounded in publicly available documentation.
@@ -50,7 +50,7 @@ export function HowItWorksSection() {
         </motion.div>
 
         <div className="relative max-w-4xl mx-auto">
-          <div className="hidden md:block absolute top-12 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/15 to-transparent" />
+          <div className="hidden md:block absolute top-12 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/10 to-transparent" />
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-4">
             {steps.map((step, index) => (
@@ -64,18 +64,18 @@ export function HowItWorksSection() {
               >
                 <div className="relative mb-5">
                   <div
-                    className="w-24 h-24 rounded-2xl flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5"
+                    className="w-24 h-24 rounded-[18px] flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
                     style={{
                       background: "#FFFFFF",
-                      border: "1px solid #E5EFEC",
-                      boxShadow: "0 12px 30px rgba(0,0,0,0.05)",
+                      border: "1px solid #DFF1EC",
+                      boxShadow: "0 10px 25px rgba(0,0,0,0.04)",
                     }}
                   >
-                    <step.icon className="h-9 w-9" style={{ color: "#1F5C52" }} />
+                    <step.icon className="h-9 w-9" style={{ color: "#2F7E72" }} />
                   </div>
                   <div
-                    className="absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md"
-                    style={{ background: "#2F6F64" }}
+                    className="absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm"
+                    style={{ background: "#5BB8A6" }}
                   >
                     {index + 1}
                   </div>
@@ -84,7 +84,7 @@ export function HowItWorksSection() {
                 <h3 className="font-semibold text-base mb-1.5 text-foreground">
                   {step.title}
                 </h3>
-                <p className="text-sm text-muted-foreground max-w-[180px] leading-[1.7]">
+                <p className="text-sm text-muted-foreground max-w-[180px] leading-[1.75]">
                   {step.description}
                 </p>
               </motion.div>

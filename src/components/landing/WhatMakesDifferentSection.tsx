@@ -5,7 +5,7 @@ const items = [
   "Ingredient-level analysis from public sources",
   "Manufacturer-specific variation when documented",
   "Cross-reference to regulatory labeling",
-  "Clear disclosure when information is limited",
+  "Clear disclosure when certainty is not possible",
   "Careful language that avoids overstatement",
 ];
 
@@ -18,7 +18,7 @@ const notItems = [
 
 export function WhatMakesDifferentSection() {
   return (
-    <section className="py-28" style={{ background: "#F3F7F6" }}>
+    <section className="py-28" style={{ background: "#F2FAF8" }}>
       <div className="container px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -27,22 +27,22 @@ export function WhatMakesDifferentSection() {
           className="max-w-2xl mx-auto"
         >
           {/* Transparency section */}
-          <h2 className="font-display text-4xl md:text-5xl font-bold mb-3 text-foreground text-center tracking-tight leading-[1.15]">
+          <h2 className="font-sans text-4xl md:text-5xl font-bold mb-3 text-foreground text-center tracking-tight leading-[1.15]">
             Built on Transparency, Not Assumption
           </h2>
           <div className="flex justify-center mb-10">
-            <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(31,92,82,0.3)" }} />
+            <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(47,126,114,0.30)" }} />
           </div>
 
           <div className="space-y-7 text-muted-foreground text-lg leading-[1.8]">
             <p>Each review includes:</p>
 
             <div
-              className="rounded-2xl p-6"
+              className="rounded-[18px] p-6"
               style={{
                 background: "#FFFFFF",
-                border: "1px solid #E5EFEC",
-                boxShadow: "0 12px 30px rgba(0,0,0,0.05)",
+                border: "1px solid #DFF1EC",
+                boxShadow: "0 10px 25px rgba(0,0,0,0.04)",
               }}
             >
               <ul className="space-y-3">
@@ -50,9 +50,9 @@ export function WhatMakesDifferentSection() {
                   <li key={item} className="flex items-start gap-3">
                     <span
                       className="mt-1 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center"
-                      style={{ background: "rgba(31,92,82,0.08)" }}
+                      style={{ background: "rgba(47,126,114,0.10)" }}
                     >
-                      <Check className="h-3 w-3" style={{ color: "#1F5C52" }} />
+                      <Check className="h-3 w-3" style={{ color: "#2F7E72" }} />
                     </span>
                     <span>{item}</span>
                   </li>
@@ -69,28 +69,28 @@ export function WhatMakesDifferentSection() {
           viewport={{ once: true }}
           className="max-w-2xl mx-auto mt-20"
         >
-          <h2 className="font-display text-3xl md:text-4xl font-bold mb-3 text-foreground text-center tracking-tight leading-[1.15]">
+          <h2 className="font-sans text-3xl md:text-4xl font-bold mb-3 text-foreground text-center tracking-tight leading-[1.15]">
             Important Limitations
           </h2>
           <div className="flex justify-center mb-10">
-            <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(31,92,82,0.3)" }} />
+            <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(47,126,114,0.30)" }} />
           </div>
 
           <div className="space-y-7 text-muted-foreground text-lg leading-[1.8]">
             <p>AmanahRx:</p>
 
             <div
-              className="rounded-2xl p-6"
+              className="rounded-[18px] p-6"
               style={{
                 background: "#FFFFFF",
-                border: "1px solid #E5EFEC",
-                boxShadow: "0 12px 30px rgba(0,0,0,0.05)",
+                border: "1px solid #DFF1EC",
+                boxShadow: "0 10px 25px rgba(0,0,0,0.04)",
               }}
             >
               <ul className="space-y-3">
                 {notItems.map((item) => (
                   <li key={item} className="flex items-start gap-3 text-muted-foreground">
-                    <span className="mt-1 flex-shrink-0" style={{ color: "rgba(31,92,82,0.4)" }}>
+                    <span className="mt-1 flex-shrink-0" style={{ color: "rgba(47,126,114,0.45)" }}>
                       —
                     </span>
                     <span>{item}</span>
@@ -99,10 +99,7 @@ export function WhatMakesDifferentSection() {
               </ul>
             </div>
 
-            <p
-              className="text-base italic text-center"
-              style={{ color: "#5F6E6B" }}
-            >
+            <p className="text-base italic text-center" style={{ color: "#5F6E6B" }}>
               Where certainty is not possible, uncertainty is stated.
             </p>
           </div>
