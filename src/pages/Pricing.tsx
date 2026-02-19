@@ -161,21 +161,23 @@ const Pricing = () => {
     <div className="min-h-screen flex flex-col">
       <Header />
 
-      <main className="flex-1 pt-24 pb-20">
+      <main className="flex-1 pt-24 pb-20" style={{ background: "#F4FBFA" }}>
         {/* SECTION 1 — Header */}
-        <section className="text-center px-4 mb-16">
+        <section className="text-center px-4 mb-16 pt-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="max-w-2xl mx-auto"
           >
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
-              Support Independent
-              <span className="block text-primary">Medication Transparency</span>
+            <h1 className="font-sans text-4xl md:text-5xl font-bold tracking-tight mb-4 text-foreground leading-[1.15]">
+              Choose Clarity That Fits
+              <span className="block" style={{ color: "#2A8C7F" }}>Your Needs</span>
             </h1>
-            <p className="text-lg text-muted-foreground">
-              AmanahRx is a small independent initiative. Upgrading helps sustain the research.
-              Start free — no pressure.
+            <div className="flex justify-center mb-5">
+              <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(42,140,127,0.30)" }} />
+            </div>
+            <p className="text-lg text-muted-foreground leading-[1.8]">
+              Start free. Upgrade when you need deeper formulation insight.
             </p>
           </motion.div>
         </section>
@@ -196,19 +198,29 @@ const Pricing = () => {
                   transition={{ delay: index * 0.1 }}
                   className={`relative ${plan.popular ? "md:-mt-4 md:mb-4" : ""}`}
                 >
-                  <Card className={`p-6 h-full flex flex-col transition-shadow duration-300 ${
-                    plan.popular
-                      ? "border-primary shadow-lg shadow-primary/10 ring-1 ring-primary/20"
-                      : "hover:shadow-md"
-                  } ${isCurrentPlan ? "ring-2 ring-primary" : ""}`}>
+                  <div
+                    className="relative p-6 h-full flex flex-col rounded-[18px] transition-shadow duration-300 bg-white"
+                    style={{
+                      border: plan.popular ? "2px solid #67C5B6" : "1px solid #E6F5F2",
+                      boxShadow: plan.popular
+                        ? "0 20px 40px rgba(42,140,127,0.12)"
+                        : "0 10px 25px rgba(0,0,0,0.04)",
+                    }}
+                  >
                     {/* Badge */}
                     {plan.popular && !isCurrentPlan && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full gradient-hero text-primary-foreground text-xs font-semibold">
+                      <div
+                        className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-white text-xs font-semibold"
+                        style={{ background: "#67C5B6" }}
+                      >
                         Most Popular
                       </div>
                     )}
                     {isCurrentPlan && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
+                      <div
+                        className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-white text-xs font-semibold"
+                        style={{ background: "#2A8C7F" }}
+                      >
                         Your Plan
                       </div>
                     )}
@@ -216,12 +228,16 @@ const Pricing = () => {
                     {/* Header */}
                     <div className="mb-5">
                       <div className="flex items-center gap-2.5 mb-3">
-                        <div className={`p-2 rounded-lg ${
-                          plan.popular ? "bg-primary/10" : "bg-muted"
-                        }`}>
-                          <Icon className={`h-5 w-5 ${
-                            plan.popular ? "text-primary" : "text-muted-foreground"
-                          }`} />
+                        <div
+                          className="p-2 rounded-lg"
+                          style={{
+                            background: plan.popular ? "rgba(42,140,127,0.10)" : "rgba(42,140,127,0.06)",
+                          }}
+                        >
+                          <Icon
+                            className="h-5 w-5"
+                            style={{ color: "#2A8C7F" }}
+                          />
                         </div>
                         <h2 className="text-xl font-bold">{plan.name}</h2>
                       </div>
@@ -237,16 +253,15 @@ const Pricing = () => {
                       <ul className="space-y-2.5">
                         {plan.features.map((feature) => (
                           <li key={feature} className="flex items-start gap-2.5 text-sm">
-                            <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                            <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "#2A8C7F" }} />
                             <span>{feature}</span>
                           </li>
                         ))}
                       </ul>
 
-                      {/* Limits divider */}
                       {plan.limits.length > 0 && (
                         <>
-                          <div className="border-t" />
+                          <div className="border-t" style={{ borderColor: "#E6F5F2" }} />
                           <ul className="space-y-2">
                             {plan.limits.map((limit) => (
                               <li key={limit} className="flex items-start gap-2.5 text-sm text-muted-foreground">
@@ -259,7 +274,10 @@ const Pricing = () => {
                       )}
 
                       {plan.compliance && (
-                        <p className="text-xs text-muted-foreground p-3 bg-muted/50 rounded-lg border">
+                        <p
+                          className="text-xs text-muted-foreground p-3 rounded-lg"
+                          style={{ background: "rgba(42,140,127,0.04)", border: "1px solid #E6F5F2" }}
+                        >
                           {plan.compliance}
                         </p>
                       )}
@@ -267,27 +285,55 @@ const Pricing = () => {
 
                     {/* CTA */}
                     <div className="mt-6">
-                      <Button
-                        className={`w-full ${
-                          plan.popular
-                            ? "gradient-hero text-primary-foreground hover:opacity-90"
-                            : ""
-                        }`}
-                        variant={plan.popular ? "default" : "outline"}
-                        size="lg"
-                        onClick={() => handleSubscribe(plan.id)}
-                        disabled={isLoading || isCurrentPlan}
-                      >
-                        {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                        {isCurrentPlan ? "Current Plan" : plan.cta}
-                      </Button>
+                      {plan.popular ? (
+                        <button
+                          className="w-full py-3 px-6 rounded-[14px] font-semibold text-white text-base transition-all duration-200 disabled:opacity-60"
+                          style={{ background: isCurrentPlan ? "#9AA6A3" : "#2A8C7F" }}
+                          onClick={() => handleSubscribe(plan.id)}
+                          disabled={isLoading || isCurrentPlan}
+                          onMouseEnter={e => {
+                            if (!isCurrentPlan) (e.currentTarget as HTMLElement).style.background = "#237469";
+                          }}
+                          onMouseLeave={e => {
+                            if (!isCurrentPlan) (e.currentTarget as HTMLElement).style.background = "#2A8C7F";
+                          }}
+                        >
+                          {isLoading && <Loader2 className="h-4 w-4 animate-spin inline mr-2" />}
+                          {isCurrentPlan ? "Current Plan" : plan.cta}
+                        </button>
+                      ) : plan.id === "clinic" ? (
+                        <button
+                          className="w-full py-3 px-6 rounded-[14px] font-semibold text-white text-base transition-all duration-200"
+                          style={{ background: "#67C5B6" }}
+                          onClick={() => handleSubscribe(plan.id)}
+                          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = "#58BCAE")}
+                          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = "#67C5B6")}
+                        >
+                          {plan.cta}
+                        </button>
+                      ) : (
+                        <button
+                          className="w-full py-3 px-6 rounded-[14px] font-semibold text-base transition-all duration-200 bg-white disabled:opacity-60"
+                          style={{
+                            border: "1px solid #2A8C7F",
+                            color: "#2A8C7F",
+                          }}
+                          onClick={() => handleSubscribe(plan.id)}
+                          disabled={isLoading || isCurrentPlan}
+                          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = "#F4FBFA")}
+                          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = "#FFFFFF")}
+                        >
+                          {isLoading && <Loader2 className="h-4 w-4 animate-spin inline mr-2" />}
+                          {isCurrentPlan ? "Current Plan" : plan.cta}
+                        </button>
+                      )}
                       {plan.ctaNote && !isCurrentPlan && (
                         <p className="text-xs text-center text-muted-foreground mt-2.5">
                           {plan.ctaNote}
                         </p>
                       )}
                     </div>
-                  </Card>
+                  </div>
                 </motion.div>
               );
             })}
@@ -303,7 +349,7 @@ const Pricing = () => {
             className="max-w-lg mx-auto text-center"
           >
             <div className="flex items-center gap-2 justify-center mb-2">
-              <CreditCard className="h-5 w-5 text-muted-foreground" />
+              <CreditCard className="h-5 w-5" style={{ color: "#2A8C7F" }} />
               <h2 className="text-2xl font-bold">No subscription? Use scan credits.</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-6">
@@ -312,28 +358,31 @@ const Pricing = () => {
 
             <div className="grid grid-cols-2 gap-4">
               {scanPacks.map((pack) => (
-                <Card
+                <div
                   key={pack.credits}
-                  className={`p-5 text-center flex flex-col items-center gap-2 ${
-                    pack.highlight ? "border-primary/30 shadow-sm" : ""
-                  }`}
+                  className="p-5 text-center flex flex-col items-center gap-2 rounded-[18px] bg-white"
+                  style={{
+                    border: pack.highlight ? "1px solid #67C5B6" : "1px solid #E6F5F2",
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.04)",
+                  }}
                 >
                   <span className="text-2xl font-bold">{pack.credits} scans</span>
-                  <span className="text-lg font-semibold text-primary">{pack.price}</span>
+                  <span className="text-lg font-semibold" style={{ color: "#2A8C7F" }}>{pack.price}</span>
                   <span className="text-xs text-muted-foreground">{pack.note}</span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2 w-full"
+                  <button
+                    className="mt-2 w-full py-2 px-4 rounded-[10px] text-sm font-medium transition-all duration-200 bg-white"
+                    style={{ border: "1px solid #2A8C7F", color: "#2A8C7F" }}
                     onClick={() => handleBuyCredits(pack.credits)}
-                    disabled={loadingAction?.startsWith("credits")}
+                    disabled={!!loadingAction?.startsWith("credits")}
+                    onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = "#F4FBFA")}
+                    onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = "#FFFFFF")}
                   >
                     {loadingAction === `credits-${pack.credits}` && (
-                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                      <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
                     )}
                     Buy {pack.credits}
-                  </Button>
-                </Card>
+                  </button>
+                </div>
               ))}
             </div>
           </motion.div>
@@ -347,7 +396,7 @@ const Pricing = () => {
             viewport={{ once: true }}
             className="max-w-lg mx-auto space-y-2"
           >
-            <p className="text-sm font-medium">
+            <p className="text-sm font-medium text-foreground">
               Built by Muslim healthcare professionals. Independent. Transparent. Community-driven.
             </p>
             <p className="text-xs text-muted-foreground">
