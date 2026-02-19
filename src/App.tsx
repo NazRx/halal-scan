@@ -48,6 +48,7 @@ import Terms from "./pages/Terms";
 import Disclaimer from "./pages/Disclaimer";
 import Methodology from "./pages/Methodology";
 import MyRequests from "./pages/MyRequests";
+import Institutional from "./pages/Institutional";
 
 const queryClient = new QueryClient();
 
@@ -90,6 +91,7 @@ const App = () => (
           <Route path="/history" element={<History />} />
           <Route path="/saved" element={<SavedManufacturers />} />
           <Route path="/my-requests" element={<MyRequests />} />
+          <Route path="/institutional" element={<Institutional />} />
           
           {/* Admin Routes */}
           <Route path="/admin" element={
