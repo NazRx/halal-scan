@@ -816,38 +816,65 @@ export type Database = {
       }
       review_requests: {
         Row: {
+          barcode_image_path: string | null
+          brand_or_manufacturer: string | null
           created_at: string
+          drug_name: string | null
           id: string
+          ingredients_image_path: string | null
+          is_anonymous: boolean
           message: string | null
+          ndc_number: string | null
+          notes_text: string | null
           query_text: string | null
           rx_fields: Json | null
+          source_page: string | null
           status: Database["public"]["Enums"]["review_request_status"]
           type: Database["public"]["Enums"]["review_request_type"]
           upc: string | null
+          upc_number: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          barcode_image_path?: string | null
+          brand_or_manufacturer?: string | null
           created_at?: string
+          drug_name?: string | null
           id?: string
+          ingredients_image_path?: string | null
+          is_anonymous?: boolean
           message?: string | null
+          ndc_number?: string | null
+          notes_text?: string | null
           query_text?: string | null
           rx_fields?: Json | null
+          source_page?: string | null
           status?: Database["public"]["Enums"]["review_request_status"]
           type: Database["public"]["Enums"]["review_request_type"]
           upc?: string | null
+          upc_number?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          barcode_image_path?: string | null
+          brand_or_manufacturer?: string | null
           created_at?: string
+          drug_name?: string | null
           id?: string
+          ingredients_image_path?: string | null
+          is_anonymous?: boolean
           message?: string | null
+          ndc_number?: string | null
+          notes_text?: string | null
           query_text?: string | null
           rx_fields?: Json | null
+          source_page?: string | null
           status?: Database["public"]["Enums"]["review_request_status"]
           type?: Database["public"]["Enums"]["review_request_type"]
           upc?: string | null
+          upc_number?: string | null
           updated_at?: string
           user_id?: string
         }
