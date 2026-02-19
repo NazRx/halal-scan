@@ -5,23 +5,23 @@ import { ArrowRight, Scan } from "lucide-react";
 
 export function CTASection() {
   return (
-    <section className="py-24" style={{ background: "#1F5C52" }}>
+    <section className="py-24" style={{ background: "#2F7E72" }}>
       <div className="container px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="relative max-w-3xl mx-auto rounded-3xl p-12 md:p-16 text-center overflow-hidden"
-          style={{ background: "linear-gradient(180deg, #2F6F64 0%, #1F5C52 100%)" }}
+          className="relative max-w-3xl mx-auto rounded-[18px] p-12 md:p-16 text-center overflow-hidden"
+          style={{ background: "linear-gradient(180deg, #5BB8A6 0%, #3A9486 100%)" }}
         >
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.05)_0%,_transparent_60%)] rounded-3xl" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.08)_0%,_transparent_60%)] rounded-[18px]" />
 
           <div className="relative">
-            <h2 className="font-display text-3xl md:text-4xl lg:text-5xl font-bold text-primary-foreground mb-4 leading-[1.15]">
+            <h2 className="font-sans text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 leading-[1.15]">
               Review Your Medication
             </h2>
 
-            <p className="text-base text-primary-foreground/75 mb-8 max-w-md mx-auto leading-[1.8]">
+            <p className="text-base text-white/75 mb-8 max-w-md mx-auto leading-[1.8]">
               Structured ingredient research. Publicly available data. No overstatement.
             </p>
 
@@ -29,7 +29,7 @@ export function CTASection() {
               <Link to="/rx/search">
                 <Button
                   size="lg"
-                  className="bg-white text-primary hover:bg-[#F3F7F6] text-base px-8 py-6 rounded-full font-semibold shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5"
+                  className="bg-white text-[#2F7E72] hover:bg-[#F2FAF8] text-base px-8 py-6 rounded-[14px] font-semibold shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5"
                 >
                   Search Medication
                   <ArrowRight className="h-5 w-5 ml-2" />
@@ -38,7 +38,13 @@ export function CTASection() {
               <Link to="/otc/scan">
                 <Button
                   size="lg"
-                  className="bg-white/12 border border-white/35 text-white hover:bg-white hover:text-primary hover:border-white text-base px-8 py-6 rounded-full transition-all duration-200 hover:shadow-md"
+                  style={{
+                    background: "rgba(255,255,255,0.20)",
+                    border: "1px solid rgba(255,255,255,0.50)",
+                    color: "#FFFFFF",
+                    borderRadius: "14px",
+                  }}
+                  className="text-base px-8 py-6 font-medium transition-all duration-200 hover:bg-white hover:text-[#2F7E72] hover:shadow-md"
                 >
                   <Scan className="h-5 w-5 mr-2" />
                   Scan Barcode
@@ -46,7 +52,7 @@ export function CTASection() {
               </Link>
             </div>
 
-            <p className="mt-8 text-xs text-primary-foreground/50 tracking-wide">
+            <p className="mt-8 text-xs text-white/50 tracking-wide">
               AmanahRx does not issue rulings. Always consult qualified scholars and healthcare professionals.
             </p>
           </div>

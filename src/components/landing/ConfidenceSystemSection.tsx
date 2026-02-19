@@ -5,7 +5,7 @@ const tiers = [
     title: "No Flagged Concerns Identified",
     description:
       "Based on publicly available disclosures, no ingredients commonly questioned in Islamic dietary law were identified.",
-    borderColor: "#2F6F64",
+    borderColor: "#2F7E72",
   },
   {
     title: "Ingredients Requiring Further Review",
@@ -31,11 +31,11 @@ export function ConfidenceSystemSection() {
           viewport={{ once: true }}
           className="max-w-2xl mx-auto"
         >
-          <h2 className="font-display text-4xl md:text-5xl font-bold mb-3 text-foreground text-center tracking-tight leading-[1.15]">
+          <h2 className="font-sans text-4xl md:text-5xl font-bold mb-3 text-foreground text-center tracking-tight leading-[1.15]">
             How Results Are Structured
           </h2>
           <div className="flex justify-center mb-6">
-            <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(31,92,82,0.3)" }} />
+            <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(47,126,114,0.30)" }} />
           </div>
 
           <p className="text-muted-foreground text-lg leading-[1.8] text-center mb-10">
@@ -52,13 +52,13 @@ export function ConfidenceSystemSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
-                className="rounded-2xl p-6 hover:-translate-y-0.5 transition-all duration-200"
+                className="rounded-[18px] p-6 hover:-translate-y-0.5 transition-all duration-200 hover:shadow-md"
                 style={{
                   background: "#FFFFFF",
-                  border: "1px solid #E5EFEC",
+                  border: "1px solid #DFF1EC",
                   borderLeftWidth: "4px",
                   borderLeftColor: tier.borderColor,
-                  boxShadow: "0 12px 30px rgba(0,0,0,0.05)",
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.04)",
                 }}
               >
                 <h3 className="font-semibold text-foreground mb-1.5">{tier.title}</h3>
