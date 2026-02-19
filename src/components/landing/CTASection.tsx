@@ -18,11 +18,11 @@ export function CTASection() {
 
           <div className="relative">
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-primary-foreground mb-4">
-              Search Your Medication Today
+              Review Your Medication
             </h2>
 
             <p className="text-lg text-primary-foreground/80 mb-8 max-w-xl mx-auto">
-              Clarity takes seconds. Peace of mind lasts longer.
+              Structured ingredient research. Publicly available data. No overstatement.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -46,6 +46,10 @@ export function CTASection() {
                 </Button>
               </Link>
             </div>
+
+            <p className="mt-8 text-sm text-primary-foreground/60">
+              AmanahRx does not issue rulings. Always consult qualified scholars and healthcare professionals.
+            </p>
           </div>
         </motion.div>
       </div>

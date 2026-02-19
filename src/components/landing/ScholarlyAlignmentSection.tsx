@@ -18,25 +18,32 @@ export function ScholarlyAlignmentSection() {
           </div>
 
           <h2 className="text-4xl md:text-5xl font-bold mb-10 text-foreground text-center tracking-tight">
-            Committed to Scholarly Alignment
+            Our Relationship with Scholarship
           </h2>
 
           <div className="space-y-6 text-muted-foreground text-lg leading-relaxed">
-            <p>HalalRx does not issue religious rulings.</p>
+            <p>AmanahRx does not issue religious rulings (fatwa).</p>
 
             <p>
-              Our mission is to provide medically accurate, transparent ingredient
-              analysis so that Muslims can consult their own scholars and make
-              informed decisions.
+              Our mission is to provide structured, transparent ingredient information
+              so that Muslims can consult their own scholars and make informed decisions.
             </p>
 
             <p>
-              As the platform grows, we are working toward formal scholarly
-              consultation to ensure alignment with established halal principles.
+              Scholarly opinions differ on several ingredient categories — including
+              transformation (istihalah), alcohol thresholds, and gelatin permissibility.
+              AmanahRx does not adjudicate these differences.
+            </p>
+
+            <p>
+              In cases of medical necessity, Islamic legal principles regarding necessity
+              (darura) may apply. Users are encouraged to consult qualified scholars for
+              guidance in such situations.
             </p>
 
             <p className="text-foreground font-medium">
               Health decisions deserve both clinical accuracy and spiritual mindfulness.
+              We provide the former. We respect the latter.
             </p>
           </div>
         </motion.div>

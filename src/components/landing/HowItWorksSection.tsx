@@ -1,29 +1,30 @@
 import { motion } from "framer-motion";
-import { Scan, Search, CheckCircle, FileText } from "lucide-react";
+import { Database, FileSearch, Users, BookOpen } from "lucide-react";
 
 const steps = [
   {
-    icon: Scan,
-    title: "Search or Scan",
-    description: "Search by medication name or scan an OTC barcode instantly.",
+    icon: Database,
+    title: "Data Sources Reviewed",
+    description:
+      "FDA labeling databases, manufacturer package inserts, OTC ingredient disclosures, and public regulatory documentation.",
   },
   {
-    icon: Search,
-    title: "Analyze",
+    icon: FileSearch,
+    title: "Ingredients Flagged",
     description:
-      "We review publicly available FDA labeling data and manufacturer-specific inactive ingredients.",
+      "Ingredients commonly discussed in Islamic dietary law — such as gelatin, alcohol, and porcine derivatives — are identified for further review.",
   },
   {
-    icon: CheckCircle,
-    title: "Get a Verdict",
+    icon: BookOpen,
+    title: "Context Provided",
     description:
-      "Clear status labels: Halal, Questionable, or Contains Non-Halal Ingredients.",
+      "Structured information is organized clearly so users can understand what is present and what may require further inquiry.",
   },
   {
-    icon: FileText,
-    title: "Understand Why",
+    icon: Users,
+    title: "You Decide",
     description:
-      "View ingredient-level flags, manufacturer differences, and confidence levels — not just a label.",
+      "Users are encouraged to speak to their pharmacist, consult scholars, and make informed personal decisions.",
   },
 ];
 
@@ -35,11 +36,15 @@ export function HowItWorksSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-16"
+          className="text-center mb-16 max-w-2xl mx-auto"
         >
           <h2 className="text-4xl md:text-5xl font-bold mb-4 text-foreground tracking-tight">
-            Simple. Transparent. Fast.
+            How It Works
           </h2>
+          <p className="text-muted-foreground text-lg">
+            AmanahRx reviews publicly available sources and provides structured context —
+            not rulings.
+          </p>
         </motion.div>
 
         <div className="relative max-w-4xl mx-auto">

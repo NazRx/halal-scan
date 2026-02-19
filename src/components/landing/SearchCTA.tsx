@@ -6,9 +6,9 @@ export function SearchCTA() {
   return (
     <section className="border-t bg-muted/30">
       <div className="container max-w-3xl px-4 py-16 text-center space-y-4">
-        <h2 className="text-2xl font-semibold tracking-tight">Still Searching for Clarity?</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Review a Medication</h2>
         <p className="text-muted-foreground">
-          Search thousands of U.S. medications now.
+          Search thousands of U.S. medications using publicly available data.
         </p>
         <Button asChild size="lg">
           <Link to="/app">
