@@ -816,10 +816,13 @@ export type Database = {
       }
       review_requests: {
         Row: {
+          admin_notes: string | null
           barcode_image_path: string | null
           brand_or_manufacturer: string | null
           created_at: string
           drug_name: string | null
+          final_manufacturer: string | null
+          final_ndc: string | null
           id: string
           ingredients_image_path: string | null
           is_anonymous: boolean
@@ -827,6 +830,8 @@ export type Database = {
           ndc_number: string | null
           notes_text: string | null
           query_text: string | null
+          resolution_links: string[] | null
+          resolved_summary: string | null
           rx_fields: Json | null
           source_page: string | null
           status: Database["public"]["Enums"]["review_request_status"]
@@ -837,10 +842,13 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          admin_notes?: string | null
           barcode_image_path?: string | null
           brand_or_manufacturer?: string | null
           created_at?: string
           drug_name?: string | null
+          final_manufacturer?: string | null
+          final_ndc?: string | null
           id?: string
           ingredients_image_path?: string | null
           is_anonymous?: boolean
@@ -848,6 +856,8 @@ export type Database = {
           ndc_number?: string | null
           notes_text?: string | null
           query_text?: string | null
+          resolution_links?: string[] | null
+          resolved_summary?: string | null
           rx_fields?: Json | null
           source_page?: string | null
           status?: Database["public"]["Enums"]["review_request_status"]
@@ -858,10 +868,13 @@ export type Database = {
           user_id: string
         }
         Update: {
+          admin_notes?: string | null
           barcode_image_path?: string | null
           brand_or_manufacturer?: string | null
           created_at?: string
           drug_name?: string | null
+          final_manufacturer?: string | null
+          final_ndc?: string | null
           id?: string
           ingredients_image_path?: string | null
           is_anonymous?: boolean
@@ -869,6 +882,8 @@ export type Database = {
           ndc_number?: string | null
           notes_text?: string | null
           query_text?: string | null
+          resolution_links?: string[] | null
+          resolved_summary?: string | null
           rx_fields?: Json | null
           source_page?: string | null
           status?: Database["public"]["Enums"]["review_request_status"]
@@ -1561,7 +1576,12 @@ export type Database = {
         | "manufacturer_confirmed"
         | "halal_certified"
       plan_type: "free" | "pro" | "clinic"
-      review_request_status: "new" | "in_progress" | "resolved"
+      review_request_status:
+        | "new"
+        | "in_progress"
+        | "resolved"
+        | "triaged"
+        | "researching"
       review_request_type: "otc_not_found" | "rx_not_found" | "variant_unclear"
       risk_level: "low" | "medium" | "high"
       source_type: "manufacturer" | "certifier" | "reference"
@@ -1723,7 +1743,13 @@ export const Constants = {
         "halal_certified",
       ],
       plan_type: ["free", "pro", "clinic"],
-      review_request_status: ["new", "in_progress", "resolved"],
+      review_request_status: [
+        "new",
+        "in_progress",
+        "resolved",
+        "triaged",
+        "researching",
+      ],
       review_request_type: ["otc_not_found", "rx_not_found", "variant_unclear"],
       risk_level: ["low", "medium", "high"],
       source_type: ["manufacturer", "certifier", "reference"],

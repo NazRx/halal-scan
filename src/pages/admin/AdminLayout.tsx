@@ -13,7 +13,8 @@ import {
   FileText,
   PanelLeftClose,
   PanelLeft,
-  Menu
+  Menu,
+  ClipboardList,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 const navItems = [
   { title: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+  { title: 'Review Requests', href: '/admin/review-requests', icon: ClipboardList },
   { title: 'Verdicts', href: '/admin/verdicts', icon: FileCheck },
   { title: 'Users', href: '/admin/users', icon: Users },
   { title: 'Feedback', href: '/admin/feedback', icon: MessageSquare },
