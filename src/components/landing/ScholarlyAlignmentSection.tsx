@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 
 export function ScholarlyAlignmentSection() {
   return (
-    <section className="py-28" style={{ background: "#FFFFFF" }}>
+    <section className="py-28" style={{ background: "#F3F7F6" }}>
       <div className="container px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -12,42 +12,56 @@ export function ScholarlyAlignmentSection() {
         >
           {/* Accent divider */}
           <div className="flex items-center justify-center mb-12">
-            <div className="h-px w-16" style={{ background: "rgba(31,92,82,0.25)" }} />
-            <div className="mx-3 w-1.5 h-1.5 rounded-full" style={{ background: "rgba(31,92,82,0.35)" }} />
-            <div className="h-px w-16" style={{ background: "rgba(31,92,82,0.25)" }} />
+            <div className="h-px w-16" style={{ background: "rgba(31,92,82,0.22)" }} />
+            <div className="mx-3 w-1.5 h-1.5 rounded-full" style={{ background: "rgba(31,92,82,0.32)" }} />
+            <div className="h-px w-16" style={{ background: "rgba(31,92,82,0.22)" }} />
           </div>
 
-          <h2 className="text-4xl md:text-5xl font-bold mb-3 text-foreground text-center tracking-tight">
-            Our Relationship with Scholarship
+          <h2 className="font-display text-4xl md:text-5xl font-bold mb-3 text-foreground text-center tracking-tight leading-[1.15]">
+            Respect for Scholarship
           </h2>
           <div className="flex justify-center mb-10">
             <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(31,92,82,0.3)" }} />
           </div>
 
           <div className="space-y-6 text-muted-foreground text-lg leading-[1.8]">
-            <p>AmanahRx does not issue religious rulings (fatwa).</p>
+            <p>AmanahRx does not issue religious rulings.</p>
 
             <p>
-              Our mission is to provide structured, transparent ingredient information
-              so that Muslims can consult their own scholars and make informed decisions.
+              Our mission is to provide structured ingredient transparency so that individuals
+              may consult their own scholars and make informed decisions grounded in both
+              clinical understanding and spiritual mindfulness.
             </p>
 
             <p>
-              Scholarly opinions differ on several ingredient categories — including
-              transformation (istihalah), alcohol thresholds, and gelatin permissibility.
-              AmanahRx does not adjudicate these differences.
+              Scholarly opinions may differ on topics such as transformation (istihalah),
+              alcohol thresholds, and gelatin permissibility. AmanahRx does not adjudicate
+              between these positions.
             </p>
 
             <p>
               In cases of medical necessity, Islamic legal principles regarding necessity
-              (darura) may apply. Users are encouraged to consult qualified scholars for
-              guidance in such situations.
+              (darura) may apply. Consultation with qualified scholars is encouraged.
             </p>
 
-            <p className="text-foreground font-semibold">
-              Health decisions deserve both clinical accuracy and spiritual mindfulness.
-              We provide the former. We respect the latter.
-            </p>
+            <div
+              className="rounded-2xl p-6 space-y-2 text-base"
+              style={{
+                background: "#FFFFFF",
+                border: "1px solid #E5EFEC",
+                boxShadow: "0 12px 30px rgba(0,0,0,0.05)",
+              }}
+            >
+              <p className="text-foreground leading-[1.7]">
+                Health decisions require both medical accuracy and religious consideration.
+              </p>
+              <p className="font-semibold text-foreground">
+                We provide the former.
+              </p>
+              <p className="text-muted-foreground">
+                We respect the latter.
+              </p>
+            </div>
           </div>
         </motion.div>
       </div>

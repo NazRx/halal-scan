@@ -4,26 +4,26 @@ const tiers = [
   {
     title: "No Flagged Concerns Identified",
     description:
-      "Based on publicly available ingredient data, no ingredients commonly questioned in Islamic dietary law were identified.",
+      "Based on publicly available disclosures, no ingredients commonly questioned in Islamic dietary law were identified.",
     borderColor: "#2F6F64",
   },
   {
     title: "Ingredients Requiring Further Review",
     description:
-      "One or more ingredients that are frequently discussed in Islamic dietary law were identified. Further review is recommended.",
-    borderColor: "#C9870A",
+      "One or more ingredients commonly discussed in Islamic dietary law were identified. Further review or scholarly consultation may be appropriate.",
+    borderColor: "#C8A23E",
   },
   {
     title: "Insufficient Public Disclosure",
     description:
-      "Publicly available data is insufficient to make a reliable determination. Manufacturer clarification may be required.",
-    borderColor: "rgba(31,92,82,0.25)",
+      "Public documentation is not sufficient to make a reliable determination. Manufacturer clarification may be required.",
+    borderColor: "#9AA6A3",
   },
 ];
 
 export function ConfidenceSystemSection() {
   return (
-    <section className="py-28" style={{ background: "#F3F7F6" }}>
+    <section className="py-28" style={{ background: "#FFFFFF" }}>
       <div className="container px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -31,16 +31,17 @@ export function ConfidenceSystemSection() {
           viewport={{ once: true }}
           className="max-w-2xl mx-auto"
         >
-          <h2 className="text-4xl md:text-5xl font-bold mb-3 text-foreground text-center tracking-tight">
-            How We Classify Results
+          <h2 className="font-display text-4xl md:text-5xl font-bold mb-3 text-foreground text-center tracking-tight leading-[1.15]">
+            How Results Are Structured
           </h2>
           <div className="flex justify-center mb-6">
             <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(31,92,82,0.3)" }} />
           </div>
 
           <p className="text-muted-foreground text-lg leading-[1.8] text-center mb-10">
-            Ingredient sourcing is not always fully disclosed publicly.
-            When data is limited, we say so. AmanahRx uses three structured result categories:
+            Ingredient sourcing is not always fully disclosed.
+            When information is limited, we say so.
+            AmanahRx uses three structured categories:
           </p>
 
           <div className="space-y-4">
@@ -60,14 +61,14 @@ export function ConfidenceSystemSection() {
                   boxShadow: "0 12px 30px rgba(0,0,0,0.05)",
                 }}
               >
-                <h3 className="font-semibold text-foreground mb-1">{tier.title}</h3>
-                <p className="text-muted-foreground leading-[1.7]">{tier.description}</p>
+                <h3 className="font-semibold text-foreground mb-1.5">{tier.title}</h3>
+                <p className="text-muted-foreground leading-[1.75] text-sm">{tier.description}</p>
               </motion.div>
             ))}
           </div>
 
-          <p className="text-center text-muted-foreground mt-8 text-sm italic leading-relaxed">
-            Scholarly opinions may differ regarding certain ingredients. Users are encouraged to consult trusted scholars.
+          <p className="text-center text-muted-foreground mt-10 text-sm italic leading-relaxed">
+            Scholarly opinions may differ on certain ingredient categories. Users are encouraged to consult trusted scholars.
           </p>
         </motion.div>
       </div>
