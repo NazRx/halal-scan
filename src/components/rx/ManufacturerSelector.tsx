@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Building2, Camera, FileQuestion, Info, Bookmark, ArrowUpDown, Check, AlertCircle, X, HelpCircle, Sparkles } from "lucide-react";
+import { Building2, Camera, FileQuestion, Info, Bookmark, ArrowUpDown, Check, AlertCircle, X, HelpCircle, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ManufacturerSortMode } from "@/pages/RxMedication";
 
@@ -38,11 +38,22 @@ interface ManufacturerSelectorProps {
 }
 
 const statusConfig = {
-  halal: { icon: Check, color: 'text-emerald-600', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
-  questionable: { icon: AlertCircle, color: 'text-amber-600', bg: 'bg-amber-100 dark:bg-amber-900/30' },
-  'not-halal': { icon: X, color: 'text-red-600', bg: 'bg-red-100 dark:bg-red-900/30' },
+  halal: { icon: Check, color: 'text-muted-foreground', bg: 'bg-muted' },
+  questionable: { icon: AlertCircle, color: 'text-muted-foreground', bg: 'bg-muted' },
+  'not-halal': { icon: X, color: 'text-muted-foreground', bg: 'bg-muted' },
   unknown: { icon: HelpCircle, color: 'text-muted-foreground', bg: 'bg-muted' },
 };
+
+// Map confidence number to disclosure label
+function getDisclosureLabel(confidence?: number): { label: string; variant: 'secondary' | 'outline' } {
+  if (confidence === undefined || confidence === null) {
+    return { label: 'Not disclosed', variant: 'outline' };
+  }
+  if (confidence >= 80) return { label: 'High disclosure', variant: 'secondary' };
+  if (confidence >= 50) return { label: 'Moderate disclosure', variant: 'secondary' };
+  if (confidence > 0) return { label: 'Limited disclosure', variant: 'outline' };
+  return { label: 'Not disclosed', variant: 'outline' };
+}
 
 export function ManufacturerSelector({
   manufacturers,
@@ -52,7 +63,7 @@ export function ManufacturerSelector({
   onRequestReview,
   className,
   savedVariantIds = new Set(),
-  sortMode = 'confidence',
+  sortMode = 'alphabetical',
   onSortModeChange,
   hideUnknown = false,
   onHideUnknownChange,
@@ -61,6 +72,7 @@ export function ManufacturerSelector({
   const selected = manufacturers.find((m) => m.id === selectedManufacturer);
   const showSortControls = manufacturers.length > 1 && onSortModeChange;
   const hiddenCount = totalCount !== undefined ? totalCount - manufacturers.length : 0;
+  const disclosure = getDisclosureLabel(selected?.confidence);
 
   return (
     <Card className={cn("p-4", className)}>
@@ -84,18 +96,6 @@ export function ManufacturerSelector({
             <span className="text-xs text-muted-foreground">Sort:</span>
             <div className="flex rounded-lg border overflow-hidden">
               <button
-                onClick={() => onSortModeChange?.('confidence')}
-                className={cn(
-                  "px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5",
-                  sortMode === 'confidence'
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-background hover:bg-muted"
-                )}
-              >
-                <Sparkles className="h-3 w-3" />
-                Confidence
-              </button>
-              <button
                 onClick={() => onSortModeChange?.('alphabetical')}
                 className={cn(
                   "px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5",
@@ -105,7 +105,19 @@ export function ManufacturerSelector({
                 )}
               >
                 <ArrowUpDown className="h-3 w-3" />
-                A-Z
+                A–Z
+              </button>
+              <button
+                onClick={() => onSortModeChange?.('disclosure')}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5",
+                  sortMode === 'disclosure'
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background hover:bg-muted"
+                )}
+              >
+                <BarChart2 className="h-3 w-3" />
+                Disclosure level
               </button>
             </div>
           </div>
@@ -117,17 +129,26 @@ export function ManufacturerSelector({
                 checked={hideUnknown}
                 onCheckedChange={(checked) => onHideUnknownChange?.(checked === true)}
               />
-              <span className="text-xs text-muted-foreground">Hide Unknown</span>
+              <span className="text-xs text-muted-foreground">Hide unverified</span>
             </label>
           )}
         </div>
       )}
 
       {/* Sort Indicator */}
-      {sortMode === 'confidence' && manufacturers.length > 1 && (
+      {manufacturers.length > 1 && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
-          <Sparkles className="h-3 w-3 text-primary" />
-          <span>Sorted by confidence (highest first)</span>
+          {sortMode === 'disclosure' ? (
+            <>
+              <BarChart2 className="h-3 w-3 text-muted-foreground" />
+              <span>Sorted by disclosure level (most transparent first)</span>
+            </>
+          ) : (
+            <>
+              <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
+              <span>Sorted A–Z</span>
+            </>
+          )}
           {hiddenCount > 0 && (
             <Badge variant="outline" className="text-xs">
               {hiddenCount} hidden
@@ -151,6 +172,7 @@ export function ManufacturerSelector({
             const status = mfr.status || 'unknown';
             const config = statusConfig[status];
             const StatusIcon = config.icon;
+            const disc = getDisclosureLabel(mfr.confidence);
             
             return (
               <SelectItem key={mfr.id} value={mfr.id}>
@@ -163,12 +185,10 @@ export function ManufacturerSelector({
                   {/* Manufacturer name */}
                   <span className="flex-1">{mfr.name}</span>
                   
-                  {/* Confidence badge (if available) */}
-                  {mfr.confidence !== undefined && mfr.confidence > 0 && (
-                    <Badge variant="outline" className="text-xs ml-1">
-                      {mfr.confidence}%
-                    </Badge>
-                  )}
+                  {/* Neutral disclosure badge */}
+                  <Badge variant={disc.variant} className="text-xs ml-1 shrink-0">
+                    {disc.label}
+                  </Badge>
                   
                   {/* Saved indicator */}
                   {savedVariantIds.has(mfr.id) && (
@@ -184,28 +204,15 @@ export function ManufacturerSelector({
       {/* Selected manufacturer details */}
       {selected && (
         <div className="mt-3 p-3 rounded-lg bg-muted/50 text-sm">
-          <div className="flex items-center gap-2 mb-1">
-            {selected.status && (
-              <>
-                {(() => {
-                  const config = statusConfig[selected.status];
-                  const StatusIcon = config.icon;
-                  return (
-                    <span className={cn("p-1 rounded", config.bg)}>
-                      <StatusIcon className={cn("h-4 w-4", config.color)} />
-                    </span>
-                  );
-                })()}
-              </>
-            )}
+          <div className="flex items-center justify-between mb-1">
             <p className="font-medium">{selected.name}</p>
+            <Badge variant={disclosure.variant} className="text-xs">
+              {disclosure.label}
+            </Badge>
           </div>
           <p className="text-muted-foreground">
             {selected.dosageForm && `${selected.dosageForm}`}
             {selected.strength && ` • ${selected.strength}`}
-            {selected.confidence !== undefined && selected.confidence > 0 && (
-              <span className="ml-2 text-xs">({selected.confidence}% confidence)</span>
-            )}
           </p>
         </div>
       )}
