@@ -161,7 +161,7 @@ const Pricing = () => {
     <div className="min-h-screen flex flex-col">
       <Header />
 
-      <main className="flex-1 pt-24 pb-20" style={{ background: "#F4FBFA" }}>
+      <main className="flex-1 pt-24 pb-20" style={{ background: "#F3F9F8" }}>
         {/* SECTION 1 — Header */}
         <section className="text-center px-4 mb-16 pt-8">
           <motion.div
@@ -171,10 +171,10 @@ const Pricing = () => {
           >
             <h1 className="font-sans text-4xl md:text-5xl font-bold tracking-tight mb-4 text-foreground leading-[1.15]">
               Choose Clarity That Fits
-              <span className="block" style={{ color: "#2A8C7F" }}>Your Needs</span>
+              <span className="block" style={{ color: "#1E6F67" }}>Your Needs</span>
             </h1>
             <div className="flex justify-center mb-5">
-              <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(42,140,127,0.30)" }} />
+              <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(30,111,103,0.30)" }} />
             </div>
             <p className="text-lg text-muted-foreground leading-[1.8]">
               Start free. Upgrade when you need deeper formulation insight.
@@ -201,9 +201,9 @@ const Pricing = () => {
                   <div
                     className="relative p-6 h-full flex flex-col rounded-[18px] transition-shadow duration-300 bg-white"
                     style={{
-                      border: plan.popular ? "2px solid #67C5B6" : "1px solid #E6F5F2",
+                      border: plan.popular ? "2px solid #3FAF9F" : "1px solid #E1F0EE",
                       boxShadow: plan.popular
-                        ? "0 20px 40px rgba(42,140,127,0.12)"
+                        ? "0 20px 40px rgba(30,111,103,0.12)"
                         : "0 10px 25px rgba(0,0,0,0.04)",
                     }}
                   >
@@ -211,7 +211,7 @@ const Pricing = () => {
                     {plan.popular && !isCurrentPlan && (
                       <div
                         className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-white text-xs font-semibold"
-                        style={{ background: "#67C5B6" }}
+                        style={{ background: "#3FAF9F" }}
                       >
                         Most Popular
                       </div>
@@ -219,7 +219,7 @@ const Pricing = () => {
                     {isCurrentPlan && (
                       <div
                         className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-white text-xs font-semibold"
-                        style={{ background: "#2A8C7F" }}
+                        style={{ background: "#1E6F67" }}
                       >
                         Your Plan
                       </div>
@@ -231,12 +231,12 @@ const Pricing = () => {
                         <div
                           className="p-2 rounded-lg"
                           style={{
-                            background: plan.popular ? "rgba(42,140,127,0.10)" : "rgba(42,140,127,0.06)",
+                            background: plan.popular ? "rgba(30,111,103,0.10)" : "rgba(30,111,103,0.06)",
                           }}
                         >
                           <Icon
                             className="h-5 w-5"
-                            style={{ color: "#2A8C7F" }}
+                            style={{ color: "#1E6F67" }}
                           />
                         </div>
                         <h2 className="text-xl font-bold">{plan.name}</h2>
@@ -253,7 +253,7 @@ const Pricing = () => {
                       <ul className="space-y-2.5">
                         {plan.features.map((feature) => (
                           <li key={feature} className="flex items-start gap-2.5 text-sm">
-                            <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "#2A8C7F" }} />
+                            <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "#1E6F67" }} />
                             <span>{feature}</span>
                           </li>
                         ))}
@@ -261,7 +261,7 @@ const Pricing = () => {
 
                       {plan.limits.length > 0 && (
                         <>
-                          <div className="border-t" style={{ borderColor: "#E6F5F2" }} />
+                          <div className="border-t" style={{ borderColor: "#E1F0EE" }} />
                           <ul className="space-y-2">
                             {plan.limits.map((limit) => (
                               <li key={limit} className="flex items-start gap-2.5 text-sm text-muted-foreground">
@@ -276,7 +276,7 @@ const Pricing = () => {
                       {plan.compliance && (
                         <p
                           className="text-xs text-muted-foreground p-3 rounded-lg"
-                          style={{ background: "rgba(42,140,127,0.04)", border: "1px solid #E6F5F2" }}
+                          style={{ background: "rgba(30,111,103,0.04)", border: "1px solid #E1F0EE" }}
                         >
                           {plan.compliance}
                         </p>
@@ -288,14 +288,14 @@ const Pricing = () => {
                       {plan.popular ? (
                         <button
                           className="w-full py-3 px-6 rounded-[14px] font-semibold text-white text-base transition-all duration-200 disabled:opacity-60"
-                          style={{ background: isCurrentPlan ? "#9AA6A3" : "#2A8C7F" }}
+                          style={{ background: isCurrentPlan ? "#9AA6A3" : "#1E6F67" }}
                           onClick={() => handleSubscribe(plan.id)}
                           disabled={isLoading || isCurrentPlan}
                           onMouseEnter={e => {
-                            if (!isCurrentPlan) (e.currentTarget as HTMLElement).style.background = "#237469";
+                            if (!isCurrentPlan) (e.currentTarget as HTMLElement).style.background = "#185A54";
                           }}
                           onMouseLeave={e => {
-                            if (!isCurrentPlan) (e.currentTarget as HTMLElement).style.background = "#2A8C7F";
+                            if (!isCurrentPlan) (e.currentTarget as HTMLElement).style.background = "#1E6F67";
                           }}
                         >
                           {isLoading && <Loader2 className="h-4 w-4 animate-spin inline mr-2" />}
@@ -304,10 +304,10 @@ const Pricing = () => {
                       ) : plan.id === "clinic" ? (
                         <button
                           className="w-full py-3 px-6 rounded-[14px] font-semibold text-white text-base transition-all duration-200"
-                          style={{ background: "#67C5B6" }}
+                          style={{ background: "#3FAF9F" }}
                           onClick={() => handleSubscribe(plan.id)}
-                          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = "#58BCAE")}
-                          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = "#67C5B6")}
+                          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = "#349F91")}
+                          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = "#3FAF9F")}
                         >
                           {plan.cta}
                         </button>
@@ -315,12 +315,12 @@ const Pricing = () => {
                         <button
                           className="w-full py-3 px-6 rounded-[14px] font-semibold text-base transition-all duration-200 bg-white disabled:opacity-60"
                           style={{
-                            border: "1px solid #2A8C7F",
-                            color: "#2A8C7F",
+                            border: "1px solid #1E6F67",
+                            color: "#1E6F67",
                           }}
                           onClick={() => handleSubscribe(plan.id)}
                           disabled={isLoading || isCurrentPlan}
-                          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = "#F4FBFA")}
+                          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = "#F3F9F8")}
                           onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = "#FFFFFF")}
                         >
                           {isLoading && <Loader2 className="h-4 w-4 animate-spin inline mr-2" />}
@@ -349,7 +349,7 @@ const Pricing = () => {
             className="max-w-lg mx-auto text-center"
           >
             <div className="flex items-center gap-2 justify-center mb-2">
-              <CreditCard className="h-5 w-5" style={{ color: "#2A8C7F" }} />
+              <CreditCard className="h-5 w-5" style={{ color: "#1E6F67" }} />
               <h2 className="text-2xl font-bold">No subscription? Use scan credits.</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-6">
@@ -362,19 +362,19 @@ const Pricing = () => {
                   key={pack.credits}
                   className="p-5 text-center flex flex-col items-center gap-2 rounded-[18px] bg-white"
                   style={{
-                    border: pack.highlight ? "1px solid #67C5B6" : "1px solid #E6F5F2",
+                    border: pack.highlight ? "1px solid #3FAF9F" : "1px solid #E1F0EE",
                     boxShadow: "0 10px 25px rgba(0,0,0,0.04)",
                   }}
                 >
                   <span className="text-2xl font-bold">{pack.credits} scans</span>
-                  <span className="text-lg font-semibold" style={{ color: "#2A8C7F" }}>{pack.price}</span>
+                  <span className="text-lg font-semibold" style={{ color: "#1E6F67" }}>{pack.price}</span>
                   <span className="text-xs text-muted-foreground">{pack.note}</span>
                   <button
                     className="mt-2 w-full py-2 px-4 rounded-[10px] text-sm font-medium transition-all duration-200 bg-white"
-                    style={{ border: "1px solid #2A8C7F", color: "#2A8C7F" }}
+                    style={{ border: "1px solid #1E6F67", color: "#1E6F67" }}
                     onClick={() => handleBuyCredits(pack.credits)}
                     disabled={!!loadingAction?.startsWith("credits")}
-                    onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = "#F4FBFA")}
+                    onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = "#F3F9F8")}
                     onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = "#FFFFFF")}
                   >
                     {loadingAction === `credits-${pack.credits}` && (
