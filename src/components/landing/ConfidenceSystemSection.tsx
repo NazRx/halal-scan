@@ -5,7 +5,7 @@ const tiers = [
     title: "No Flagged Concerns Identified",
     description:
       "Based on publicly available disclosures, no ingredients commonly questioned in Islamic dietary law were identified.",
-    borderColor: "#2F7E72",
+    borderColor: "#2A8C7F",
   },
   {
     title: "Ingredients Requiring Further Review",
@@ -35,7 +35,7 @@ export function ConfidenceSystemSection() {
             How Results Are Structured
           </h2>
           <div className="flex justify-center mb-6">
-            <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(47,126,114,0.30)" }} />
+            <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(42,140,127,0.30)" }} />
           </div>
 
           <p className="text-muted-foreground text-lg leading-[1.8] text-center mb-10">
@@ -52,13 +52,21 @@ export function ConfidenceSystemSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
-                className="rounded-[18px] p-6 hover:-translate-y-0.5 transition-all duration-200 hover:shadow-md"
+                className="rounded-[18px] p-6 transition-all duration-200 cursor-default"
                 style={{
                   background: "#FFFFFF",
-                  border: "1px solid #DFF1EC",
+                  border: "1px solid #E6F5F2",
                   borderLeftWidth: "4px",
                   borderLeftColor: tier.borderColor,
                   boxShadow: "0 10px 25px rgba(0,0,0,0.04)",
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+                  (e.currentTarget as HTMLElement).style.boxShadow = "0 14px 30px rgba(0,0,0,0.08)";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+                  (e.currentTarget as HTMLElement).style.boxShadow = "0 10px 25px rgba(0,0,0,0.04)";
                 }}
               >
                 <h3 className="font-semibold text-foreground mb-1.5">{tier.title}</h3>

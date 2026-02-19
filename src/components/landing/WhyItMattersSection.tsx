@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 
 export function WhyItMattersSection() {
   return (
-    <section className="py-28" style={{ background: "#F2FAF8" }}>
+    <section className="py-28" style={{ background: "#F4FBFA" }}>
       <div className="container px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -12,16 +12,16 @@ export function WhyItMattersSection() {
         >
           {/* Accent divider */}
           <div className="flex items-center justify-center mb-12">
-            <div className="h-px w-16" style={{ background: "rgba(47,126,114,0.22)" }} />
-            <div className="mx-3 w-1.5 h-1.5 rounded-full" style={{ background: "rgba(47,126,114,0.35)" }} />
-            <div className="h-px w-16" style={{ background: "rgba(47,126,114,0.22)" }} />
+            <div className="h-px w-16" style={{ background: "rgba(42,140,127,0.22)" }} />
+            <div className="mx-3 w-1.5 h-1.5 rounded-full" style={{ background: "rgba(42,140,127,0.35)" }} />
+            <div className="h-px w-16" style={{ background: "rgba(42,140,127,0.22)" }} />
           </div>
 
           <h2 className="font-sans text-4xl md:text-5xl font-bold mb-3 text-foreground text-center tracking-tight leading-[1.15]">
             Amanah Means Trust.
           </h2>
           <div className="flex justify-center mb-10">
-            <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(47,126,114,0.30)" }} />
+            <div className="h-0.5 w-12 rounded-full" style={{ background: "rgba(42,140,127,0.30)" }} />
           </div>
 
           <div className="space-y-6 text-muted-foreground text-lg leading-[1.8]">
@@ -50,7 +50,7 @@ export function WhyItMattersSection() {
               className="rounded-[18px] p-6 space-y-1 text-base"
               style={{
                 background: "#FFFFFF",
-                border: "1px solid #DFF1EC",
+                border: "1px solid #E6F5F2",
                 boxShadow: "0 10px 25px rgba(0,0,0,0.04)",
               }}
             >

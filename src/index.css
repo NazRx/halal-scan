@@ -8,31 +8,31 @@
 
 @layer base {
   :root {
-    /* Core surfaces — Sage Clarity palette */
-    --background: 160 50% 97%;         /* near-white sage tint */
-    --foreground: 170 40% 13%;         /* #1E2423 — Primary Text */
+    /* Core surfaces — Uplifted Mint palette */
+    --background: 168 55% 97%;         /* #F4FBFA near-white mint */
+    --foreground: 172 40% 13%;         /* dark teal text */
 
     /* Cards & containers */
     --card: 0 0% 100%;
-    --card-foreground: 170 40% 13%;
+    --card-foreground: 172 40% 13%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 170 40% 13%;
+    --popover-foreground: 172 40% 13%;
 
-    /* Primary — #2F7E72 (hsl ~173 45% 34%) */
-    --primary: 173 45% 34%;
+    /* Primary — #2A8C7F (hsl ~172 53% 36%) */
+    --primary: 172 53% 36%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary — soft sage wash */
-    --secondary: 164 35% 95%;
-    --secondary-foreground: 170 30% 18%;
+    /* Secondary — soft mint wash */
+    --secondary: 168 45% 95%;
+    --secondary-foreground: 172 35% 18%;
 
     /* Muted surfaces */
-    --muted: 160 25% 95%;
-    --muted-foreground: 168 12% 43%;   /* #5F6E6B */
+    --muted: 168 30% 95%;
+    --muted-foreground: 170 14% 43%;
 
-    /* Accent — #2F7E72 same as primary for icon/highlight use */
-    --accent: 173 45% 34%;
+    /* Accent — same as primary for icon/highlight use */
+    --accent: 172 53% 36%;
     --accent-foreground: 0 0% 100%;
 
     /* Destructive */
@@ -40,8 +40,8 @@
     --destructive-foreground: 0 0% 100%;
 
     /* Status Colors */
-    --status-halal: 173 45% 34%;
-    --status-halal-bg: 164 50% 96%;
+    --status-halal: 172 53% 36%;
+    --status-halal-bg: 168 55% 96%;
     --status-questionable: 40 65% 50%;
     --status-questionable-bg: 40 65% 96%;
     --status-not-halal: 0 72% 51%;
@@ -54,33 +54,33 @@
     --warning-foreground: 40 65% 10%;
 
     /* System */
-    --border: 164 30% 90%;             /* #DFF1EC-ish */
-    --input: 164 30% 90%;
-    --ring: 173 45% 34%;
+    --border: 168 45% 91%;             /* #E6F5F2 */
+    --input: 168 45% 91%;
+    --ring: 172 53% 36%;
     --radius: 0.75rem;
 
     /* Sidebar */
-    --sidebar-background: 160 30% 97%;
-    --sidebar-foreground: 170 30% 18%;
-    --sidebar-primary: 173 45% 34%;
+    --sidebar-background: 168 40% 97%;
+    --sidebar-foreground: 172 35% 18%;
+    --sidebar-primary: 172 53% 36%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 164 35% 93%;
-    --sidebar-accent-foreground: 170 30% 18%;
-    --sidebar-border: 164 30% 90%;
-    --sidebar-ring: 173 45% 34%;
+    --sidebar-accent: 168 45% 93%;
+    --sidebar-accent-foreground: 172 35% 18%;
+    --sidebar-border: 168 45% 91%;
+    --sidebar-ring: 172 53% 36%;
 
-    /* Gradients — #5BB8A6 → #7FD1C0 */
-    --gradient-hero: linear-gradient(180deg, hsl(170 40% 54%) 0%, hsl(173 50% 66%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(160 25% 97%) 100%);
-    --gradient-scanner: linear-gradient(180deg, hsl(170 35% 8%) 0%, hsl(170 30% 13%) 100%);
+    /* Gradients — #67C5B6 → #8ED9CC */
+    --gradient-hero: linear-gradient(180deg, hsl(172 42% 59%) 0%, hsl(173 44% 70%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(168 30% 97%) 100%);
+    --gradient-scanner: linear-gradient(180deg, hsl(172 35% 8%) 0%, hsl(172 30% 13%) 100%);
 
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(170 30% 10% / 0.04);
-    --shadow-md: 0 4px 6px -1px hsl(170 30% 10% / 0.06), 0 2px 4px -2px hsl(170 30% 10% / 0.04);
-    --shadow-lg: 0 10px 15px -3px hsl(170 30% 10% / 0.06), 0 4px 6px -4px hsl(170 30% 10% / 0.04);
-    --shadow-xl: 0 20px 25px -5px hsl(170 30% 10% / 0.06), 0 8px 10px -6px hsl(170 30% 10% / 0.04);
+    --shadow-sm: 0 1px 2px 0 hsl(172 30% 10% / 0.04);
+    --shadow-md: 0 4px 6px -1px hsl(172 30% 10% / 0.06), 0 2px 4px -2px hsl(172 30% 10% / 0.04);
+    --shadow-lg: 0 10px 15px -3px hsl(172 30% 10% / 0.06), 0 4px 6px -4px hsl(172 30% 10% / 0.04);
+    --shadow-xl: 0 20px 25px -5px hsl(172 30% 10% / 0.06), 0 8px 10px -6px hsl(172 30% 10% / 0.04);
     --shadow-card: 0 10px 25px rgba(0, 0, 0, 0.04);
-    --shadow-glow: 0 0 40px -10px hsl(173 45% 34% / 0.25);
+    --shadow-glow: 0 0 40px -10px hsl(172 53% 36% / 0.25);
   }
 
   .dark {
