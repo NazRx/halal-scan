@@ -7,22 +7,22 @@ export function ConfidenceExplainer() {
       <div className="flex items-start gap-3">
         <Info className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
         <div>
-          <h3 className="font-medium mb-2">What this confidence score means</h3>
+          <h3 className="font-medium mb-2">About This Assessment</h3>
           <p className="text-sm text-muted-foreground mb-3">
-            Confidence reflects how complete the formulation information is — not the safety or effectiveness of the medication.
+            AmanahRx organizes publicly available ingredient data. It does not issue religious rulings and does not certify products as permissible or impermissible.
           </p>
           <ul className="text-sm text-muted-foreground space-y-1">
             <li className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
-              Active ingredient is known
+              Active ingredient identity is typically known
             </li>
             <li className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
-              Inactive ingredients may vary by brand and dosage form
+              Inactive ingredients vary by brand, dosage form, and lot
             </li>
             <li className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
-              Higher confidence requires verified formulation details
+              Manufacturers are not required to disclose ingredient origin
             </li>
           </ul>
         </div>

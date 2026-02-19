@@ -1,32 +1,49 @@
 // Centralized status labels, tooltips, and confidence level utilities
+// AmanahRx: All user-facing labels use neutral, research-based language.
+// Internal statuses (halal/questionable/not-halal/unknown) are kept for logic only.
 
 export type UIStatus = 'halal' | 'questionable' | 'not-halal' | 'unknown';
 
-// User-facing labels with emojis - Updated per engine rules
+// User-facing labels — neutral, research-based
 export const STATUS_LABELS: Record<UIStatus, string> = {
-  halal: '✅ Likely Halal',
-  questionable: '⚠️ Uncertain',
-  'not-halal': '🚫 Not Halal',
-  unknown: '❓ Unknown',
+  halal: 'No Flagged Concerns Identified',
+  questionable: 'Contains Ingredients Commonly Questioned',
+  'not-halal': 'Insufficient Public Disclosure',
+  unknown: 'Insufficient Public Disclosure',
 };
 
 // Short labels for compact displays
 export const STATUS_LABELS_SHORT: Record<UIStatus, string> = {
-  halal: 'Likely Halal',
-  questionable: 'Uncertain',
-  'not-halal': 'Not Halal',
-  unknown: 'Unknown',
+  halal: 'No Flagged Concerns',
+  questionable: 'Commonly Questioned',
+  'not-halal': 'Flagged Concerns',
+  unknown: 'Unverified',
 };
 
 // Tooltips explaining each status
 export const STATUS_TOOLTIPS: Record<UIStatus, string> = {
-  halal: 'Based on available ingredient data, no flagged ingredients were detected. Manufacturer excipients may still vary.',
-  questionable: 'Contains ingredients that are often animal-derived or sourcing is unclear. More verification needed.',
-  'not-halal': 'Contains a clearly prohibited ingredient (e.g., explicitly porcine-derived). If medically necessary and no alternative exists, necessity (darura) may apply.',
-  unknown: 'Not enough ingredient data was available to confirm. Check manufacturer/NDC or consult your pharmacist.',
+  halal: 'Based on available public ingredient data, no commonly questioned ingredients were identified. Formulations may vary by manufacturer and batch.',
+  questionable: 'This formulation contains one or more ingredients commonly discussed in Islamic dietary law. Origin or sourcing is unclear from public data. Scholarly opinions differ.',
+  'not-halal': 'Available data indicates the presence of ingredients with known sourcing concerns. In cases of medical necessity, scholarly guidance on necessity (darura) may apply.',
+  unknown: 'Insufficient public ingredient data is available to assess this formulation. Consult your pharmacist or the manufacturer for complete ingredient information.',
 };
 
-// Confidence level thresholds
+// Disclosure level for research summary display
+export type DisclosureLevel = 'high' | 'moderate' | 'limited';
+
+export const DISCLOSURE_LABELS: Record<DisclosureLevel, string> = {
+  high: 'High',
+  moderate: 'Moderate',
+  limited: 'Limited',
+};
+
+export const DISCLOSURE_DESCRIPTIONS: Record<DisclosureLevel, string> = {
+  high: 'Manufacturer ingredient data is publicly available with source documentation.',
+  moderate: 'Partial ingredient information is available. Some excipients may not be fully disclosed.',
+  limited: 'Insufficient public information is available to assess this formulation.',
+};
+
+// Map confidence score to disclosure level (replacing old "confidence" tier labels)
 export type ConfidenceLevel = 'low' | 'medium' | 'high';
 
 export function getConfidenceLevel(confidence: number): ConfidenceLevel {
@@ -35,17 +52,11 @@ export function getConfidenceLevel(confidence: number): ConfidenceLevel {
   return 'low';
 }
 
-export const CONFIDENCE_LABELS: Record<ConfidenceLevel, string> = {
-  low: 'Low Confidence',
-  medium: 'Moderate Confidence',
-  high: 'High Confidence',
-};
-
-export const CONFIDENCE_COLORS: Record<ConfidenceLevel, string> = {
-  low: 'text-status-not-halal',
-  medium: 'text-status-questionable',
-  high: 'text-status-halal',
-};
+export function getDisclosureLevel(confidence: number): DisclosureLevel {
+  if (confidence >= 80) return 'high';
+  if (confidence >= 50) return 'moderate';
+  return 'limited';
+}
 
 // Map internal engine status to UI status
 export function toUiStatus(status: string): UIStatus {

@@ -175,26 +175,17 @@ export function IngredientBreakdownSplit({
 
   return (
     <div className="space-y-6">
-      {/* Status Trigger Explanation */}
+      {/* Flagged Ingredient Note */}
       {showTriggerReason && triggeringIngredient && (
-        <Card className={cn(
-          "p-4",
-          triggeringIngredient.status === 'not_halal' 
-            ? "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800"
-            : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800"
-        )}>
+        <Card className="p-4 bg-muted border-border">
           <div className="flex items-start gap-3">
-            {triggeringIngredient.status === 'not_halal' ? (
-              <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-            ) : (
-              <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-            )}
+            <AlertTriangle className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
             <div>
               <h3 className="font-semibold text-foreground">
-                Why this status?
+                Flagged ingredient
               </h3>
-              <p className="text-sm mt-1">
-                <strong>{triggeringIngredient.ingredientName}</strong>
+              <p className="text-sm text-muted-foreground mt-1">
+                <strong className="text-foreground">{triggeringIngredient.ingredientName}</strong>
                 {triggeringIngredient.concern && `: ${triggeringIngredient.concern}`}
               </p>
             </div>
@@ -204,16 +195,15 @@ export function IngredientBreakdownSplit({
 
       {/* Missing Inactive Ingredients Warning */}
       {hasNoInactive && activeIngredients.length > 0 && (
-        <Card className="p-4 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+        <Card className="p-4 bg-muted border-border">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <AlertTriangle className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
             <div>
-              <h3 className="font-semibold text-amber-800 dark:text-amber-200">
-                Inactive Ingredients Not Available
+              <h3 className="font-semibold">
+                Inactive Ingredient Data Not Available
               </h3>
-              <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                Halal status cannot be fully determined without reviewing inactive ingredients (excipients). 
-                These are the fillers, coatings, and additives that may contain animal-derived substances.
+              <p className="text-sm text-muted-foreground mt-1">
+                A complete ingredient assessment requires reviewing inactive ingredients (excipients). These are the fillers, coatings, and additives that may contain animal-derived or other questioned substances. Formulation data for this product is not yet available.
               </p>
             </div>
           </div>

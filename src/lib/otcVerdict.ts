@@ -453,25 +453,25 @@ export function computeOtcVerdict(
   };
 }
 
-// Status label mapping for UI
+// Status label mapping for UI — AmanahRx neutral language
 export const OTC_STATUS_LABELS: Record<OtcStatus, string> = {
-  likely_halal: 'Likely halal',
-  use_caution: 'Use caution',
-  unknown: 'Not enough info',
-  likely_haram: 'Likely not halal',
+  likely_halal: 'No Flagged Concerns Identified',
+  use_caution: 'Contains Ingredients Commonly Questioned',
+  unknown: 'Insufficient Public Disclosure',
+  likely_haram: 'Contains Ingredients Commonly Questioned',
 };
 
-// Status colors for UI (semantic classes)
+// Status colors for UI — neutral palette
 export const OTC_STATUS_COLORS: Record<OtcStatus, { bg: string; text: string; border: string }> = {
   likely_halal: {
-    bg: 'bg-green-500/10',
-    text: 'text-green-600 dark:text-green-400',
-    border: 'border-green-500/30',
+    bg: 'bg-muted',
+    text: 'text-foreground',
+    border: 'border-border',
   },
   use_caution: {
-    bg: 'bg-yellow-500/10',
-    text: 'text-yellow-600 dark:text-yellow-400',
-    border: 'border-yellow-500/30',
+    bg: 'bg-muted',
+    text: 'text-foreground',
+    border: 'border-border',
   },
   unknown: {
     bg: 'bg-muted',
@@ -479,16 +479,17 @@ export const OTC_STATUS_COLORS: Record<OtcStatus, { bg: string; text: string; bo
     border: 'border-border',
   },
   likely_haram: {
-    bg: 'bg-destructive/10',
-    text: 'text-destructive',
-    border: 'border-destructive/30',
+    bg: 'bg-muted',
+    text: 'text-foreground',
+    border: 'border-border',
   },
 };
 
 // Status icons for UI
 export const OTC_STATUS_ICONS = {
-  likely_halal: 'CheckCircle',
+  likely_halal: 'Search',
   use_caution: 'AlertTriangle',
   unknown: 'HelpCircle',
-  likely_haram: 'XCircle',
+  likely_haram: 'Info',
 } as const;
+
