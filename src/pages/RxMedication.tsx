@@ -18,6 +18,7 @@ import { useSavedManufacturers } from "@/hooks/useSavedManufacturers";
 import { useViewHistory } from "@/hooks/useViewHistory";
 import { motion } from "framer-motion";
 import { ArrowLeft, ExternalLink, Share2, Bookmark, BookmarkCheck, Building2, Check, X, HelpCircle, FileText, AlertCircle, ArrowLeftRight, Sparkles, Lock } from "lucide-react";
+import { RequestReviewModal } from "@/components/rx/RequestReviewModal";
 import { LastVerifiedBadge } from "@/components/ui/last-verified-badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -97,6 +98,7 @@ const RxMedication = () => {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<ManufacturerSortMode>('alphabetical');
   const [hideUnknown, setHideUnknown] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   useEffect(() => {
     const fetchMedication = async () => {
@@ -314,9 +316,7 @@ const RxMedication = () => {
   };
 
   const handleRequestReview = () => {
-    toast.info("Review request submitted", {
-      description: "We'll research your specific manufacturer and notify you when available.",
-    });
+    setShowReviewModal(true);
   };
 
   // Handle save/unsave manufacturer
@@ -822,6 +822,15 @@ const RxMedication = () => {
             </div>
           </Card>
         </motion.div>
+
+        {/* Request Review Modal */}
+        <RequestReviewModal
+          open={showReviewModal}
+          onOpenChange={setShowReviewModal}
+          defaultDrugName={medication?.name || ""}
+          defaultManufacturer={selectedManufacturer?.name || ""}
+          sourcePage={window.location.pathname}
+        />
       </main>
     </div>
   );
