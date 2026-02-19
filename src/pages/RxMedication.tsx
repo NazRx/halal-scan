@@ -39,7 +39,7 @@ interface Manufacturer {
   riskUnknownCount: number;
 }
 
-export type ManufacturerSortMode = 'confidence' | 'alphabetical';
+export type ManufacturerSortMode = 'disclosure' | 'alphabetical';
 
 // Status rank for sorting: lower is better
 const STATUS_RANK: Record<'halal' | 'questionable' | 'not-halal' | 'unknown', number> = {
@@ -95,7 +95,7 @@ const RxMedication = () => {
   const [selectedManufacturerId, setSelectedManufacturerId] = useState<string | null>(null);
   const [showCompare, setShowCompare] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [sortMode, setSortMode] = useState<ManufacturerSortMode>('confidence');
+  const [sortMode, setSortMode] = useState<ManufacturerSortMode>('alphabetical');
   const [hideUnknown, setHideUnknown] = useState(false);
 
   useEffect(() => {
@@ -282,45 +282,26 @@ const RxMedication = () => {
       mfrs = mfrs.filter(m => m.status !== 'unknown');
     }
     
-    if (sortMode === 'alphabetical') {
-      // Alphabetical sorting
-      mfrs.sort((a, b) => a.name.localeCompare(b.name));
-    } else {
-      // Smart confidence-based sorting (for all users, enhanced for Pro)
+    if (sortMode === 'disclosure') {
+      // Sort by disclosure level (confidence score descending = most transparent first)
       mfrs.sort((a, b) => {
         // 1. Promoted first (Pro feature)
         if (isPro) {
           if (a.isPromoted && !b.isPromoted) return -1;
           if (!a.isPromoted && b.isPromoted) return 1;
         }
-        
-        // 2. By confidence score descending (null-safe)
+        // 2. By disclosure (confidence) score descending
         const aConf = a.confidence ?? 0;
         const bConf = b.confidence ?? 0;
-        if (aConf !== bConf) {
-          return bConf - aConf;
-        }
-        
-        // 3. By status rank ascending (halal=1, questionable=3, unknown=4, not-halal=5)
-        const aRank = STATUS_RANK[a.status] ?? 4;
-        const bRank = STATUS_RANK[b.status] ?? 4;
-        if (aRank !== bRank) {
-          return aRank - bRank;
-        }
-        
-        // 4. By inactive ingredient count descending (more data = better)
-        if (a.inactiveFoundCount !== b.inactiveFoundCount) {
-          return b.inactiveFoundCount - a.inactiveFoundCount;
-        }
-        
-        // 5. By risk unknown count ascending (fewer unknowns = better)
-        if (a.riskUnknownCount !== b.riskUnknownCount) {
-          return a.riskUnknownCount - b.riskUnknownCount;
-        }
-        
-        // 6. Finally alphabetical by manufacturer name
+        if (aConf !== bConf) return bConf - aConf;
+        // 3. By inactive ingredient count descending (more data = better)
+        if (a.inactiveFoundCount !== b.inactiveFoundCount) return b.inactiveFoundCount - a.inactiveFoundCount;
+        // 4. Alphabetical fallback
         return a.name.localeCompare(b.name);
       });
+    } else {
+      // Default: A–Z alphabetical
+      mfrs.sort((a, b) => a.name.localeCompare(b.name));
     }
     
     return mfrs;
