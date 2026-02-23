@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { normalizeStatus, filterToCanonical, type CanonicalStatus } from '@/lib/normalizeStatus';
 
 export type RxBrowseMode = 'alpha-generic' | 'alpha-brand' | 'drug-class';
 export type OtcBrowseMode = 'alpha-name' | 'alpha-brand' | 'category';
@@ -69,13 +70,11 @@ interface BrandIndex {
   genericName: string;
 }
 
-// Map DB status to UI status
+// Map DB status to UI status using canonical normalization, then to hyphenated UI format
 function mapStatus(dbStatus: string | null): 'halal' | 'questionable' | 'not-halal' | 'unknown' {
-  if (!dbStatus) return 'unknown';
-  if (dbStatus === 'halal') return 'halal';
-  if (dbStatus === 'mushbooh') return 'questionable';
-  if (dbStatus === 'haram') return 'not-halal';
-  return 'unknown';
+  const canonical = normalizeStatus(dbStatus);
+  if (canonical === 'not_halal') return 'not-halal';
+  return canonical;
 }
 
 export function useRxBrowseData(
@@ -119,17 +118,8 @@ export function useRxBrowseData(
           query = query.eq('drug_class', selectedDrugClass);
         }
 
-        // Apply status filter at database level when possible
-        if (statusFilter !== 'all' && statusFilter !== 'questionable') {
-          // Direct status mapping for simple cases
-          const dbStatus = statusFilter === 'halal' ? 'halal' 
-            : statusFilter === 'not-halal' ? 'haram'
-            : statusFilter === 'unknown' ? 'needs_verification'
-            : null;
-          if (dbStatus) {
-            query = query.eq('default_status', dbStatus);
-          }
-        }
+        // Status filtering is applied client-side after verdict computation
+        // to avoid mismatches between default_status and actual verdict status
 
         // Server-side pagination
         const { data: rxMeds, count, error: rxError } = await query
@@ -212,8 +202,14 @@ export function useRxBrowseData(
           };
         });
 
-        setData(items);
-        setTotalCount(count || 0);
+        // Apply status filter client-side (after verdict computation)
+        let filteredItems = items;
+        if (statusFilter !== 'all') {
+          filteredItems = items.filter(item => item.status === statusFilter);
+        }
+
+        setData(filteredItems);
+        setTotalCount(statusFilter !== 'all' ? filteredItems.length : (count || 0));
         setBrandIndex([]);
       } catch (err) {
         console.error('Browse data error:', err);
@@ -365,13 +361,7 @@ export function useOtcBrowseData(
 
         // Apply status filter
         if (statusFilter !== 'all') {
-          items = items.filter(item => {
-            if (statusFilter === 'halal') return item.status === 'halal';
-            if (statusFilter === 'questionable') return item.status === 'questionable';
-            if (statusFilter === 'not-halal') return item.status === 'not-halal';
-            if (statusFilter === 'unknown') return item.status === 'unknown';
-            return true;
-          });
+          items = items.filter(item => item.status === statusFilter);
         }
 
         setTotalCount(items.length);
