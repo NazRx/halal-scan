@@ -1,71 +1,19 @@
 
+## Add Search Bar to Landing Page Hero
 
-# Global Gradient Background for All Pages
+### What changes
+Add the same search bar with Scan button (used on the Browse page) into the Hero section of the landing page, positioned below the subtitle text and above the existing CTA buttons.
 
-## Overview
-Apply a subtle emerald-to-teal gradient background across every page in the app, matching the premium green aesthetic from the homepage hero -- but softer so content remains readable.
+### Technical details
 
-## Approach
+**File: `src/components/landing/HeroSection.tsx`**
 
-### 1. Global Gradient via CSS
-**File:** `src/index.css`
+1. Import `BrowseSearchBar` from `@/components/browse/BrowseSearchBar`
+2. Add local state for the search query (`useState`)
+3. Add a `useNavigate` hook so that when the user types and hits Enter (or interacts), they can be routed to `/browse?q=...` with their query pre-filled
+4. Insert the `BrowseSearchBar` component between the subtitle text (line 55) and the CTA buttons (line 57), wrapped in a `motion.div` for consistent animation
+5. Style the container with `max-w-xl mx-auto` to keep it centered and appropriately sized
+6. On the search input, wire up an `onKeyDown` handler so pressing Enter navigates to `/browse?q={query}`
+7. The Scan button already navigates to `/otc/scan` inside `BrowseSearchBar`, so no extra wiring needed
 
-Update the `body` styling in the base layer to apply a subtle full-page gradient instead of the flat `bg-background` color:
-
-- Add a CSS class `.app-gradient-bg` with a soft top-to-bottom gradient:
-  - Light mode: from a very faint emerald tint at the top to the current near-white background at the bottom, with a fixed/repeating feel
-  - Dark mode: from a deeper emerald-charcoal at the top to the current dark background
-
-### 2. Apply to App Root
-**File:** `src/App.tsx`
-
-Wrap the app content (inside `BrowserRouter`) with a `<div className="min-h-screen app-gradient-bg">` so every route inherits the gradient.
-
-### 3. Page Adjustments
-Update individual page wrappers to use `bg-transparent` or remove explicit `bg-background` so the gradient shows through. Pages affected:
-- `src/pages/AppHome.tsx` -- remove `bg-background` from outer div
-- `src/pages/Pricing.tsx` -- remove `bg-background`
-- `src/pages/Resources.tsx`, `FAQ.tsx`, `IngredientDatabase.tsx`, `Blog.tsx`, `BlogPost.tsx`, `Legal.tsx`, `Privacy.tsx`, `Terms.tsx`, `Disclaimer.tsx`, `Feedback.tsx` -- ensure no opaque background overrides the gradient
-
-Cards and content containers keep their `bg-card` / `bg-white` so content remains crisp against the gradient.
-
-## Technical Details
-
-**New CSS in `src/index.css`:**
-```css
-.app-gradient-bg {
-  background: linear-gradient(
-    180deg,
-    hsl(158 40% 95%) 0%,
-    hsl(150 20% 98%) 30%,
-    hsl(165 15% 97%) 70%,
-    hsl(158 30% 95%) 100%
-  );
-  min-height: 100vh;
-}
-
-.dark .app-gradient-bg {
-  background: linear-gradient(
-    180deg,
-    hsl(160 30% 6%) 0%,
-    hsl(160 25% 8%) 30%,
-    hsl(165 20% 7%) 70%,
-    hsl(158 25% 6%) 100%
-  );
-}
-```
-
-This creates a gentle, barely-there emerald wash that ties every page visually to the brand without competing with content.
-
-## Files Modified
-- `src/index.css` -- add gradient utility class
-- `src/App.tsx` -- wrap routes in gradient container
-- `src/pages/AppHome.tsx` -- remove opaque bg override
-- Multiple info pages -- remove any `bg-background` overrides
-
-## What Does NOT Change
-- Card/container backgrounds stay white/card for readability
-- Header and Footer unchanged
-- Hero section keeps its stronger `gradient-hero`
-- No copy or layout changes
-
+The search bar will have the same placeholder, icon, and Scan button as the Browse page version. Since `BrowseSearchBar` is a controlled component (value + onChange), we just need to manage the state locally and handle navigation on submit.
