@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { normalizeStatus, filterToCanonical, type CanonicalStatus } from '@/lib/normalizeStatus';
+import { normalizeStatus, canonicalToUi, type CanonicalStatus } from '@/lib/normalizeStatus';
 
 export type RxBrowseMode = 'alpha-generic' | 'alpha-brand' | 'drug-class';
 export type OtcBrowseMode = 'alpha-name' | 'alpha-brand' | 'category';
@@ -76,9 +76,7 @@ interface BrandIndex {
 
 // Map DB status to UI status using canonical normalization, then to hyphenated UI format
 function mapStatus(dbStatus: string | null): 'halal' | 'questionable' | 'not-halal' | 'unknown' {
-  const canonical = normalizeStatus(dbStatus);
-  if (canonical === 'not_halal') return 'not-halal';
-  return canonical;
+  return canonicalToUi(normalizeStatus(dbStatus));
 }
 
 export function useRxBrowseData(
