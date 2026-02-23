@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue 
 } from '@/components/ui/select';
-import { GlobalSearch } from '@/components/search/GlobalSearch';
+import { BrowseSearchBar } from '@/components/browse/BrowseSearchBar';
 import { AlphabetSidebar, AlphabetBar } from '@/components/browse/AlphabetSidebar';
 import { RxFilters, OtcFilters } from '@/components/browse/BrowseFilters';
 import { RxBrowseList, OtcBrowseList } from '@/components/browse/BrowseList';
@@ -32,6 +32,9 @@ const Browse = () => {
   
   // Tab state
   const [activeTab, setActiveTab] = useState<'rx' | 'otc'>('rx');
+  
+  // Shared search state (persists across tab switches)
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Rx state
   const [rxMode, setRxMode] = useState<RxBrowseMode>('alpha-generic');
@@ -77,8 +80,43 @@ const Browse = () => {
   );
 
   const pageSize = 25;
-  const rxTotalPages = Math.ceil(rxTotalCount / pageSize);
-  const otcTotalPages = Math.ceil(otcTotalCount / pageSize);
+  
+  // Client-side search filtering
+  const searchLower = searchQuery.trim().toLowerCase();
+  
+  const filteredRxData = useMemo(() => {
+    if (!searchLower) return rxData;
+    return rxData.filter(item =>
+      item.genericName.toLowerCase().includes(searchLower) ||
+      item.brandNames.some(b => b.toLowerCase().includes(searchLower)) ||
+      (item.drugClass && item.drugClass.toLowerCase().includes(searchLower))
+    );
+  }, [rxData, searchLower]);
+
+  const filteredRxBrandIndex = useMemo(() => {
+    if (!searchLower) return rxBrandIndex;
+    return rxBrandIndex.filter(item =>
+      item.brand.toLowerCase().includes(searchLower) ||
+      item.genericName.toLowerCase().includes(searchLower)
+    );
+  }, [rxBrandIndex, searchLower]);
+
+  const filteredOtcData = useMemo(() => {
+    if (!searchLower) return otcData;
+    return otcData.filter(item =>
+      item.name.toLowerCase().includes(searchLower) ||
+      (item.brand && item.brand.toLowerCase().includes(searchLower)) ||
+      (item.category && item.category.toLowerCase().includes(searchLower))
+    );
+  }, [otcData, searchLower]);
+
+  const rxDisplayCount = searchLower 
+    ? filteredRxData.length + filteredRxBrandIndex.length 
+    : rxTotalCount;
+  const otcDisplayCount = searchLower ? filteredOtcData.length : otcTotalCount;
+  
+  const rxTotalPages = searchLower ? 1 : Math.ceil(rxTotalCount / pageSize);
+  const otcTotalPages = searchLower ? 1 : Math.ceil(otcTotalCount / pageSize);
 
   // Reset page when filters change
   const handleRxModeChange = (mode: RxBrowseMode) => {
@@ -127,9 +165,16 @@ const Browse = () => {
             </div>
           </div>
 
-          {/* Global Search */}
+          {/* Search Bar + Scan Button (persists across tabs) */}
           <div className="mb-6">
-            <GlobalSearch placeholder="Quick search across all medications & products..." />
+            <BrowseSearchBar
+              value={searchQuery}
+              onChange={(v) => {
+                setSearchQuery(v);
+                setRxPage(0);
+                setOtcPage(0);
+              }}
+            />
           </div>
 
           {/* Tabs */}
@@ -217,17 +262,17 @@ const Browse = () => {
                 {/* List */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm text-muted-foreground">
-                      {rxLoading ? 'Loading...' : `${rxTotalCount} medication${rxTotalCount !== 1 ? 's' : ''} found`}
-                    </p>
-                  </div>
+                     <p className="text-sm text-muted-foreground">
+                       {rxLoading ? 'Loading...' : `${rxDisplayCount} medication${rxDisplayCount !== 1 ? 's' : ''} found`}
+                     </p>
+                   </div>
 
-                  <RxBrowseList 
-                    items={rxData} 
-                    isLoading={rxLoading} 
-                    mode={rxMode}
-                    brandIndex={rxMode === 'alpha-brand' ? rxBrandIndex : undefined}
-                  />
+                   <RxBrowseList 
+                     items={filteredRxData} 
+                     isLoading={rxLoading} 
+                     mode={rxMode}
+                     brandIndex={rxMode === 'alpha-brand' ? filteredRxBrandIndex : undefined}
+                   />
 
                   {/* Pagination */}
                   {rxTotalPages > 1 && (
@@ -307,16 +352,16 @@ const Browse = () => {
                 {/* List */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm text-muted-foreground">
-                      {otcLoading ? 'Loading...' : `${otcTotalCount} product${otcTotalCount !== 1 ? 's' : ''} found`}
-                    </p>
-                  </div>
+                     <p className="text-sm text-muted-foreground">
+                       {otcLoading ? 'Loading...' : `${otcDisplayCount} product${otcDisplayCount !== 1 ? 's' : ''} found`}
+                     </p>
+                   </div>
 
-                  <OtcBrowseList 
-                    items={otcData} 
-                    isLoading={otcLoading} 
-                    mode={otcMode}
-                  />
+                   <OtcBrowseList 
+                     items={filteredOtcData} 
+                     isLoading={otcLoading} 
+                     mode={otcMode}
+                   />
 
                   {/* Pagination */}
                   {otcTotalPages > 1 && (
