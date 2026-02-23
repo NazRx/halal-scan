@@ -33,17 +33,21 @@ export const DRUG_CLASSES = [
 
 // OTC categories
 export const OTC_CATEGORIES = [
-  'Allergy',
-  'Antacids',
-  'Cough/Cold',
-  'Fish Oil',
-  'Gummies',
-  'Kids',
-  'Pain Relief',
-  'Prenatal',
-  'Probiotics',
-  'Sleep',
-  'Vitamins',
+  'pain',
+  'allergy',
+  'cold_flu',
+  'cough',
+  'gi',
+  'oral_care',
+  'eye_ear',
+  'first_aid',
+  'feminine',
+  'skin',
+  'sleep',
+  'smoking_cessation',
+  'supplements',
+  'vitamins',
+  'other',
 ];
 
 export interface RxBrowseItem {
@@ -318,7 +322,7 @@ export function useOtcBrowseData(
       try {
         let query = supabase
           .from('otc_products')
-          .select('id, name, brand, category, generic_name, default_status');
+          .select('id, name, brand, category, primary_category, generic_name, default_status');
 
         // Apply letter filter
         if (letter) {
@@ -377,7 +381,7 @@ export function useOtcBrowseData(
             id: product.id,
             name: product.name,
             brand: product.brand,
-            category: product.category,
+            category: product.primary_category ?? product.category,
             status: mapStatus(raw),
           };
         });
