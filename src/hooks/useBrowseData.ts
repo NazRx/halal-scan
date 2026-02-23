@@ -318,7 +318,7 @@ export function useOtcBrowseData(
       try {
         let query = supabase
           .from('otc_products')
-          .select('id, name, brand, category, generic_name');
+          .select('id, name, brand, category, generic_name, default_status');
 
         // Apply letter filter
         if (letter) {
@@ -370,22 +370,9 @@ export function useOtcBrowseData(
           });
         }
 
-        // Also fetch ingredient profile default_status as fallback
-        const { data: profiles } = await supabase
-          .from('otc_ingredient_profiles')
-          .select('otc_product_id, default_status')
-          .in('otc_product_id', productIds);
-
-        const profileMap: Record<string, string> = {};
-        if (profiles) {
-          profiles.forEach(p => {
-            if (p.default_status) profileMap[p.otc_product_id] = p.default_status;
-          });
-        }
-
-        // Build items with fallback: verdict -> ingredient_profile default_status -> null
-        let items: OtcBrowseItem[] = products.map(product => {
-          const raw = verdictMap[product.id] ?? profileMap[product.id] ?? null;
+        // Build items with fallback: verdict -> product default_status -> null
+        let items: OtcBrowseItem[] = products.map((product: any) => {
+          const raw = verdictMap[product.id] ?? product.default_status ?? null;
           return {
             id: product.id,
             name: product.name,

@@ -628,6 +628,7 @@ export type Database = {
           combo_ingredients: string[] | null
           common_uses: string | null
           created_at: string
+          default_status: string | null
           display_name: string | null
           generic_name: string
           id: string
@@ -647,6 +648,7 @@ export type Database = {
           combo_ingredients?: string[] | null
           common_uses?: string | null
           created_at?: string
+          default_status?: string | null
           display_name?: string | null
           generic_name: string
           id?: string
@@ -666,6 +668,7 @@ export type Database = {
           combo_ingredients?: string[] | null
           common_uses?: string | null
           created_at?: string
+          default_status?: string | null
           display_name?: string | null
           generic_name?: string
           id?: string
