@@ -7,23 +7,28 @@ interface BrowseSearchBarProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  onSubmit?: (value: string) => void;
+  className?: string;
 }
 
 export function BrowseSearchBar({
   value,
   onChange,
   placeholder = "Search drug name, brand, NDC, or barcode…",
+  onSubmit,
+  className,
 }: BrowseSearchBarProps) {
   const navigate = useNavigate();
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      onSubmit?.(value);
     }
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center gap-2 ${className ?? ''}`}>
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input

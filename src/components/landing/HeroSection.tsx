@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Scan, ArrowRight } from "lucide-react";
+import { BrowseSearchBar } from "@/components/browse/BrowseSearchBar";
 
 export function HeroSection() {
+  const [query, setQuery] = useState("");
+  const navigate = useNavigate();
   return (
     <section className="relative min-h-[85vh] flex items-center justify-center py-24 md:py-36 gradient-hero overflow-hidden">
       {/* Subtle depth layers */}
@@ -53,6 +57,21 @@ export function HeroSection() {
           >
             Developed by Muslim healthcare professionals. Independent. Methodical. Community-focused.
           </motion.p>
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, delay: 0.25 }}
+            className="max-w-xl mx-auto mb-10"
+          >
+            <BrowseSearchBar
+              value={query}
+              onChange={setQuery}
+              onSubmit={(val) => {
+                if (val.trim()) navigate(`/browse?q=${encodeURIComponent(val.trim())}`);
+              }}
+              className="[&_input]:bg-white/10 [&_input]:border-white/20 [&_input]:text-primary-foreground [&_input]:placeholder:text-primary-foreground/40 [&_button]:border-white/25 [&_button]:text-primary-foreground [&_button]:hover:bg-white [&_button]:hover:text-primary [&_svg]:text-primary-foreground/50"
+            />
+          </motion.div>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
