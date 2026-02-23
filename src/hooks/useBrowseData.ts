@@ -103,7 +103,7 @@ export function useRxBrowseData(
           return;
         }
 
-        // Build base query with server-side pagination
+        // Build base query
         let query = supabase
           .from('rx_meds')
           .select('id, generic_name, brand_names, drug_class, category, dosage_forms, default_status', { count: 'exact' });
@@ -118,45 +118,62 @@ export function useRxBrowseData(
           query = query.eq('drug_class', selectedDrugClass);
         }
 
-        // Status filtering is applied client-side after verdict computation
-        // to avoid mismatches between default_status and actual verdict status
+        // When status filter is active, fetch all matching meds (no server pagination)
+        // so we can compute verdicts and filter accurately, then paginate locally.
+        // When 'all', use server-side pagination for efficiency.
+        let rxMeds: typeof query extends any ? any[] : never;
+        let serverCount: number | null = null;
 
-        // Server-side pagination
-        const { data: rxMeds, count, error: rxError } = await query
-          .order('generic_name')
-          .range(page * pageSize, (page + 1) * pageSize - 1);
+        if (statusFilter === 'all') {
+          const { data: paginated, count, error: rxError } = await query
+            .order('generic_name')
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+          if (rxError) throw rxError;
+          rxMeds = paginated || [];
+          serverCount = count;
+        } else {
+          // Fetch up to 5000 for status-filtered mode
+          const { data: allMeds, error: rxError } = await query
+            .order('generic_name')
+            .range(0, 4999);
+          if (rxError) throw rxError;
+          rxMeds = allMeds || [];
+        }
 
-        if (rxError) throw rxError;
-
-        if (!rxMeds || rxMeds.length === 0) {
+        if (rxMeds.length === 0) {
           setData([]);
           setBrandIndex([]);
-          setTotalCount(count || 0);
+          setTotalCount(serverCount || 0);
           setIsLoading(false);
           return;
         }
 
-        // Get variants only for current page's meds (max 25 IDs - safe URL length)
-        const medIds = rxMeds.map(m => m.id);
-        const { data: variants, error: variantsError } = await supabase
-          .from('rx_variants')
-          .select('id, rx_med_id, dosage_form')
-          .in('rx_med_id', medIds);
+        // Batch variant lookups in chunks of 25 to avoid URL length limits
+        const medIds = rxMeds.map((m: any) => m.id);
+        const allVariants: any[] = [];
+        for (let i = 0; i < medIds.length; i += 25) {
+          const chunk = medIds.slice(i, i + 25);
+          const { data: variants, error: variantsError } = await supabase
+            .from('rx_variants')
+            .select('id, rx_med_id, dosage_form')
+            .in('rx_med_id', chunk);
+          if (variantsError) throw variantsError;
+          if (variants) allVariants.push(...variants);
+        }
 
-        if (variantsError) throw variantsError;
-
-        // Get verdicts for current page's variants
-        const variantIds = (variants || []).map(v => v.id);
+        // Get verdicts for all variants in chunks
+        const allVariantIds = allVariants.map(v => v.id);
         let verdicts: Record<string, string[]> = {};
 
-        if (variantIds.length > 0) {
+        for (let i = 0; i < allVariantIds.length; i += 50) {
+          const chunk = allVariantIds.slice(i, i + 50);
           const { data: verdictData, error: verdictError } = await supabase
             .from('rx_verdicts')
             .select('variant_id, status')
-            .in('variant_id', variantIds);
+            .in('variant_id', chunk);
 
           if (!verdictError && verdictData) {
-            const variantToMed = new Map((variants || []).map(v => [v.id, v.rx_med_id]));
+            const variantToMed = new Map(allVariants.map(v => [v.id, v.rx_med_id]));
             verdictData.forEach(v => {
               const medId = variantToMed.get(v.variant_id);
               if (medId) {
@@ -169,12 +186,12 @@ export function useRxBrowseData(
 
         // Count variants per med
         const variantCounts: Record<string, number> = {};
-        (variants || []).forEach(v => {
+        allVariants.forEach(v => {
           variantCounts[v.rx_med_id] = (variantCounts[v.rx_med_id] || 0) + 1;
         });
 
-        // Build browse items for current page
-        const items: RxBrowseItem[] = rxMeds.map(med => {
+        // Build browse items
+        const items: RxBrowseItem[] = rxMeds.map((med: any) => {
           const medVerdicts = verdicts[med.id] || [];
           let status: RxBrowseItem['status'] = 'unknown';
           
@@ -202,14 +219,17 @@ export function useRxBrowseData(
           };
         });
 
-        // Apply status filter client-side (after verdict computation)
-        let filteredItems = items;
-        if (statusFilter !== 'all') {
-          filteredItems = items.filter(item => item.status === statusFilter);
+        if (statusFilter === 'all') {
+          // Server-paginated: items are already the correct page
+          setData(items);
+          setTotalCount(serverCount || 0);
+        } else {
+          // Client-side filter + paginate
+          const filteredItems = items.filter(item => item.status === statusFilter);
+          const start = page * pageSize;
+          setData(filteredItems.slice(start, start + pageSize));
+          setTotalCount(filteredItems.length);
         }
-
-        setData(filteredItems);
-        setTotalCount(statusFilter !== 'all' ? filteredItems.length : (count || 0));
         setBrandIndex([]);
       } catch (err) {
         console.error('Browse data error:', err);
@@ -298,7 +318,7 @@ export function useOtcBrowseData(
       try {
         let query = supabase
           .from('otc_products')
-          .select('id, name, brand, category');
+          .select('id, name, brand, category, generic_name');
 
         // Apply letter filter
         if (letter) {
@@ -350,14 +370,30 @@ export function useOtcBrowseData(
           });
         }
 
-        // Build items
-        let items: OtcBrowseItem[] = products.map(product => ({
-          id: product.id,
-          name: product.name,
-          brand: product.brand,
-          category: product.category,
-          status: mapStatus(verdictMap[product.id] || null),
-        }));
+        // Also fetch ingredient profile default_status as fallback
+        const { data: profiles } = await supabase
+          .from('otc_ingredient_profiles')
+          .select('otc_product_id, default_status')
+          .in('otc_product_id', productIds);
+
+        const profileMap: Record<string, string> = {};
+        if (profiles) {
+          profiles.forEach(p => {
+            if (p.default_status) profileMap[p.otc_product_id] = p.default_status;
+          });
+        }
+
+        // Build items with fallback: verdict -> ingredient_profile default_status -> null
+        let items: OtcBrowseItem[] = products.map(product => {
+          const raw = verdictMap[product.id] ?? profileMap[product.id] ?? null;
+          return {
+            id: product.id,
+            name: product.name,
+            brand: product.brand,
+            category: product.category,
+            status: mapStatus(raw),
+          };
+        });
 
         // Apply status filter
         if (statusFilter !== 'all') {

@@ -78,7 +78,7 @@ export function NoOtcResultsEmpty({ className }: EmptyStateProps) {
       </ul>
       <div className="flex flex-wrap gap-2 justify-center">
         <Button variant="outline" size="sm" asChild>
-          <Link to="/otc-scan">
+          <Link to="/otc/scan">
             <Camera className="h-4 w-4 mr-2" />
             Scan Barcode
           </Link>
