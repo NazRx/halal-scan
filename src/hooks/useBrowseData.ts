@@ -372,22 +372,26 @@ export function useOtcBrowseData(
           });
         }
 
-        // Build items with fallback: verdict -> product default_status -> null
-        let items: OtcBrowseItem[] = products.map((product: any) => {
-          const raw = verdictMap[product.id] ?? product.default_status ?? null;
-          return {
+        // Build items — only reviewed verdicts count for status filters
+        let items: OtcBrowseItem[] = [];
+        products.forEach((product: any) => {
+          const raw = verdictMap[product.id] ?? null;
+          const isReviewed = raw !== null && raw !== 'needs_verification';
+          const displayStatus = isReviewed ? mapStatus(raw) : 'unknown';
+
+          if (statusFilter !== 'all') {
+            // Only include products with a reviewed verdict matching the filter
+            if (!isReviewed || displayStatus !== statusFilter) return;
+          }
+
+          items.push({
             id: product.id,
             name: product.name,
             brand: product.brand,
             category: product.primary_category ?? product.category,
-            status: mapStatus(raw),
-          };
+            status: displayStatus,
+          });
         });
-
-        // Apply status filter
-        if (statusFilter !== 'all') {
-          items = items.filter(item => item.status === statusFilter);
-        }
 
         setTotalCount(items.length);
 
