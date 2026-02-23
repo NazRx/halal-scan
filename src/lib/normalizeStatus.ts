@@ -17,6 +17,20 @@ export function normalizeStatus(raw: string | null | undefined): CanonicalStatus
   return 'unknown';
 }
 
+export type UIStatus = 'halal' | 'questionable' | 'not-halal' | 'unknown';
+
+/** Canonical (underscore) → UI (hyphen) */
+export function canonicalToUi(c: CanonicalStatus): UIStatus {
+  if (c === 'not_halal') return 'not-halal';
+  return c as UIStatus;
+}
+
+/** UI (hyphen) → Canonical (underscore) */
+export function uiToCanonical(u: UIStatus): CanonicalStatus {
+  if (u === 'not-halal') return 'not_halal';
+  return u as CanonicalStatus;
+}
+
 /**
  * Converts a UI filter value (which uses hyphens like "not-halal") to CanonicalStatus.
  */
