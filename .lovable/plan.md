@@ -1,42 +1,32 @@
 
-## Move Search Bar Above Headline + Fix Visibility + Rotating Placeholder
+
+## Make Hero Search Bar Functional with Live Results
 
 ### What changes
-
-Three improvements to the landing page hero section:
-
-1. **Move the search bar above the headline text** -- currently it sits between the subtitle and CTA buttons; it will move to right after the "A Medication Transparency Initiative" tagline and before the main heading.
-
-2. **Fix Scan button visibility** -- replace the shared `BrowseSearchBar` with a custom inline search bar so we have full styling control. The Scan button will get explicit solid styling (`bg-white/20 border border-white/40 text-white`) so it's clearly readable on the teal gradient.
-
-3. **Add rotating SaaS-style placeholder** -- instead of the static "Search drug name..." text, cycle through real medication examples every 3 seconds:
-   - "Search Lisinopril..."
-   - "Search Metformin..."
-   - "Search Vitamin D..."
-   - "Search Ibuprofen..."
-   - "Search Amoxicillin..."
+Replace the current simple search input in the hero section with the existing `HeroSearchInput` component, which already has:
+- Live search results dropdown (Rx and OTC medications)
+- Direct navigation to drug report pages (`/otc/:id/report` for OTC, `/rx/med/:id` for Rx)
+- Keyboard navigation (arrow keys, Enter, Escape)
+- "Not found" state with a "Request a Review" button
+- Rotating placeholder text cycling through example drug names
+- Integrated Scan button
+- Loading states
 
 ### Technical details
 
 **File: `src/components/landing/HeroSection.tsx`**
 
-- Remove the `BrowseSearchBar` import (no longer needed here; Browse page keeps it).
-- Add `useEffect` import for the placeholder rotation.
-- Add `Search, ScanLine` icon imports from lucide-react.
-- Add state for rotating placeholder index and a `useEffect` with `setInterval` (3s cycle).
-- Build the search bar inline with:
-  - Container: `bg-white/10 border border-white/25 rounded-2xl` with backdrop blur
-  - Input: `bg-transparent text-white placeholder:text-white/50`
-  - Scan button: `bg-white/20 border border-white/40 text-white hover:bg-white/30` -- clearly legible
-  - Search icon: `text-white/50`
-- Move this search bar block to appear right after the "A Medication Transparency Initiative" tagline (line 26), before the `h1` heading.
-- Keep the same navigation logic: Enter submits to `/browse?q=...`, Scan goes to `/otc/scan`.
+1. Remove the custom inline search bar block (lines 47-72), including the `query`, `placeholderIdx` state, the `useEffect` for rotation, and the `handleSearch` function -- all of this is already built into `HeroSearchInput`.
+2. Import `HeroSearchInput` from `@/components/landing/HeroSearchInput`.
+3. Remove unused imports: `useState`, `useEffect`, `Search`, `ScanLine`, and the `PLACEHOLDER_DRUGS` constant.
+4. Insert `<HeroSearchInput />` in the same position (above the headline), wrapped in the existing `motion.div` for animation.
 
-### Layout order (after change)
+No changes needed to `HeroSearchInput.tsx` -- it already handles everything including the rotating placeholder and Scan button. Its white/glass styling (`bg-white/90 backdrop-blur-xl`) will be clearly legible on the teal hero gradient.
 
+### Layout order (unchanged)
 1. "A Medication Transparency Initiative" tagline
-2. Search bar with Scan button (NEW position)
-3. Main headline "Clarity on What's Inside..."
-4. Subtitle paragraph
-5. "Developed by Muslim healthcare professionals..." line
-6. CTA buttons (Scan Medication / Learn How It Works)
+2. **HeroSearchInput** (with live dropdown results + Scan button)
+3. Main headline
+4. Subtitle
+5. CTA buttons
+
