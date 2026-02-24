@@ -1,19 +1,42 @@
 
-## Add Search Bar to Landing Page Hero
+## Move Search Bar Above Headline + Fix Visibility + Rotating Placeholder
 
 ### What changes
-Add the same search bar with Scan button (used on the Browse page) into the Hero section of the landing page, positioned below the subtitle text and above the existing CTA buttons.
+
+Three improvements to the landing page hero section:
+
+1. **Move the search bar above the headline text** -- currently it sits between the subtitle and CTA buttons; it will move to right after the "A Medication Transparency Initiative" tagline and before the main heading.
+
+2. **Fix Scan button visibility** -- replace the shared `BrowseSearchBar` with a custom inline search bar so we have full styling control. The Scan button will get explicit solid styling (`bg-white/20 border border-white/40 text-white`) so it's clearly readable on the teal gradient.
+
+3. **Add rotating SaaS-style placeholder** -- instead of the static "Search drug name..." text, cycle through real medication examples every 3 seconds:
+   - "Search Lisinopril..."
+   - "Search Metformin..."
+   - "Search Vitamin D..."
+   - "Search Ibuprofen..."
+   - "Search Amoxicillin..."
 
 ### Technical details
 
 **File: `src/components/landing/HeroSection.tsx`**
 
-1. Import `BrowseSearchBar` from `@/components/browse/BrowseSearchBar`
-2. Add local state for the search query (`useState`)
-3. Add a `useNavigate` hook so that when the user types and hits Enter (or interacts), they can be routed to `/browse?q=...` with their query pre-filled
-4. Insert the `BrowseSearchBar` component between the subtitle text (line 55) and the CTA buttons (line 57), wrapped in a `motion.div` for consistent animation
-5. Style the container with `max-w-xl mx-auto` to keep it centered and appropriately sized
-6. On the search input, wire up an `onKeyDown` handler so pressing Enter navigates to `/browse?q={query}`
-7. The Scan button already navigates to `/otc/scan` inside `BrowseSearchBar`, so no extra wiring needed
+- Remove the `BrowseSearchBar` import (no longer needed here; Browse page keeps it).
+- Add `useEffect` import for the placeholder rotation.
+- Add `Search, ScanLine` icon imports from lucide-react.
+- Add state for rotating placeholder index and a `useEffect` with `setInterval` (3s cycle).
+- Build the search bar inline with:
+  - Container: `bg-white/10 border border-white/25 rounded-2xl` with backdrop blur
+  - Input: `bg-transparent text-white placeholder:text-white/50`
+  - Scan button: `bg-white/20 border border-white/40 text-white hover:bg-white/30` -- clearly legible
+  - Search icon: `text-white/50`
+- Move this search bar block to appear right after the "A Medication Transparency Initiative" tagline (line 26), before the `h1` heading.
+- Keep the same navigation logic: Enter submits to `/browse?q=...`, Scan goes to `/otc/scan`.
 
-The search bar will have the same placeholder, icon, and Scan button as the Browse page version. Since `BrowseSearchBar` is a controlled component (value + onChange), we just need to manage the state locally and handle navigation on submit.
+### Layout order (after change)
+
+1. "A Medication Transparency Initiative" tagline
+2. Search bar with Scan button (NEW position)
+3. Main headline "Clarity on What's Inside..."
+4. Subtitle paragraph
+5. "Developed by Muslim healthcare professionals..." line
+6. CTA buttons (Scan Medication / Learn How It Works)
