@@ -1,33 +1,10 @@
-import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Scan, ArrowRight, Search, ScanLine } from "lucide-react";
-
-const PLACEHOLDER_DRUGS = [
-  "Search Lisinopril…",
-  "Search Metformin…",
-  "Search Vitamin D…",
-  "Search Ibuprofen…",
-  "Search Amoxicillin…",
-];
+import { Scan, ArrowRight } from "lucide-react";
+import { HeroSearchInput } from "@/components/landing/HeroSearchInput";
 
 export function HeroSection() {
-  const [query, setQuery] = useState("");
-  const [placeholderIdx, setPlaceholderIdx] = useState(0);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setPlaceholderIdx((i) => (i + 1) % PLACEHOLDER_DRUGS.length);
-    }, 3000);
-    return () => clearInterval(id);
-  }, []);
-
-  const handleSearch = () => {
-    if (query.trim()) navigate(`/browse?q=${encodeURIComponent(query.trim())}`);
-  };
-
   return (
     <section className="relative min-h-[85vh] flex items-center justify-center py-24 md:py-36 gradient-hero overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.06)_0%,_transparent_60%)]" />
@@ -44,32 +21,10 @@ export function HeroSection() {
             A Medication Transparency Initiative
           </motion.p>
 
-          {/* Search bar — above headline */}
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, delay: 0.15 }}
-            className="max-w-xl mx-auto mb-10"
-          >
-            <div className="flex items-center gap-2 bg-white/10 border border-white/25 rounded-2xl px-4 py-2 backdrop-blur-sm">
-              <Search className="h-4 w-4 text-white/50 shrink-0" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                placeholder={PLACEHOLDER_DRUGS[placeholderIdx]}
-                className="flex-1 bg-transparent text-white placeholder:text-white/50 text-base outline-none border-none"
-              />
-              <button
-                onClick={() => navigate("/otc/scan")}
-                className="flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-xl text-sm font-medium bg-white/20 border border-white/40 text-white hover:bg-white/30 transition-colors"
-              >
-                <ScanLine className="h-4 w-4" />
-                Scan
-              </button>
-            </div>
-          </motion.div>
+          {/* Functional search bar with live results */}
+          <div className="max-w-xl mx-auto mb-10">
+            <HeroSearchInput />
+          </div>
 
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
